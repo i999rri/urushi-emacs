@@ -132,7 +132,7 @@
     </ClInclude>
     <ClInclude Include="EmacsHost.h" />
     <ClInclude Include="HostApi.h" />
-    <ClInclude Include="w32host.h" />
+    <ClInclude Include="external\emacs\src\w32host.h" />
   </ItemGroup>
   <ItemGroup>
     <ApplicationDefinition Include="App.xaml" />

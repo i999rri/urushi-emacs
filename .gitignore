@@ -18,5 +18,7 @@ packages/
 # Emacs
 *.elc
 
-# Emacs, staged by scripts/stage-emacs.sh
-emacs/
+# Emacs, staged by scripts/stage-emacs.sh (the fork itself is a
+# submodule under external/, so anchor this to the root)
+/emacs/
+/external/emacs-build/

@@ -4,10 +4,12 @@
 # The application loads it from there by a path of its own, so nothing
 # has to be told where Emacs is.
 #
-# Run it in the MSYS2 mingw64 shell, with the directory Emacs was built
-# in:
+# Run it in the MSYS2 mingw64 shell, after scripts/build-emacs.sh:
 #
-#   scripts/stage-emacs.sh ~/source/repos/emacs-build
+#   scripts/stage-emacs.sh
+#
+# It takes the build directory as an argument to stage an Emacs built
+# somewhere else.
 #
 # Pass --debug to keep the debug information in the DLL, which makes it
 # 145 MB instead of 4 MB.
@@ -20,8 +22,9 @@ if [ "${1-}" = --debug ]; then
     shift
 fi
 
-build=${1:?usage: stage-emacs.sh [--debug] <emacs build directory>}
-stage=$(cd "$(dirname "$0")/.." && pwd)/emacs
+here=$(cd "$(dirname "$0")/.." && pwd)
+build=${1:-$here/external/emacs-build}
+stage=$here/emacs
 
 [ -f "$build/src/libemacs.dll" ] || {
     echo "$build/src/libemacs.dll is missing: make -C src libemacs.dll" >&2
@@ -61,15 +64,6 @@ while [ -n "$pending" ]; do
     done
     pending=$next
 done
-
-# The host is built against this, so it must be the one Emacs was
-# built from.
-srcdir=$(sed -n 's/^srcdir *= *//p' "$build/src/Makefile" | head -1)
-if [ -f "$srcdir/w32host.h" ]; then
-    cp "$srcdir/w32host.h" "$(dirname "$stage")/w32host.h"
-else
-    echo "warning: no w32host.h in $srcdir, left the one here alone" >&2
-fi
 
 echo "staged $(du -sh "$stage" | cut -f1) in $(find "$stage" -type f | wc -l) files"
 ls "$stage/bin"

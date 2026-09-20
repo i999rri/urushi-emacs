@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+# Builds Emacs from external/emacs into external/emacs-build, as
+# libemacs.dll with a dump of its own, which is what this application
+# loads.  Run it in the MSYS2 mingw64 shell:
+#
+#   scripts/build-emacs.sh
+#
+# Then scripts/stage-emacs.sh puts the result where the build finds it.
+# Pass --deps to install the mingw64 packages Emacs is built against
+# first, which is only needed once on a machine.
+
+set -euo pipefail
+
+deps=
+if [ "${1-}" = --deps ]; then
+    deps=1
+    shift
+fi
+
+here=$(cd "$(dirname "$0")/.." && pwd)
+src=$here/external/emacs
+build=$here/external/emacs-build
+
+[ -f "$src/configure.ac" ] || {
+    echo "no Emacs in $src: git submodule update --init" >&2
+    exit 1
+}
+
+if [ -n "$deps" ]; then
+    echo "=== dependencies"
+    pacman -S --noconfirm --needed \
+        base-devel \
+        mingw-w64-x86_64-toolchain \
+        mingw-w64-x86_64-autotools \
+        mingw-w64-x86_64-xpm-nox \
+        mingw-w64-x86_64-gmp \
+        mingw-w64-x86_64-gnutls \
+        mingw-w64-x86_64-harfbuzz \
+        mingw-w64-x86_64-libtree-sitter \
+        mingw-w64-x86_64-sqlite3 \
+        mingw-w64-x86_64-librsvg \
+        mingw-w64-x86_64-libwebp \
+        mingw-w64-x86_64-libxml2 \
+        mingw-w64-x86_64-lcms2 \
+        mingw-w64-x86_64-giflib \
+        mingw-w64-x86_64-libjpeg-turbo \
+        mingw-w64-x86_64-libpng \
+        mingw-w64-x86_64-libtiff \
+        mingw-w64-x86_64-zlib >/dev/null
+fi
+
+# configure is not in the repository, and autogen.sh looks for git,
+# which the mingw64 shell does not have; autoconf alone is what it
+# needs here.
+[ -f "$src/configure" ] || (cd "$src" && ./autogen.sh autoconf)
+
+if [ ! -f "$build/Makefile" ]; then
+    echo "=== configure"
+    mkdir -p "$build"
+    (cd "$build" && "$src/configure" --without-dbus --with-native-compilation=no)
+fi
+
+# emacs.exe first: the Lisp and the data it builds on the way are what
+# the DLL is dumped with, and building it proves the fork still builds
+# the ordinary way.
+echo "=== emacs.exe"
+make -C "$build" -j"$(nproc)"
+
+echo "=== libemacs.dll"
+make -C "$build/src" libemacs.dll
+
+# The host of the dump has to be the DLL, so that the dump carries its
+# fingerprint.  w32dll-smoke.exe is that host, and is worth keeping: it
+# runs Emacs from the DLL without a window.
+echo "=== w32dll-smoke.exe"
+gcc -O2 -Wall -I"$src/src" -o "$build/src/w32dll-smoke.exe" \
+    "$src/nt/w32dll-smoke.c" -Wl,--stack,0x00800000
+
+echo "=== libemacs.pdmp"
+cd "$build/src"
+cp -f emacs.pdmp emacs.pdmp.exe
+./w32dll-smoke.exe -batch -l loadup --temacs=pdump >/dev/null
+mv -f emacs.pdmp libemacs.pdmp
+mv -f emacs.pdmp.exe emacs.pdmp
+
+./w32dll-smoke.exe --batch \
+    --eval '(message "built %s, host bridge %S" emacs-version (fboundp (quote w32-host-post)))'
