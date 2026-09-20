@@ -296,13 +296,20 @@ text is broken exactly where Emacs has it broken."
               ;; scrolled is the same line, and stays as it is.
               (push (urusi-screen-line (number-to-string start)
                                        (urusi-screen-runs start last))
-                    lines)))))
+                    lines))))
+        ;; A buffer that ends in a newline shows one more line after it,
+        ;; empty, and that is where the point usually is.
+        (when (and (= (point) end) (< (point-min) end) (eq (char-before end) ?
+))
+          (push (urusi-screen-line (number-to-string end) nil) lines)))
       ;; The cursor is laid over the lines rather than put in one, so
       ;; that moving it leaves every line as it was.
       `(Grid (Rows :key "buffer" ,@(nreverse lines))
              (Rows :key "cursor"
                    ,@(when-let* ((cursor (urusi-screen-cursor window)))
                        (list cursor)))))))
+
+(put 'urusi-screen-buffer 'urusi-screen-stretch t)
 
 (defun urusi-screen-status (window)
   "Return the mode line of WINDOW."
@@ -327,19 +334,40 @@ text is broken exactly where Emacs has it broken."
 ;;;; The screen
 
 (defun urusi-screen-layout (parts _window)
-  "Return PARTS stacked from top to bottom, on the background of `default'.
+  "Return PARTS laid out from top to bottom, on the background of `default'.
+PARTS is an alist of the component that built each one and what it
+built.  A component whose symbol has a non-nil `urusi-screen-stretch'
+property takes the room the others do not want, which is what puts the
+mode line at the foot of the window rather than under the last line of
+the buffer.
+
 A panel has no colour or font to give its contents; each line carries
 its own."
   (let ((background (urusi-screen-color (face-attribute 'default :background))))
-    `(StackPanel :Orientation "Vertical"
-                 ,@(when background `(:Background ,background))
-                 ,@parts)))
+    `(Grid ,@(when background `(:Background ,background))
+           (Grid.RowDefinitions
+            ,@(mapcar (lambda (part)
+                        `(RowDefinition
+                          :Height ,(if (get (car part) 'urusi-screen-stretch)
+                                       "*"
+                                     "Auto")))
+                      parts))
+           ,@(cl-loop for part in parts
+                      for row from 0
+                      collect (urusi-screen--in-row (cdr part) row)))))
+
+(defun urusi-screen--in-row (tree row)
+  "Return TREE placed in ROW of the grid around it."
+  (cons (car tree) (append (list :Grid.Row row) (cdr tree))))
 
 (defun urusi-screen-tree (&optional window)
   "Return the whole screen of WINDOW as a tree for `urusi-render'."
   (let* ((window (or window (selected-window)))
-         (parts (delq nil (mapcar (lambda (component) (funcall component window))
-                                  urusi-screen-components))))
+         (parts (delq nil
+                      (mapcar (lambda (component)
+                                (when-let* ((tree (funcall component window)))
+                                  (cons component tree)))
+                              urusi-screen-components))))
     (funcall urusi-screen-layout-function parts window)))
 
 (defun urusi-screen-render ()

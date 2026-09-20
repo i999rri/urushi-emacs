@@ -184,19 +184,31 @@ moved to."
            (cond
             ((stringp form) (urusi--escape form nil))
             ((eq (car-safe form) 'Rows)
-             (let* ((rest (cdr form))
-                    (name (progn (cl-assert (eq (car rest) :key) t
-                                            "urusi: Rows needs a :key")
-                                 (urusi--value (cadr rest))))
-                    (children (cddr rest)))
+             (let ((rest (cdr form))
+                   (properties nil)
+                   (attributes nil)
+                   (name nil))
+               (while (keywordp (car rest))
+                 (push (cons (substring (symbol-name (pop rest)) 1) (pop rest))
+                       properties))
+               (setq properties (nreverse properties))
+               (setq name (urusi--value
+                           (or (cdr (assoc "key" properties))
+                               (error "urusi: Rows needs a :key: %S" form))))
+               (dolist (property properties)
+                 (unless (string= (car property) "key")
+                   (push (format " %s=\"%s\"" (car property)
+                                 (urusi--escape (urusi--value (cdr property)) t))
+                         attributes)))
                (push (cons name
                            (mapcar (lambda (child)
                                      ;; A row is read on its own, so it
                                      ;; declares the namespaces itself.
                                      (cons (urusi--row-key child) (node child t)))
-                                   children))
+                                   rest))
                      rows)
-               (format "<StackPanel x:Name=\"%s\" />" (urusi--escape name t))))
+               (format "<StackPanel x:Name=\"%s\"%s />" (urusi--escape name t)
+                       (apply #'concat (nreverse attributes)))))
             ((and (consp form) (symbolp (car form)))
              (let ((tag (symbol-name (car form)))
                    (rest (cdr form))
