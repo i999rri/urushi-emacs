@@ -118,7 +118,7 @@ namespace winrt::urusi_emacs::implementation
         }
 
         // Which build this is, so that a stale one is obvious.
-        AppendLog(std::string{ "urusi-emacs built " } + __DATE__ + " " + __TIME__
+        AppendLog("host", std::string{ "urusi-emacs built " } + __DATE__ + " " + __TIME__
                   + ((GetWindowLongPtrW(window, GWL_STYLE) & WS_CLIPCHILDREN)
                          ? ", clipping children"
                          : ", NOT clipping children")
@@ -168,7 +168,7 @@ namespace winrt::urusi_emacs::implementation
             {
                 GetClassNameW(focus, name, ARRAYSIZE(name));
             }
-            AppendLog("attach " + std::to_string(attached) + ", focus "
+            AppendLog("host", "attach " + std::to_string(attached) + ", focus "
                       + std::to_string(reinterpret_cast<INT_PTR>(focus)) + " ("
                       + to_string(hstring{ name }) + "), frame "
                       + std::to_string(reinterpret_cast<INT_PTR>(m_emacsWindow)) + "");
@@ -244,14 +244,14 @@ namespace winrt::urusi_emacs::implementation
                 dispatcher.TryEnqueue([weak, text = std::move(text)] {
                     if (auto self = weak.get())
                     {
-                        self->AppendLog(text);
+                        self->AppendLog("emacs", text);
                     }
                 });
             },
             error);
         if (!started)
         {
-            AppendLog(error + "\n");
+            AppendLog("host", error + "\n");
         }
     }
 
@@ -270,7 +270,7 @@ namespace winrt::urusi_emacs::implementation
         // as plain to see as one that fails.
         if (m_seen.insert(std::wstring{ type }).second)
         {
-            AppendLog("first " + to_string(type) + ", " + std::to_string(line.size())
+            AppendLog("host", "first " + to_string(type) + ", " + std::to_string(line.size())
                       + " bytes\n");
         }
 
@@ -293,7 +293,7 @@ namespace winrt::urusi_emacs::implementation
         }
         else if (type == L"log")
         {
-            AppendLog(to_string(message.GetNamedString(L"text", L"")) + "\n");
+            AppendLog("emacs", to_string(message.GetNamedString(L"text", L"")) + "\n");
         }
         else if (type == L"frame")
         {
@@ -535,7 +535,7 @@ namespace winrt::urusi_emacs::implementation
     void MainWindow::SendError(hstring const& text)
     {
         ShowStatus(text);
-        AppendLog("error: " + to_string(text) + "\n");
+        AppendLog("host", "error: " + to_string(text) + "\n");
         JsonObject message;
         message.SetNamedValue(L"type", String(L"error"));
         message.SetNamedValue(L"message", String(text));
@@ -552,13 +552,15 @@ namespace winrt::urusi_emacs::implementation
         Status().Text(text);
     }
 
-    void MainWindow::AppendLog(std::string const& text)
+    void MainWindow::AppendLog(char const* source, std::string const& text)
     {
+        std::string line = std::string{ source } + "| " + text;
+
         // The screen covers the log once Emacs draws one, and the
         // debugger is where anyone looking for this will be.
-        OutputDebugStringA(("urusi| " + text).c_str());
+        OutputDebugStringA(line.c_str());
 
-        m_log += text;
+        m_log += line;
         if (m_log.size() > kLogLimit)
         {
             m_log.erase(0, m_log.size() - kLogLimit);

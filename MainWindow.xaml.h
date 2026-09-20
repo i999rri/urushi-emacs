@@ -48,7 +48,9 @@ namespace winrt::urusi_emacs::implementation
         void Send(Windows::Data::Json::JsonObject const& message);
 
         void ShowStatus(winrt::hstring const& text);
-        void AppendLog(std::string const& text);
+        // SOURCE says which side a line came from, since both
+        // write here and they fail in different ways.
+        void AppendLog(char const* source, std::string const& text);
 
         Microsoft::UI::Dispatching::DispatcherQueue m_dispatcher{ nullptr };
         std::string m_log;
