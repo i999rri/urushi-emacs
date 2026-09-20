@@ -167,7 +167,7 @@
     <None Include="emacs\**\*">
       <DeploymentContent>true</DeploymentContent>
     </None>
-    <None Include="lisp\urusi.el">
+    <None Include="lisp\*.el">
       <DeploymentContent>true</DeploymentContent>
     </None>
   </ItemGroup>

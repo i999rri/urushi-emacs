@@ -92,6 +92,17 @@ namespace winrt::urusi_emacs::implementation
             }
         });
 
+        // Clicking anywhere in the window is a way back to Emacs: XAML
+        // is drawn over the frame and takes the pointer, and with it
+        // the focus, which Emacs needs to be typed into.
+        Activated([weak](IInspectable const&, WindowActivatedEventArgs const& args) {
+            if (auto self = weak.get();
+                self && args.WindowActivationState() != WindowActivationState::Deactivated)
+            {
+                self->TakeInputToEmacs();
+            }
+        });
+
         // Which build this is, so that a stale one is obvious.
         AppendLog(std::string{ "urusi-emacs built " } + __DATE__ + " " + __TIME__
                   + ((GetWindowLongPtrW(window, GWL_STYLE) & WS_CLIPCHILDREN)
@@ -107,6 +118,25 @@ namespace winrt::urusi_emacs::implementation
         m_emacsWindow = window;
         ShowStatus(L"");
         PlaceEmacsWindow();
+        TakeInputToEmacs();
+    }
+
+    void MainWindow::TakeInputToEmacs()
+    {
+        // The frame window belongs to a thread of Emacs's own, and a
+        // thread may only give the focus to a window on its own input
+        // queue. Joining the two queues lets this one hand the focus
+        // over, and lets Emacs read the modifier keys as they really
+        // are, which is what its own key handling asks the system for.
+        DWORD emacs = GetWindowThreadProcessId(m_emacsWindow, nullptr);
+
+        if (emacs && emacs != GetCurrentThreadId())
+        {
+            AttachThreadInput(GetCurrentThreadId(), emacs, TRUE);
+        }
+
+        // Nothing of the frame is ever seen, but it is what types.
+        SetFocus(m_emacsWindow);
     }
 
     void MainWindow::PlaceEmacsWindow()
@@ -158,9 +188,9 @@ namespace winrt::urusi_emacs::implementation
         if (!lisp.empty())
         {
             args.push_back("-l");
-            args.push_back(lisp + "\\urusi.el");
+            args.push_back(lisp + "\\urusi-screen.el");
             args.push_back("--eval");
-            args.push_back("(urusi-start)");
+            args.push_back("(progn (urusi-start) (urusi-screen-mode 1))");
         }
 
         std::string error;

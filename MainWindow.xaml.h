@@ -30,6 +30,7 @@ namespace winrt::urusi_emacs::implementation
         // this one. Emacs says when it exists; where it goes is this
         // window's business from then on.
         void TakeEmacsWindow(HWND window);
+        void TakeInputToEmacs();
         void PlaceEmacsWindow();
 
         // Runs on the UI thread.
