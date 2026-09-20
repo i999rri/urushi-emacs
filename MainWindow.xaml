@@ -9,7 +9,10 @@
     mc:Ignorable="d"
     Title="urusi-emacs">
 
-    <Grid>
+    <!-- A background of its own, or the window is not painted at all
+         where the screen does not reach, and XAML leaves what it did
+         not paint clear: an unpainted window is a black one. -->
+    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
         <!-- What Emacs writes to its standard output and error, until
              there is a screen to show instead. -->
         <ScrollViewer x:Name="LogView" Padding="16">

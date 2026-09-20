@@ -53,7 +53,14 @@ rm -rf "$stage/share/applications" "$stage/share/icons" \
 # Lisp.
 urusi=$stage/share/emacs/site-lisp/urusi
 mkdir -p "$urusi"
-cp "$here"/lisp/*.el "$urusi/"
+for file in "$here"/lisp/*.el; do
+    [ "$(basename "$file")" = urusi-site-start.el ] && continue
+    cp "$file" "$urusi/"
+done
+
+# And the one file Emacs looks for by name before it reads the init
+# file, which is where urusi is brought up around it.
+cp "$here/lisp/urusi-site-start.el" "$stage/share/emacs/site-lisp/site-start.el"
 
 mkdir -p "$stage/bin"
 cp "$build/src/libemacs.dll" "$stage/bin/"

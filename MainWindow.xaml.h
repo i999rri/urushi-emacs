@@ -55,6 +55,11 @@ namespace winrt::urusi_emacs::implementation
         void Send(Windows::Data::Json::JsonObject const& message);
 
         void ShowStatus(winrt::hstring const& text);
+        // The window is not shown until Emacs has a screen to put in
+        // it, or until long enough has passed that whatever is in it
+        // is worth seeing anyway.
+        void ShowWhenReady();
+        void ShowEventually();
         // SOURCE says which side a line came from, since both
         // write here and they fail in different ways.
         void AppendLog(char const* source, std::string const& text);
@@ -67,6 +72,7 @@ namespace winrt::urusi_emacs::implementation
         // told once.
         SIZE m_emacsSize{ 0, 0 };
         bool m_attached{ false };
+        bool m_shown{ false };
         urusi::Composition m_composition;
     };
 }

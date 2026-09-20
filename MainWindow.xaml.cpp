@@ -9,6 +9,7 @@
 #include <microsoft.ui.xaml.window.h>
 
 #include <algorithm>
+#include <chrono>
 #include <limits>
 #include <cmath>
 
@@ -173,6 +174,7 @@ namespace winrt::urusi_emacs::implementation
         AppendLog("host", std::string{ "urusi-emacs built " } + __DATE__ + " " + __TIME__ + "\n");
 
         ShowStatus(L"Waiting for Emacs");
+        ShowEventually();
     }
 
     void MainWindow::TakeEmacsWindow(HWND window)
@@ -395,23 +397,11 @@ namespace winrt::urusi_emacs::implementation
         auto dispatcher = m_dispatcher;
 
         // No -Q: this is the user's Emacs, and it reads the user's init
-        // file like any other. urusi's own Lisp sits among the Lisp of
-        // the installation, so an init file can require it and say what
-        // the screen should look like before this runs.
-        //
-        // --eval is handled after the init file, which is why the
-        // screen is started from here and not from a file loaded
-        // earlier. It is wrapped in a condition-case so that a failure
-        // comes back through the host: Emacs's standard error goes
-        // nowhere here.
-        std::vector<std::string> args{
-            "emacs",
-            "--eval",
-            "(condition-case error"
-            " (progn (require 'urusi-screen) (urusi-start) (urusi-screen-mode 1))"
-            " (error (w32-host-post (json-serialize"
-            " (list :type \"log\" :text (format \"startup: %S\" error))))))"
-        };
+        // file like any other. Nothing is said here about the screen:
+        // site-start.el brings urusi up before the init file, so that
+        // the init file can say what the screen should look like, and
+        // shows it once the init file has.
+        std::vector<std::string> args{ "emacs" };
 
         std::string error;
         bool started = urusi::EmacsHost::Instance().Start(
@@ -527,6 +517,8 @@ namespace winrt::urusi_emacs::implementation
 
     void MainWindow::Screen(JsonObject const& message)
     {
+        ShowWhenReady();
+
         // The XAML around the rows comes only when it has changed, and
         // everything in it goes with it.
         if (message.HasKey(L"xaml"))
@@ -764,6 +756,45 @@ namespace winrt::urusi_emacs::implementation
     void MainWindow::ShowStatus(hstring const& text)
     {
         Status().Text(text);
+    }
+
+    // Show the window, once there is something in it worth looking at.
+    //
+    // Emacs reads the user's init file before it has a screen to show,
+    // and that can take seconds. An empty window for those seconds is
+    // worse than no window, so there is none until the first screen
+    // arrives -- or until it is clear that none is coming, because a
+    // window saying what went wrong is the only way to find out that
+    // anything did.
+    void MainWindow::ShowWhenReady()
+    {
+        if (m_shown)
+        {
+            return;
+        }
+        m_shown = true;
+
+        AppWindow().Show();
+        Activate();
+    }
+
+    void MainWindow::ShowEventually()
+    {
+        constexpr std::chrono::seconds kPatience{ 5 };
+
+        auto timer = m_dispatcher.CreateTimer();
+        auto weak = get_weak();
+
+        timer.Interval(kPatience);
+        timer.IsRepeating(false);
+        timer.Tick([weak](auto&& sender, auto&&) {
+            sender.Stop();
+            if (auto self = weak.get())
+            {
+                self->ShowWhenReady();
+            }
+        });
+        timer.Start();
     }
 
     void MainWindow::AppendLog(char const* source, std::string const& text)

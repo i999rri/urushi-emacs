@@ -38,6 +38,13 @@ namespace winrt::urusi_emacs::implementation
     void App::OnLaunched([[maybe_unused]] LaunchActivatedEventArgs const& e)
     {
         window = make<MainWindow>();
+
+        // Activate lays the window out, which is what the size of the
+        // Emacs frame is taken from; hiding it again leaves all of that
+        // standing. The window shows itself once Emacs has a screen to
+        // put in it, which is after the user's init file has been read
+        // and can be seconds away.
         window.Activate();
+        window.AppWindow().Hide();
     }
 }

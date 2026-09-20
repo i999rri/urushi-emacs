@@ -272,13 +272,18 @@
       <!-- Beside the Lisp of the Emacs installation, which is where an
            init file can find it before it says what the screen should
            look like. -->
-      <UrusiLisp Include="$(ProjectDir)lisp\*.el" />
+      <UrusiLisp Include="$(ProjectDir)lisp\*.el"
+                 Exclude="$(ProjectDir)lisp\urusi-site-start.el" />
     </ItemGroup>
     <Copy SourceFiles="@(StagedEmacs)"
           DestinationFiles="@(StagedEmacs->'$(OutDir)emacs\%(RecursiveDir)%(Filename)%(Extension)')"
           SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(UrusiLisp)"
           DestinationFolder="$(OutDir)emacs\share\emacs\site-lisp\urusi"
+          SkipUnchangedFiles="true" />
+    <!-- The one Emacs looks for by name, before it reads the init file. -->
+    <Copy SourceFiles="$(ProjectDir)lisp\urusi-site-start.el"
+          DestinationFiles="$(OutDir)emacs\share\emacs\site-lisp\site-start.el"
           SkipUnchangedFiles="true" />
   </Target>
 </Project>
