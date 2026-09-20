@@ -51,11 +51,23 @@ That is so on a terminal, where Emacs never asked for one."
   "Return VALUE, or nil if what it came from said nothing about it."
   (unless (eq value 'unspecified) value))
 
+(defvar urusi-screen--colors (make-hash-table :test #'equal)
+  "What each colour Emacs named comes to in XAML.
+Looking a colour up is a search through a table of names, and a screen
+asks after the same handful of them hundreds of times.")
+
 (defun urusi-screen-color (color)
   "Return COLOR as the #rrggbb XAML wants, or nil if there is no such color."
-  (when-let* ((values (and (stringp (urusi-screen--set color))
-                           (color-values color))))
-    (apply #'format "#%02x%02x%02x" (mapcar (lambda (v) (/ v 256)) values))))
+  (if (not (stringp (urusi-screen--set color)))
+      nil
+    (let ((known (gethash color urusi-screen--colors 'unknown)))
+      (if (not (eq known 'unknown))
+          known
+        (puthash color
+                 (when-let* ((values (color-values color)))
+                   (apply #'format "#%02x%02x%02x"
+                          (mapcar (lambda (v) (/ v 256)) values)))
+                 urusi-screen--colors)))))
 
 (defun urusi-screen-font-family ()
   "Return the family of the default font, as a name XAML knows."
@@ -178,13 +190,19 @@ there XAML is laying them out and Emacs is not."
          (background (urusi-screen-color (plist-get run :background))))
     (when text
       (urusi-screen--measure family size))
-    `(Border :Canvas.Left ,(/ (plist-get run :x) scale)
-             :Width ,width
-             :Height ,height
-             ,@(when background `(:Background ,background))
-             ,@(when text
-                 (list (urusi-screen--text run text family size
-                                           (/ width (length text)) height))))))
+    (let ((left (/ (plist-get run :x) scale))
+          (body (and text (urusi-screen--text run text family size
+                                              (/ width (length text)) height))))
+      (cond
+       ;; A background needs something to paint it, and a TextBlock
+       ;; cannot; without one there is nothing for a Border to do.
+       (background `(Border :Canvas.Left ,left
+                            :Width ,width
+                            :Height ,height
+                            :Background ,background
+                            ,@(and body (list body))))
+       (body (append (list (car body) :Canvas.Left left) (cdr body)))
+       (t `(Border :Canvas.Left ,left :Width ,width :Height ,height))))))
 
 (defun urusi-screen--text (run text family size advance height)
   "Return TEXT of RUN as a XAML TextBlock.
@@ -276,6 +294,30 @@ every line as it was and a keystroke costs one line of the screen."
 
 ;;;; The windows
 
+(defvar urusi-screen--built (make-hash-table :test #'equal)
+  "What each line of this screen was built into, keyed by the line.")
+
+(defvar urusi-screen--built-before (make-hash-table :test #'equal)
+  "The same, for the screen before, which is what this one reuses.")
+
+(defun urusi-screen--line (line)
+  "Return LINE built, reusing what it was built into last time.
+A line Emacs drew the same way is the same line, and building it again
+would only arrive at what is already here.  Handing back the very
+object from last time is also what lets `urusi-render' know, without
+looking, that there is nothing to send for it."
+  (puthash line
+           (or (gethash line urusi-screen--built-before)
+               (funcall urusi-screen-line-function line))
+           urusi-screen--built))
+
+(defun urusi-screen--start-screen ()
+  "Begin a screen, keeping only what the one before it built.
+Two screens' worth is all that is ever reused, and holding more would
+be holding every line the session has ever shown."
+  (setq urusi-screen--built-before urusi-screen--built)
+  (setq urusi-screen--built (make-hash-table :test #'equal)))
+
 (defvar urusi-screen--said-nothing 0
   "How many times there has been no screen to read, and it was said.")
 
@@ -313,9 +355,7 @@ without any line being touched."
              ,@(when background `(:Background ,background))
              (Rows :key ,(format "window-%d" index)
                    :panel "Canvas"
-                   ,@(mapcar (lambda (line)
-                               (funcall urusi-screen-line-function line))
-                             rows))
+                   ,@(mapcar #'urusi-screen--line rows))
              (Rows :key ,(format "cursor-%d" index)
                    :panel "Canvas"
                    ,@(when-let* ((cursor (funcall urusi-screen-cursor-function
@@ -357,6 +397,7 @@ decide; a layout that wants to move them can say so here instead."
 
 (defun urusi-screen-tree (&optional frame)
   "Return the whole screen of FRAME as a tree for `urusi-render'."
+  (urusi-screen--start-screen)
   (let* ((frame (or frame (selected-frame)))
          (parts (delq nil
                       (mapcar (lambda (component)
@@ -365,13 +406,36 @@ decide; a layout that wants to move them can say so here instead."
                               urusi-screen-components))))
     (funcall urusi-screen-layout-function parts frame)))
 
+(defvar urusi-screen--timed 0
+  "How many screens have been timed, of `urusi-screen-timings'.")
+
+(defcustom urusi-screen-timings 30
+  "How many of the first screens to say how long they took.
+Long enough to see what a keystroke costs, and then quiet."
+  :type 'integer)
+
 (defun urusi-screen-render ()
   "Show the screen in the host window."
   (interactive)
-  ;; What is drawn is read out of the screen Emacs drew, so there has to
-  ;; be one, and it has to be of what the buffers hold now.
-  (redisplay)
-  (urusi-render (urusi-screen-tree)))
+  (if (<= urusi-screen-timings urusi-screen--timed)
+      (progn (redisplay)
+             (urusi-render (urusi-screen-tree)))
+    (cl-incf urusi-screen--timed)
+    (let* ((start (current-time))
+           ;; What is drawn is read out of the screen Emacs drew, so
+           ;; there has to be one, and it has to be of what the buffers
+           ;; hold now.
+           (_ (redisplay))
+           (drawn (current-time))
+           (tree (urusi-screen-tree))
+           (built (current-time))
+           (sent (urusi-render tree)))
+      (urusi--log "screen %d: redisplay %.1fms, build %.1fms, send %.1fms, %s"
+                  urusi-screen--timed
+                  (* 1000 (float-time (time-subtract drawn start)))
+                  (* 1000 (float-time (time-subtract built drawn)))
+                  (* 1000 (float-time (time-since built)))
+                  sent))))
 
 (defvar urusi-screen--pending nil
   "Timer that will show the screen, when one is waiting to run.")

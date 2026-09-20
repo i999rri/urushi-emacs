@@ -152,6 +152,12 @@ Whatever is drawing has to draw the whole of it again.")
 
 ;;;; Tree to XAML
 
+(defvar urusi--row-xaml (make-hash-table :test #'eq)
+  "What each row of the last screen compiled to, keyed by the row itself.
+A screen is mostly the screen before it, and compiling a row that has
+not changed arrives at the string that is already here.  It holds the
+last screen only: what a screen does not use is what the next one drops.")
+
 (defun urusi--escape (text attribute)
   "Escape TEXT for XAML, as an ATTRIBUTE value if non-nil."
   (let ((escaped (replace-regexp-in-string "&" "&amp;" text t t)))
@@ -191,9 +197,27 @@ moved to."
         (next-id 0)
         (events nil)
         (rows nil)
+        (was urusi--row-xaml)
         (handlers (make-hash-table :test #'eql)))
+    (setq urusi--row-xaml (make-hash-table :test #'eq))
     (cl-labels
-        ((node (form root)
+        ((row-xaml (child)
+           ;; A row built out of the same thing twice is the same row,
+           ;; and whoever built it says so by handing back the very
+           ;; object it handed back last time.  Compiling it again
+           ;; would only arrive at the string that is already here.
+           (or (gethash child was)
+               (let ((before events)
+                     ;; A row is read on its own, so it declares the
+                     ;; namespaces itself.
+                     (xaml (node child t)))
+                 ;; A row with a handler in it is compiled every time:
+                 ;; the handler is registered as it is compiled, and
+                 ;; skipping that would leave it unreachable.
+                 (if (eq before events)
+                     (puthash child xaml urusi--row-xaml)
+                   xaml))))
+         (node (form root)
            (cond
             ((stringp form) (urusi--escape form nil))
             ((eq (car-safe form) 'Rows)
@@ -215,9 +239,8 @@ moved to."
                          attributes)))
                (push (cons name
                            (mapcar (lambda (child)
-                                     ;; A row is read on its own, so it
-                                     ;; declares the namespaces itself.
-                                     (cons (urusi--row-key child) (node child t)))
+                                     (cons (urusi--row-key child)
+                                           (row-xaml child)))
                                    rest))
                      rows)
                ;; :panel says what holds the rows.  A StackPanel puts
@@ -289,10 +312,15 @@ Only what has changed since the last call is sent.  The XAML around the
 rows goes when it differs from last time, and with it every row; a row
 goes when its own XAML differs.  Rows that have not changed are named
 and nothing more, and the host leaves the elements it has for them
-alone, so that what they were doing they go on doing."
+alone, so that what they were doing they go on doing.
+
+Returns what was sent, in words, which is worth having when the screen
+is slower than it should be."
   (pcase-let* ((`(,xaml ,events ,handlers ,rows) (urusi--compile tree))
                (`(,shown-xaml . ,shown-rows) urusi--shown)
-               (same-chrome (equal xaml shown-xaml)))
+               (same-chrome (equal xaml shown-xaml))
+               (changed 0)
+               (total 0))
     (urusi--send
      (nconc (list :type "screen")
             (unless same-chrome (list :xaml xaml :events (vconcat events)))
@@ -306,17 +334,22 @@ alone, so that what they were doing they go on doing."
                               (vconcat
                                (mapcar
                                 (lambda (row)
+                                  (cl-incf total)
                                   (if (equal (cdr row) (cdr (assoc (car row) shown)))
                                       (list :key (car row))
+                                    (cl-incf changed)
                                     (list :key (car row) :xaml (cdr row))))
                                 (cdr group))))))
                     rows)))))
     (setq urusi--shown (cons xaml rows))
-    (setq urusi--handlers handlers)))
+    (setq urusi--handlers handlers)
+    (format "%s, %d/%d rows" (if same-chrome "same chrome" "NEW CHROME")
+            changed total)))
 
 (defun urusi-forget ()
   "Forget what the host is showing, so that the next screen is sent whole."
-  (setq urusi--shown nil))
+  (setq urusi--shown nil)
+  (setq urusi--row-xaml (make-hash-table :test #'eq)))
 
 (defun urusi-demo ()
   "Show a small UI in the host, to check that everything is connected."

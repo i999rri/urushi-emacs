@@ -87,6 +87,37 @@ namespace
         FlushFileBuffers(file);
     }
 
+    // Whether KEY is one the input method answers itself, rather than
+    // one that means a character.
+    //
+    // These are the keys that turn it on and off and work its way
+    // through a conversion, and the one Windows sends in place of a key
+    // it has already handled. None of them is Emacs's to see, and
+    // taking them here is what stops the input method being switched at
+    // all.
+    bool IsInputMethodKey(winrt::Windows::System::VirtualKey key)
+    {
+        switch (static_cast<int>(key))
+        {
+        case VK_KANA:           // and VK_HANGUL: the same number
+        case VK_JUNJA:
+        case VK_FINAL:
+        case VK_KANJI:          // and VK_HANJA
+        case VK_CONVERT:
+        case VK_NONCONVERT:
+        case VK_ACCEPT:
+        case VK_MODECHANGE:
+        case VK_PROCESSKEY:
+        case VK_OEM_ATTN:
+        case VK_OEM_AUTO:
+        case VK_OEM_ENLW:
+        case VK_OEM_BACKTAB:
+            return true;
+        default:
+            return false;
+        }
+    }
+
     // The window the Emacs frame lives in.
     //
     // Emacs draws its frame as it always has, and nobody sees it: what
@@ -345,11 +376,13 @@ namespace winrt::urusi_emacs::implementation
 
         // A key the input method is making something of is not a key:
         // what it settles on arrives as text, and passing the key on
-        // as well would type it twice.
+        // as well would type it twice. A key that works the input
+        // method itself is not a key either, and is left alone
+        // entirely: answering it here is what stops it turning the
+        // input method on and off.
         if (args.Key() == Windows::System::VirtualKey::None
-            || static_cast<int>(args.Key()) == 229)
+            || IsInputMethodKey(args.Key()))
         {
-            args.Handled(true);
             return;
         }
 
