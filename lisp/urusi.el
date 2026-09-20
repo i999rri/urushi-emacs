@@ -209,7 +209,7 @@ moved to."
                            (or (cdr (assoc "key" properties))
                                (error "urusi: Rows needs a :key: %S" form))))
                (dolist (property properties)
-                 (unless (string= (car property) "key")
+                 (unless (member (car property) '("key" "panel"))
                    (push (format " %s=\"%s\"" (car property)
                                  (urusi--escape (urusi--value (cdr property)) t))
                          attributes)))
@@ -220,7 +220,13 @@ moved to."
                                      (cons (urusi--row-key child) (node child t)))
                                    rest))
                      rows)
-               (format "<StackPanel x:Name=\"%s\"%s />" (urusi--escape name t)
+               ;; :panel says what holds the rows.  A StackPanel puts
+               ;; each under the last, which is what a list of things
+               ;; wants; a Canvas puts each where it says it goes,
+               ;; which is what a screen wants.
+               (format "<%s x:Name=\"%s\"%s />"
+                       (or (cdr (assoc "panel" properties)) "StackPanel")
+                       (urusi--escape name t)
                        (apply #'concat (nreverse attributes)))))
             ((and (consp form) (symbolp (car form)))
              (let ((tag (symbol-name (car form)))

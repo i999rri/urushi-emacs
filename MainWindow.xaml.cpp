@@ -524,14 +524,13 @@ namespace winrt::urusi_emacs::implementation
     {
         constexpr int kSample = 100;
 
-        auto narrow = message.GetNamedString(L"family", L"Consolas");
-        auto wide = message.GetNamedString(L"wide-family", narrow);
+        auto family = message.GetNamedString(L"family", L"Consolas");
         double size = message.GetNamedNumber(L"size", 14);
 
         // One of each kind that Emacs counts differently: a character
-        // of one column and one of two, each in the font it is drawn
-        // in.
-        auto advance = [&](hstring const& family, wchar_t sample) {
+        // of one column and one of two. Emacs says which font a run is
+        // drawn in, so both are measured in the font asked about.
+        auto advance = [&](wchar_t sample) {
             Controls::TextBlock block;
             block.FontFamily(Media::FontFamily{ family });
             block.FontSize(size);
@@ -543,9 +542,11 @@ namespace winrt::urusi_emacs::implementation
 
         JsonObject reply;
         reply.SetNamedValue(L"type", String(L"measured"));
-        reply.SetNamedValue(L"narrow", JsonValue::CreateNumberValue(advance(narrow, L'0')));
+        reply.SetNamedValue(L"family", String(family));
+        reply.SetNamedValue(L"size", JsonValue::CreateNumberValue(size));
+        reply.SetNamedValue(L"narrow", JsonValue::CreateNumberValue(advance(L'0')));
         // HIRAGANA LETTER A, spelled out: this file is read as bytes.
-        reply.SetNamedValue(L"wide", JsonValue::CreateNumberValue(advance(wide, L'\x3042')));
+        reply.SetNamedValue(L"wide", JsonValue::CreateNumberValue(advance(L'\x3042')));
         Send(reply);
     }
 

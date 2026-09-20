@@ -2,37 +2,33 @@
 
 ;;; Commentary:
 
-;; Builds what Emacs shows as a tree of XAML elements and sends it to the
-;; host to draw.  Emacs decides the content: which lines are on screen,
-;; where they are broken, what face each stretch of text carries.  What
-;; that looks like is decided here, in Lisp, and so is yours to change.
+;; Sends what Emacs shows to the host, as a tree of XAML elements.
 ;;
-;; What comes with it is a default, not the shape of the thing.  The
-;; screen is a list of components, each a function of the window
+;; What is on the screen is not worked out here.  Redisplay worked it
+;; out -- where the lines were broken, what an overlay or a display
+;; property put there instead of the text, which font each character was
+;; found in, where the cursor ended up -- and `window-screen-rows' reads
+;; that decision back.  This file says only what it should look like, and
+;; that part is yours to change.
+;;
+;; The screen is a list of components, each a function of the frame
 ;; returning a tree for `urusi-render':
 ;;
-;;   `urusi-screen-header'   the tab line and header line
-;;   `urusi-screen-buffer'   the text of the window, a line per element
-;;   `urusi-screen-status'   the mode line
-;;   `urusi-screen-echo'     the echo area, or the minibuffer in use
+;;   `urusi-screen-windows'  every window of the frame, where it is
 ;;
 ;; Take one out of `urusi-screen-components' and it is gone.  Write your
 ;; own and it is there.  Wrap one and it keeps its contents:
 ;;
-;;   (defun my-rounded-buffer (window)
+;;   (defun my-rounded-windows (frame)
 ;;     `(Border :CornerRadius 8 :Padding 12 :Background "#1b1b1f"
-;;              ,(urusi-screen-buffer window)))
-;;   (setq urusi-screen-components
-;;         '(my-rounded-buffer urusi-screen-status))
+;;              ,(urusi-screen-windows frame)))
+;;   (setq urusi-screen-components '(my-rounded-windows))
 ;;
-;; How the components are stacked is `urusi-screen-layout-function',
-;; which is a function of the built parts, so a side-by-side screen or
-;; one part floating over another is a matter of returning that tree.
-;;
-;; To build components of your own, the pieces the ones here are made of
-;; are `urusi-screen-runs' (text to inlines, split on face),
-;; `urusi-screen-line' (inlines to an element), `urusi-screen-color' and
-;; `urusi-screen-face-attribute'.
+;; Inside that, each piece is built by a function of its own, so that
+;; changing one changes that much and no more:
+;; `urusi-screen-window-function' for a window, `-line-function' for one
+;; of its lines, `-run-function' for a stretch of a line drawn one way,
+;; and `-cursor-function' for the cursor.
 
 ;;; Code:
 
@@ -45,133 +41,184 @@
   :group 'urusi)
 
 (defcustom urusi-screen-font "Consolas"
-  "Font to show the screen in, when Emacs has no font of its own to name.
+  "Font to draw in when Emacs names none for a run.
 That is so on a terminal, where Emacs never asked for one."
   :type 'string)
 
-(defcustom urusi-screen-wide-font "MS Gothic"
-  "Font to draw the characters Emacs gives two columns in.
-A font for the Latin alphabet has no kana, and what the host falls
-back to for them is not what Emacs fell back to, so the two draw them
-different widths and the text comes out strewn about.  Naming a font
-that has them settles it: a full-width character of such a font is as
-wide as the font is tall, which is the room Emacs makes for it."
-  :type 'string)
+;;;; Faces and colours
 
-(defvar urusi-screen--advance nil
-  "How wide the host draws a character, as (NARROW . WIDE), or nil.
-Emacs lays its text out on a grid of whole columns -- one for most
-characters, two for the likes of kana -- while the host draws at the
-width the font asks for, so the two drift apart across a line.  Asking
-the host how wide it draws one of each is what tells Emacs how much to
-correct for; see `urusi-screen--spacing'.")
-
-(defun urusi-screen-wide-font-family ()
-  "Return the family to draw a character of two columns in."
-  (or urusi-screen-wide-font (urusi-screen-font-family)))
-
-(defun urusi-screen--measure ()
-  "Ask the host how wide it draws a character of each width."
-  (setq urusi-screen--advance nil)
-  (urusi--send (list :type "measure"
-                     :family (urusi-screen-font-family)
-                     :wide-family (urusi-screen-wide-font-family)
-                     :size (urusi-screen-font-size))))
-
-
-(defun urusi-screen--measured (message)
-  "Take the widths the host reported in MESSAGE, and draw again with them."
-  (setq urusi-screen--advance (cons (plist-get message :narrow)
-                                    (plist-get message :wide)))
-  (urusi--log "font %s / %s at %s, cell %s, drawn %s/%s, spacing %s/%s"
-              (urusi-screen-font-family) (urusi-screen-wide-font-family)
-              (urusi-screen-font-size) (default-font-width)
-              (car urusi-screen--advance) (cdr urusi-screen--advance)
-              (urusi-screen--spacing 1) (urusi-screen--spacing 2))
-  (urusi-forget)
-  (urusi-screen-render))
-
-(defun urusi-screen-columns (character)
-  "Return how many columns Emacs gives CHARACTER, as far as this file cares.
-What is not twice as wide is treated as once, tabs included: a tab is
-drawn as the one character it is until there is something better."
-  (if (= (char-width character) 2) 2 1))
-
-(defun urusi-screen--spacing (columns)
-  "Return what to add to each character that Emacs gives COLUMNS columns.
-That is what makes a line as wide here as Emacs laid it out.  XAML
-counts it in thousandths of the font size."
-  (let ((drawn (if (= columns 1)
-                   (car-safe urusi-screen--advance)
-                 (cdr-safe urusi-screen--advance))))
-    (if (and (numberp drawn) (< 0 drawn))
-        (round (* 1000 (/ (- (/ (* columns (default-font-width))
-                                (float urusi-scale))
-                             drawn)
-                          (urusi-screen-font-size))))
-      0)))
-
-(defun urusi-screen-line-height ()
-  "Return the height of a screen line, in the pixels XAML counts in.
-It is the height Emacs laid the text out with, so that a screenful
-here is a screenful there."
-  (/ (default-line-height) (float urusi-scale)))
-
-(defcustom urusi-screen-components
-  '(urusi-screen-header
-    urusi-screen-buffer
-    urusi-screen-status
-    urusi-screen-echo)
-  "Functions that build the screen.
-Each takes the window being shown and returns a tree for
-`urusi-render', or nil for nothing at all.  They are passed in this
-order to `urusi-screen-layout-function'."
-  :type '(repeat function))
-
-(defcustom urusi-screen-layout-function #'urusi-screen-layout
-  "Function that puts the built components together into one tree.
-It takes the list of what the components returned, in order, and the
-window they were built for."
-  :type 'function)
-
-;;;; Faces
-
-(defun urusi-screen-face-attribute (face attribute)
-  "Return ATTRIBUTE of FACE, or nil if FACE says nothing about it.
-FACE is what a text property holds: a face name, a list of face names,
-or a plist of attributes."
-  (let ((value
-         (cond
-          ((null face) nil)
-          ((keywordp (car-safe face)) (plist-get face attribute))
-          ((consp face)
-           (cl-some (lambda (one) (urusi-screen-face-attribute one attribute))
-                    face))
-          ((symbolp face)
-           (and (facep face) (face-attribute face attribute nil t)))
-          (t nil))))
-    (unless (eq value 'unspecified) value)))
+(defun urusi-screen--set (value)
+  "Return VALUE, or nil if what it came from said nothing about it."
+  (unless (eq value 'unspecified) value))
 
 (defun urusi-screen-color (color)
   "Return COLOR as the #rrggbb XAML wants, or nil if there is no such color."
-  (when-let* ((values (and color (stringp color) (color-values color))))
+  (when-let* ((values (and (stringp (urusi-screen--set color))
+                           (color-values color))))
     (apply #'format "#%02x%02x%02x" (mapcar (lambda (v) (/ v 256)) values))))
 
 (defun urusi-screen-font-family ()
   "Return the family of the default font, as a name XAML knows."
-  (let ((family (face-attribute 'default :family)))
+  (let ((family (urusi-screen--set (face-attribute 'default :family))))
     (if (and (stringp family) (not (equal family "default")))
         family
       urusi-screen-font)))
 
 (defun urusi-screen-font-size ()
   "Return the size of the default font, in the pixels XAML counts in."
-  (let ((height (face-attribute 'default :height)))
+  (let ((height (urusi-screen--set (face-attribute 'default :height))))
     ;; A height is tenths of a point on a frame that has a font, and a
     ;; multiplier on one that has none.  XAML counts 96ths of an inch.
     (if (and (integerp height) (<= 10 height))
         (/ (* height 96.0) 720.0)
       14.0)))
+
+;;;; What the host measured
+
+(defvar urusi-screen--advance (make-hash-table :test #'equal)
+  "How wide the host draws a character, as a table of fonts.
+The key is (FAMILY . SIZE) and the value (NARROW . WIDE).
+
+Emacs lays its text out on a grid of whole columns -- one for most
+characters, two for the likes of kana -- while the host draws at the
+width the font asks for, so the two drift apart across a line.  How
+wide the host draws one of each is what tells Emacs how much to correct
+for; see `urusi-screen--spacing'.")
+
+(defvar urusi-screen--asked nil
+  "Fonts the host is measuring and has not answered for yet.")
+
+(defun urusi-screen--font (family size)
+  "Return what names FAMILY at SIZE in `urusi-screen--advance'.
+The size is rounded because it is asked for and answered across JSON,
+and a hundredth of a pixel apart is the same font."
+  (cons family (round (* 100 size))))
+
+(defun urusi-screen--measure (family size)
+  "Ask the host how wide it draws FAMILY at SIZE, if it has not said."
+  (let ((font (urusi-screen--font family size)))
+    (unless (or (gethash font urusi-screen--advance)
+                (member font urusi-screen--asked))
+      (push font urusi-screen--asked)
+      (urusi--send (list :type "measure" :family family :size size)))))
+
+(defun urusi-screen--measured (message)
+  "Take what the host measured in MESSAGE, and draw again knowing it."
+  (let ((font (urusi-screen--font (plist-get message :family)
+                                  (plist-get message :size))))
+    (setq urusi-screen--asked (delete font urusi-screen--asked))
+    (puthash font
+             (cons (plist-get message :narrow) (plist-get message :wide))
+             urusi-screen--advance)
+    (urusi--log "font %s at %s drawn %s/%s, cell %s"
+                (car font) (cdr font)
+                (plist-get message :narrow) (plist-get message :wide)
+                (default-font-width))
+    (urusi-forget)
+    (urusi-screen-render)))
+
+(defun urusi-screen--spacing (family size advance)
+  "Return what to add to each character of a run to space it as Emacs did.
+FAMILY and SIZE are the font it is drawn in and ADVANCE how far apart
+Emacs put its characters, both in the pixels XAML counts in.  XAML
+counts the answer in thousandths of the font size."
+  (let* ((measured (gethash (urusi-screen--font family size)
+                            urusi-screen--advance))
+         (cell (/ (default-font-width) (float urusi-scale)))
+         ;; Which of the two the run is drawn with is decided by how
+         ;; much room Emacs made for it, as Emacs decided it there too.
+         (drawn (and measured
+                     (if (< advance (* 1.5 cell)) (car measured) (cdr measured)))))
+    (if (and (numberp drawn) (< 0 drawn) (< 0 size))
+        (round (* 1000 (/ (- advance drawn) size)))
+      0)))
+
+;;;; The pieces
+
+(defcustom urusi-screen-run-function #'urusi-screen-run
+  "Function that draws one stretch of a line.
+It takes the run, as `window-screen-rows' gives it, and how tall the
+line is in the pixels XAML counts in."
+  :type 'function)
+
+(defcustom urusi-screen-line-function #'urusi-screen-line
+  "Function that draws one line of a window.
+It takes the line, as `window-screen-rows' gives it."
+  :type 'function)
+
+(defcustom urusi-screen-cursor-function #'urusi-screen-cursor
+  "Function that draws the cursor of a window, or nothing.
+It takes the window."
+  :type 'function)
+
+(defcustom urusi-screen-window-function #'urusi-screen-window
+  "Function that draws one window.
+It takes the window and which one it is, counting from zero, which is
+what names the parts of it that the host keeps between screens."
+  :type 'function)
+
+(defun urusi-screen-run (run height)
+  "Return RUN, one stretch of a line, as XAML, HEIGHT pixels tall.
+
+A run is put where Emacs put it rather than after the one before it, so
+that every stretch of the line stands where Emacs decided it stands and
+nothing drifts.  Within a run the characters are spaced by hand, since
+there XAML is laying them out and Emacs is not."
+  (let* ((scale (float urusi-scale))
+         (text (urusi-screen--set (plist-get run :text)))
+         (width (/ (plist-get run :width) scale))
+         (size (/ (or (urusi-screen--set (plist-get run :size))
+                      (default-font-width))
+                  scale))
+         ;; The name comes from a symbol of Emacs's own, which carries
+         ;; which charset it was found for; XAML wants the name alone.
+         (family (if-let* ((named (urusi-screen--set (plist-get run :family))))
+                     (substring-no-properties named)
+                   (urusi-screen-font-family)))
+         (background (urusi-screen-color (plist-get run :background))))
+    (when text
+      (urusi-screen--measure family size))
+    `(Border :Canvas.Left ,(/ (plist-get run :x) scale)
+             :Width ,width
+             :Height ,height
+             ,@(when background `(:Background ,background))
+             ,@(when text
+                 (list (urusi-screen--text run text family size
+                                           (/ width (length text)) height))))))
+
+(defun urusi-screen--text (run text family size advance height)
+  "Return TEXT of RUN as a XAML TextBlock.
+FAMILY, SIZE and ADVANCE are the font it is drawn in and how far apart
+its characters go; HEIGHT is how tall the line is."
+  (let ((foreground (urusi-screen-color (plist-get run :foreground)))
+        (weight (urusi-screen--set (plist-get run :weight)))
+        (slant (urusi-screen--set (plist-get run :slant))))
+    `(TextBlock :Text ,text
+                :TextWrapping "NoWrap"
+                :FontFamily ,family
+                :FontSize ,size
+                :LineHeight ,height
+                :LineStackingStrategy "BlockLineHeight"
+                :CharacterSpacing ,(urusi-screen--spacing family size advance)
+                ,@(when foreground `(:Foreground ,foreground))
+                ,@(when (memq weight '(bold semi-bold ultra-bold extra-bold))
+                    '(:FontWeight "Bold"))
+                ,@(when (memq slant '(italic oblique)) '(:FontStyle "Italic"))
+                ,@(when (urusi-screen--set (plist-get run :underline))
+                    '(:TextDecorations "Underline")))))
+
+(defun urusi-screen-line (line)
+  "Return LINE, one line of a window, as XAML.
+Its key is where it is, which is what tells the host that a line it
+already has is the same line: typing changes the line the point is on
+and leaves every other one alone."
+  (let* ((scale (float urusi-scale))
+         (height (/ (plist-get line :height) scale)))
+    `(Canvas :key ,(format "%s-%s" (plist-get line :kind) (plist-get line :y))
+             :Canvas.Top ,(/ (plist-get line :y) scale)
+             :Height ,height
+             ,@(mapcar (lambda (run) (funcall urusi-screen-run-function run height))
+                       (plist-get line :runs)))))
 
 (defvar urusi-screen--composing ""
   "What the input method is turning over, or an empty string.
@@ -191,36 +238,21 @@ beside the text rather than in a corner.")
       (setq urusi-screen--caret caret)
       (urusi--send (list :type "caret" :x x :y y :width width :height height)))))
 
-(defun urusi-screen--columns-to (start end)
-  "Return how many columns the text from START to END takes."
-  (let ((columns 0)
-        (position start))
-    (while (< position end)
-      (setq columns (+ columns (urusi-screen-columns (char-after position))))
-      (setq position (1+ position)))
-    columns))
-
-(defun urusi-screen-cursor (point row start)
-  "Return the cursor at POINT, to be laid over the text.
-ROW is the screen line POINT is on, counting from the top of what is
-shown, and START is where that line begins.
-
-Where the cursor goes is counted the same way the text it sits in was
-laid out.  Emacs would answer this too, but it answers from the screen
-it last drew, which is not this one and is a keystroke behind it.
-
-Nothing about the lines has to change for the cursor to move, which is
-what keeps a keystroke to one line of the screen."
-  (when-let* ((color (or (urusi-screen-color (face-attribute 'cursor :background))
+(defun urusi-screen-cursor (window)
+  "Return the cursor of WINDOW, to be laid over its text.
+It is laid over rather than put in a line, so that moving it leaves
+every line as it was and a keystroke costs one line of the screen."
+  (when-let* (((eq window (selected-window)))
+              (cursor (window-screen-cursor window))
+              (color (or (urusi-screen-color (face-attribute 'cursor :background))
                          (urusi-screen-color (face-attribute 'default :foreground)))))
-    ;; Emacs counts in the pixels of the screen, XAML in 96ths of an inch.
     (let* ((scale (float urusi-scale))
-           (x (* (urusi-screen--columns-to start point) (default-font-width)))
-           (y (* row (default-line-height)))
-           (left (/ x scale))
-           (top (/ y scale))
-           (height (urusi-screen-line-height)))
-      (urusi-screen--tell-caret x y 2 (default-line-height))
+           (left (/ (plist-get cursor :x) scale))
+           (top (/ (plist-get cursor :y) scale))
+           (height (/ (plist-get cursor :height) scale)))
+      (urusi-screen--tell-caret (plist-get cursor :x) (plist-get cursor :y)
+                                (plist-get cursor :width)
+                                (plist-get cursor :height))
       `(Canvas :key "cursor"
                :IsHitTestVisible "False"
                (Rectangle :Canvas.Left ,left
@@ -237,226 +269,89 @@ what keeps a keystroke to one line of the screen."
                              :Background ,(urusi-screen-color
                                            (face-attribute 'default :background))
                              (TextBlock :Text ,urusi-screen--composing
-                                        :FontFamily ,(urusi-screen-wide-font-family)
+                                        :FontFamily ,(urusi-screen-font-family)
                                         :FontSize ,(urusi-screen-font-size)
                                         :Foreground ,color
                                         :TextDecorations "Underline"))))))))
 
-;;;; Text
+;;;; The windows
 
-(defun urusi-screen-run (text face &optional columns)
-  "Return TEXT in FACE as a XAML inline.
-COLUMNS is how many columns Emacs gives each character of TEXT, which
-is what decides how far apart they are drawn."
-  (let ((foreground (urusi-screen-color
-                     (urusi-screen-face-attribute face :foreground)))
-        (weight (urusi-screen-face-attribute face :weight))
-        (slant (urusi-screen-face-attribute face :slant)))
-    `(Run :Text ,text
-          :CharacterSpacing ,(urusi-screen--spacing (or columns 1))
-          ,@(when (eql columns 2)
-              `(:FontFamily ,(urusi-screen-wide-font-family)))
-          ,@(when foreground `(:Foreground ,foreground))
-          ,@(when (memq weight '(bold semi-bold ultra-bold extra-bold))
-              '(:FontWeight "Bold"))
-          ,@(when (memq slant '(italic oblique)) '(:FontStyle "Italic"))
-          ,@(when (urusi-screen-face-attribute face :underline)
-              '(:TextDecorations "Underline")))))
+(defun urusi-screen-window (window index)
+  "Return WINDOW as XAML, where it sits on the frame.
+INDEX says which window this is, and names the parts of it the host
+keeps between one screen and the next.
 
-(defun urusi-screen-runs (start end &optional object)
-  "Return the text from START to END as XAML inlines.
-An inline ends where the face changes, and where the width of the
-characters changes: how far apart they are drawn belongs to the inline
-they are in, and Emacs draws a character of two columns twice as far
-from the next as one of one.
+The lines and the cursor are each a set of rows of their own, so that a
+line that has not changed is not sent again and the cursor can move
+without any line being touched."
+  (let* ((scale (float urusi-scale))
+         (background (urusi-screen-color
+                      (face-attribute 'default :background nil t))))
+    `(Canvas :Canvas.Left ,(/ (window-pixel-left window) scale)
+             :Canvas.Top ,(/ (window-pixel-top window) scale)
+             :Width ,(/ (window-pixel-width window) scale)
+             :Height ,(/ (window-pixel-height window) scale)
+             ,@(when background `(:Background ,background))
+             (Rows :key ,(format "window-%d" index)
+                   :panel "Canvas"
+                   ,@(mapcar (lambda (line)
+                               (funcall urusi-screen-line-function line))
+                             (window-screen-rows window)))
+             (Rows :key ,(format "cursor-%d" index)
+                   :panel "Canvas"
+                   ,@(when-let* ((cursor (funcall urusi-screen-cursor-function
+                                                  window)))
+                       (list cursor))))))
 
-OBJECT is a string to read from, or nil for the current buffer, in
-which case overlays count as well."
-  (cl-flet ((character (at) (if object (aref object at) (char-after at)))
-            (face-at (at) (if object
-                              (get-text-property at 'face object)
-                            (get-char-property at 'face))))
-    (let ((runs nil)
-          (position start))
-      (while (< position end)
-        (let* ((face (face-at position))
-               (columns (urusi-screen-columns (character position)))
-               (face-end (if object
-                             (or (next-single-property-change position 'face object end)
-                                 end)
-                           (next-single-char-property-change position 'face nil end)))
-               (next (1+ position)))
-          (while (and (< next face-end)
-                      (= columns (urusi-screen-columns (character next))))
-            (setq next (1+ next)))
-          (push (urusi-screen-run
-                 (if object
-                     (substring-no-properties object position next)
-                   (buffer-substring-no-properties position next))
-                 face columns)
-                runs)
-          (setq position next)))
-      (nreverse runs))))
-
-(defun urusi-screen-line (key runs &optional face)
-  "Return a screen line showing RUNS, with the background of FACE.
-KEY says which line this is between one screen and the next: a line
-whose key and contents are unchanged is left alone by the host, and one
-that has only moved is moved rather than built again.
-
-An empty line still takes its height, which is what the space is for.
-
-A TextBlock takes no background of its own and inherits no font from
-what it is in, so a line that wants a background is wrapped in a
-Border, and the font is on the line itself."
-  (let* ((background (urusi-screen-color
-                      (urusi-screen-face-attribute face :background)))
-         (foreground (urusi-screen-color
-                      (or (urusi-screen-face-attribute face :foreground)
-                          (face-attribute 'default :foreground))))
-         (text `(TextBlock :TextWrapping "NoWrap"
-                           :FontFamily ,(urusi-screen-font-family)
-                           :FontSize ,(urusi-screen-font-size)
-                           :LineHeight ,(urusi-screen-line-height)
-                           :LineStackingStrategy "BlockLineHeight"
-                           ,@(when foreground `(:Foreground ,foreground))
-                           ,@(or runs (list '(Run :Text " "))))))
-    (if background
-        `(Border :key ,key :Background ,background ,text)
-      `(TextBlock :key ,key ,@(cdr text)))))
-
-;;;; The components
-
-(defun urusi-screen-header (window)
-  "Return what sits above the buffer of WINDOW: the tab and header lines."
-  (let ((lines (delq nil
-                     (list (and tab-line-format
-                                (format-mode-line tab-line-format nil window))
-                           (and header-line-format
-                                (format-mode-line header-line-format nil window))))))
-    (when lines
-      `(Rows :key "header"
-             ,@(cl-loop for line in lines
-                        for index from 0
-                        collect (urusi-screen-line
-                                 (format "header-%d" index)
-                                 (urusi-screen-runs 0 (length line) line)
-                                 'header-line))))))
-
-(defun urusi-screen-buffer (window)
-  "Return the text WINDOW shows, one element per screen line.
-Where each screen line starts and ends is asked of Emacs, so that the
-text is broken exactly where Emacs has it broken."
-  (with-current-buffer (window-buffer window)
-    (let* ((lines nil)
-           (end (window-end window t))
-           (point (if (eq window (selected-window)) (point) (window-point window)))
-           (row nil)
-           (row-start nil)
-           (index 0))
-      (save-excursion
-        (goto-char (window-start window))
-        (while (< (point) end)
-          (let ((start (point)))
-            (vertical-motion 1 window)
-            (when (= (point) start)     ; nothing moved: this is the end
-              (goto-char end))
-            (let* ((stop (min (point) end))
-                   ;; The newline ends the line; it is not something to show.
-                   (last (if (and (< start stop) (eq (char-before stop) ?\n))
-                             (1- stop)
-                           stop)))
-              ;; The line the point is on is the last one to begin at or
-              ;; before it, since a line ends where the next one begins.
-              (when (<= start point)
-                (setq row index
-                      row-start start))
-              ;; Where the line starts is what it is: a line that has
-              ;; scrolled is the same line, and stays as it is.
-              (push (urusi-screen-line (number-to-string start)
-                                       (urusi-screen-runs start last))
-                    lines)
-              (setq index (1+ index)))))
-        ;; A buffer that ends in a newline shows one more line after it,
-        ;; empty, and that is where the point usually is.
-        (when (and (= (point) end) (< (point-min) end) (eq (char-before end) ?
-))
-          (when (<= end point)
-            (setq row index
-                  row-start end))
-          (push (urusi-screen-line (number-to-string end) nil) lines)))
-      ;; The cursor is laid over the lines rather than put in one, so
-      ;; that moving it leaves every line as it was.
-      `(Grid (Rows :key "buffer" ,@(nreverse lines))
-             (Rows :key "cursor"
-                   ,@(when-let* (((and row (<= point end)))
-                                 (cursor (urusi-screen-cursor point row row-start)))
-                       (list cursor)))))))
-
-(put 'urusi-screen-buffer 'urusi-screen-stretch t)
-
-(defun urusi-screen-status (window)
-  "Return the mode line of WINDOW."
-  (when mode-line-format
-    (let ((line (format-mode-line mode-line-format nil window)))
-      `(Rows :key "status"
-             ,(urusi-screen-line "mode-line"
-                                 (urusi-screen-runs 0 (length line) line)
-                                 'mode-line)))))
-
-(defun urusi-screen-echo (_window)
-  "Return the echo area, or the minibuffer while it is in use."
-  (let ((text (cond
-               ((minibufferp (window-buffer (minibuffer-window)))
-                (with-current-buffer (window-buffer (minibuffer-window))
-                  (buffer-substring (point-min) (point-max))))
-               ((current-message))
-               (t ""))))
-    `(Rows :key "echo"
-           ,(urusi-screen-line "echo" (urusi-screen-runs 0 (length text) text)))))
+(defun urusi-screen-windows (frame)
+  "Return every window of FRAME, each where it is.
+The echo area is among them: it is the minibuffer window, and Emacs
+draws what it has to say there like anything else."
+  `(Canvas ,@(cl-loop for window in (window-list frame t)
+                      for index from 0
+                      collect (funcall urusi-screen-window-function
+                                       window index))))
 
 ;;;; The screen
 
-(defun urusi-screen-layout (parts _window)
-  "Return PARTS laid out from top to bottom, on the background of `default'.
-PARTS is an alist of the component that built each one and what it
-built.  A component whose symbol has a non-nil `urusi-screen-stretch'
-property takes the room the others do not want, which is what puts the
-mode line at the foot of the window rather than under the last line of
-the buffer.
+(defcustom urusi-screen-components '(urusi-screen-windows)
+  "Functions that build the screen.
+Each takes the frame being shown and returns a tree for `urusi-render',
+or nil for nothing at all.  They are passed in this order to
+`urusi-screen-layout-function'."
+  :type '(repeat function))
 
-A panel has no colour or font to give its contents; each line carries
-its own."
+(defcustom urusi-screen-layout-function #'urusi-screen-layout
+  "Function that puts the built components together into one tree.
+It takes the list of what the components returned, in order, and the
+frame they were built for."
+  :type 'function)
+
+(defun urusi-screen-layout (parts _frame)
+  "Return PARTS, one over another, on the background of `default'.
+PARTS is an alist of the component that built each one and what it
+built.  The windows place themselves, so what holds them has nothing to
+decide; a layout that wants to move them can say so here instead."
   (let ((background (urusi-screen-color (face-attribute 'default :background))))
     `(Grid ,@(when background `(:Background ,background))
-           (Grid.RowDefinitions
-            ,@(mapcar (lambda (part)
-                        `(RowDefinition
-                          :Height ,(if (get (car part) 'urusi-screen-stretch)
-                                       "*"
-                                     "Auto")))
-                      parts))
-           ,@(cl-loop for part in parts
-                      for row from 0
-                      collect (urusi-screen--in-row (cdr part) row)))))
+           ,@(mapcar #'cdr parts))))
 
-(defun urusi-screen--in-row (tree row)
-  "Return TREE placed in ROW of the grid around it."
-  (cons (car tree) (append (list :Grid.Row row) (cdr tree))))
-
-(defun urusi-screen-tree (&optional window)
-  "Return the whole screen of WINDOW as a tree for `urusi-render'."
-  (let* ((window (or window (selected-window)))
+(defun urusi-screen-tree (&optional frame)
+  "Return the whole screen of FRAME as a tree for `urusi-render'."
+  (let* ((frame (or frame (selected-frame)))
          (parts (delq nil
                       (mapcar (lambda (component)
-                                (when-let* ((tree (funcall component window)))
+                                (when-let* ((tree (funcall component frame)))
                                   (cons component tree)))
                               urusi-screen-components))))
-    (funcall urusi-screen-layout-function parts window)))
+    (funcall urusi-screen-layout-function parts frame)))
 
 (defun urusi-screen-render ()
   "Show the screen in the host window."
   (interactive)
+  ;; What is drawn is read out of the screen Emacs drew, so there has to
+  ;; be one, and it has to be of what the buffers hold now.
+  (redisplay)
   (urusi-render (urusi-screen-tree)))
 
 (defvar urusi-screen--pending nil
@@ -483,7 +378,6 @@ its own."
         (add-hook 'urusi-stale-hook #'urusi-screen-render)
         (add-hook 'urusi-message-hook #'urusi-screen--message)
         (urusi-forget)
-        (urusi-screen--measure)
         ;; Nothing has been displayed yet when this runs during startup,
         ;; so Emacs has no screen to tell about; ask again once it has.
         (urusi-screen--after-command)
@@ -493,7 +387,7 @@ its own."
     (remove-hook 'urusi-message-hook #'urusi-screen--message)))
 
 (defun urusi-screen--message (message)
-  "Take MESSAGE from the host, if it is one this file asked for."
+  "Answer MESSAGE from the host, if it is this file's to answer."
   (pcase (plist-get message :type)
     ("measured" (urusi-screen--measured message))
     ("composition"
