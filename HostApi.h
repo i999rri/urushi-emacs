@@ -32,6 +32,12 @@ namespace urusi
         // dropped until Emacs asks for its messages.
         void Send(std::string const& message);
 
+        // The window Emacs is to put its frames in. Set before Emacs
+        // starts, because Emacs asks for it from a thread of its own
+        // and nothing of XAML may be touched there.
+        void SetWindow(HWND window);
+        HWND Window() const;
+
         // For w32_host_get_api, which is C and cannot reach the rest.
         void Deliver(char const* message);
         void SetSink(w32_host_event_fn fn, void* data);
@@ -43,5 +49,6 @@ namespace urusi
         MessageFn m_onMessage;
         w32_host_event_fn m_sink{ nullptr };
         void* m_sinkData{ nullptr };
+        HWND m_window{ nullptr };
     };
 }

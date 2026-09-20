@@ -10,10 +10,23 @@
     Title="urusi-emacs">
 
     <Grid>
-        <!-- What Emacs writes to its standard output and error. It is
-             the only place those go in a packaged application, and it
-             is where a failure to start shows up. -->
-        <ScrollViewer x:Name="LogView" Padding="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- The UI sent by Emacs. Above the editor, because a window of
+             its own is always drawn over anything XAML puts there. -->
+        <Grid x:Name="Surface" Grid.Row="0" />
+
+        <!-- Where the Emacs frame goes. It is a window of Emacs's own,
+             placed over this one and kept the same size, so nothing is
+             drawn here. -->
+        <Border x:Name="EditorSite" Grid.Row="1" />
+
+        <!-- What Emacs writes to its standard output and error, until
+             it has a frame to show instead. -->
+        <ScrollViewer x:Name="LogView" Grid.Row="1" Padding="16">
             <TextBlock
                 x:Name="Log"
                 FontFamily="Consolas"
@@ -22,11 +35,11 @@
                 Opacity="0.7"
                 TextWrapping="Wrap" />
         </ScrollViewer>
-        <!-- The UI sent by Emacs goes here. -->
-        <Grid x:Name="Surface" />
+
         <!-- Shown while waiting for Emacs, and for errors. -->
         <TextBlock
             x:Name="Status"
+            Grid.Row="1"
             Margin="16"
             HorizontalAlignment="Left"
             VerticalAlignment="Bottom"

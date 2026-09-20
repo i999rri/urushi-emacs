@@ -4,6 +4,12 @@
 #include "MainWindow.g.cpp"
 #endif
 
+// For the window handle of this window, which is what Emacs makes its
+// frame a child of.
+#include <microsoft.ui.xaml.window.h>
+
+#include <cmath>
+
 using namespace winrt;
 using namespace Microsoft::UI::Xaml;
 using namespace Windows::Data::Json;
@@ -68,7 +74,55 @@ namespace winrt::urusi_emacs::implementation
                 }
             });
         });
+        HWND window = nullptr;
+        check_hresult(try_as<::IWindowNative>()->get_WindowHandle(&window));
+        urusi::HostApi::Instance().SetWindow(window);
+
+        // The frame is placed over EditorSite and has to follow it.
+        EditorSite().SizeChanged([weak](IInspectable const&, SizeChangedEventArgs const&) {
+            if (auto self = weak.get())
+            {
+                self->PlaceEmacsWindow();
+            }
+        });
+
         ShowStatus(L"Waiting for Emacs");
+    }
+
+    void MainWindow::TakeEmacsWindow(HWND window)
+    {
+        m_emacsWindow = window;
+        LogView().Visibility(Visibility::Collapsed);
+        ShowStatus(L"");
+        PlaceEmacsWindow();
+    }
+
+    void MainWindow::PlaceEmacsWindow()
+    {
+        if (!m_emacsWindow)
+        {
+            return;
+        }
+
+        auto site = EditorSite();
+        auto root = Content();
+        if (!site.XamlRoot() || !root)
+        {
+            return;
+        }
+
+        // XAML works in device-independent pixels and a window in
+        // physical ones.
+        double scale = site.XamlRoot().RasterizationScale();
+        auto origin = site.TransformToVisual(root).TransformPoint({ 0, 0 });
+        auto pixels = [scale](double value) { return static_cast<int>(std::lround(value * scale)); };
+
+        // SWP_ASYNCWINDOWPOS: the window belongs to a thread of Emacs's,
+        // and this one must not wait on it.
+        SetWindowPos(m_emacsWindow, nullptr,
+                     pixels(origin.X), pixels(origin.Y),
+                     pixels(site.ActualWidth()), pixels(site.ActualHeight()),
+                     SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_ASYNCWINDOWPOS);
     }
 
     void MainWindow::StartEmacs()
@@ -127,6 +181,11 @@ namespace winrt::urusi_emacs::implementation
         else if (type == L"render")
         {
             Render(message);
+        }
+        else if (type == L"frame")
+        {
+            TakeEmacsWindow(reinterpret_cast<HWND>(
+                static_cast<INT_PTR>(message.GetNamedNumber(L"window", 0))));
         }
         else
         {

@@ -26,6 +26,12 @@ namespace winrt::urusi_emacs::implementation
         void Start();
         void StartEmacs();
 
+        // The Emacs frame is a window of Emacs's own, made a child of
+        // this one. Emacs says when it exists; where it goes is this
+        // window's business from then on.
+        void TakeEmacsWindow(HWND window);
+        void PlaceEmacsWindow();
+
         // Runs on the UI thread.
         void OnMessage(std::string const& line);
         void Render(Windows::Data::Json::JsonObject const& message);
@@ -42,6 +48,7 @@ namespace winrt::urusi_emacs::implementation
 
         Microsoft::UI::Dispatching::DispatcherQueue m_dispatcher{ nullptr };
         std::string m_log;
+        HWND m_emacsWindow{ nullptr };
     };
 }
 

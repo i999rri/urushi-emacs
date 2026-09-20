@@ -65,6 +65,10 @@ messages wait in a queue until Emacs looks at it."
   (unless (urusi-available-p)
     (user-error "urusi: This Emacs does not run inside the host"))
   (urusi-stop)
+  ;; The frame is a child window of the host's, which Windows draws no
+  ;; menu bar above.
+  (menu-bar-mode -1)
+  (tool-bar-mode -1)
   (setq urusi--timer
         (run-with-timer urusi-poll-interval urusi-poll-interval #'urusi--take))
   (urusi--send '(:type "hello" :version 1)))
