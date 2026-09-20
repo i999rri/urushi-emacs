@@ -158,6 +158,12 @@
     </Midl>
   </ItemGroup>
   <ItemGroup>
+    <!-- Emacs itself, put here by scripts\stage-emacs.sh. -->
+    <Content Include="emacs\**\*">
+      <DeploymentContent>true</DeploymentContent>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
     <!-- Emacs loads this at startup, from the package. -->
     <Content Include="lisp\urusi.el">
       <DeploymentContent>true</DeploymentContent>

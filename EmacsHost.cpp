@@ -44,8 +44,10 @@ namespace urusi
             return std::wstring{ configured, length };
         }
 
+        // Emacs takes the directory holding the DLL to be its bin, and
+        // finds its Lisp and data from the directory above that.
         auto directory = ModuleDirectory();
-        return directory.empty() ? L"libemacs.dll" : directory + L"\\emacs\\libemacs.dll";
+        return directory.empty() ? L"libemacs.dll" : directory + L"\\emacs\\bin\\libemacs.dll";
     }
 
     bool EmacsHost::Start(std::wstring const& dll,

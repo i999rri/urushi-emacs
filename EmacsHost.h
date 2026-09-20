@@ -34,8 +34,9 @@ namespace urusi
                    OutputFn onOutput,
                    std::string& error);
 
-        // The path Start takes by default: URUSI_EMACS_DLL, or
-        // emacs\libemacs.dll next to the application.
+        // Where Emacs is: emacs\bin\libemacs.dll in the package, put
+        // there by scripts\stage-emacs.sh. URUSI_EMACS_DLL overrides
+        // it, to run against a build that is not staged.
         static std::wstring DefaultDll();
 
     private:

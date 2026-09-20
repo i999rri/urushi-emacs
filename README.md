@@ -6,24 +6,32 @@ Emacs runs inside this process. The application loads `libemacs.dll` — Emacs b
 
 ## Building
 
-The host needs Visual Studio with the Windows App SDK workload, and builds from `urusi-emacs.slnx`.
-
-Emacs is built separately, in the MSYS2 mingw64 shell, from the fork:
+Emacs is built first, in the MSYS2 mingw64 shell, from the fork:
 
 ```sh
 make -C src libemacs.dll
 ```
 
-then dumped with that DLL, which writes `libemacs.pdmp` beside it. Emacs finds both its dump and its Lisp from the path of the DLL, so the application only has to say where the DLL is.
+and then dumped with that DLL, which writes `libemacs.pdmp` beside it.
+
+`scripts/stage-emacs.sh` installs that Emacs into `emacs/` here, in the layout Emacs expects: the DLL and its dump in `bin`, the Lisp and data under `share`. Emacs finds all of it from the path of the DLL, and the application finds the DLL next to itself, so nothing has to be told where anything is.
+
+```sh
+scripts/stage-emacs.sh ~/source/repos/emacs-build
+```
+
+That is 134 MB, of which 110 MB is Emacs's own Lisp. The DLL is stripped down to 4 MB on the way; pass `--debug` to keep its debug information.
+
+The host then builds from `urusi-emacs.slnx`, in Visual Studio with the Windows App SDK workload, and takes `emacs/` into the package.
 
 ## Running
 
-Two environment variables say where things are, which is what a development build wants:
-
-- `URUSI_EMACS_DLL` — the path of `libemacs.dll`. Without it the application looks for `emacs\libemacs.dll` next to itself.
-- `URUSI_LISP_DIR` — the directory holding `urusi.el`. Without it, `lisp` next to the application.
-
 Emacs's standard output and error are shown in the window, which is where a failure to start appears.
+
+Two environment variables override where things are, for running against a build that is not staged:
+
+- `URUSI_EMACS_DLL` — the path of `libemacs.dll`.
+- `URUSI_LISP_DIR` — the directory holding `urusi.el`.
 
 <details>
 <summary>日本語</summary>
@@ -34,23 +42,31 @@ Emacs はこのプロセスの中で動く。アプリが `libemacs.dll`（[fork
 
 ### ビルド
 
-ホストは Visual Studio（Windows App SDK ワークロード）で `urusi-emacs.slnx` からビルドする。
-
-Emacs は fork から MSYS2 の mingw64 シェルで別にビルドする。
+先に Emacs を、MSYS2 の mingw64 シェルで fork からビルドする。
 
 ```sh
 make -C src libemacs.dll
 ```
 
-そのあと、その DLL でダンプすると隣に `libemacs.pdmp` ができる。Emacs は dump も Lisp も DLL の場所から見つけるので、アプリが指定するのは DLL の場所だけでいい。
+そのあと、その DLL でダンプすると隣に `libemacs.pdmp` ができる。
+
+`scripts/stage-emacs.sh` で、その Emacs を `emacs/` に Emacs が期待する配置でインストールする。DLL と dump が `bin`、Lisp とデータが `share` の下。Emacs は全部 DLL の場所から見つけるし、アプリは DLL を自分の隣から見つけるので、場所を教える設定はどこにも要らない。
+
+```sh
+scripts/stage-emacs.sh ~/source/repos/emacs-build
+```
+
+これで 134 MB。うち 110 MB は Emacs の Lisp。DLL は途中で strip して 4 MB にする。デバッグ情報を残すなら `--debug`。
+
+ホストはそのあと Visual Studio（Windows App SDK ワークロード）で `urusi-emacs.slnx` からビルドすると、`emacs/` ごとパッケージに入る。
 
 ### 実行
 
-開発中の指定は環境変数 2 つ。
-
-- `URUSI_EMACS_DLL` — `libemacs.dll` のパス。なければアプリの隣の `emacs\libemacs.dll` を見る。
-- `URUSI_LISP_DIR` — `urusi.el` があるディレクトリ。なければアプリの隣の `lisp`。
-
 Emacs の標準出力とエラーはウインドウに出る。起動に失敗したときもそこに出る。
+
+ステージングしていないビルドで動かしたいときは環境変数で上書きできる。
+
+- `URUSI_EMACS_DLL` — `libemacs.dll` のパス。
+- `URUSI_LISP_DIR` — `urusi.el` があるディレクトリ。
 
 </details>

@@ -17,3 +17,6 @@ packages/
 
 # Emacs
 *.elc
+
+# Emacs, staged by scripts/stage-emacs.sh
+emacs/
