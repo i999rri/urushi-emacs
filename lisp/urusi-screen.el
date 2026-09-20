@@ -159,7 +159,10 @@ keeps a keystroke to one line of the screen."
   (when-let* ((point (if (eq window (selected-window))
                          (point)
                        (window-point window)))
-              (position (posn-at-point point window))
+              ;; Emacs answers this from the screen it last drew, and
+              ;; has drawn none at all when this runs as it starts.
+              (position (or (posn-at-point point window)
+                            (progn (redisplay) (posn-at-point point window))))
               (xy (posn-x-y position))
               (color (or (urusi-screen-color (face-attribute 'cursor :background))
                          (urusi-screen-color (face-attribute 'default :foreground)))))
