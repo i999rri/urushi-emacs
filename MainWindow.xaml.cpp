@@ -171,16 +171,6 @@ namespace winrt::urusi_emacs::implementation
         // and this thread must not wait on it.
         SetWindowPos(m_emacsWindow, HWND_TOP, x, y, width, height,
                      SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_ASYNCWINDOWPOS);
-
-        // Once: this runs on every step of a window being dragged.
-        if (m_seen.insert(L"placed").second)
-        {
-            AppendLog("frame " + std::to_string(reinterpret_cast<INT_PTR>(m_emacsWindow))
-                      + " placed at " + std::to_string(x) + "," + std::to_string(y)
-                      + " " + std::to_string(width) + "x" + std::to_string(height)
-                      + (IsWindowVisible(m_emacsWindow) ? " visible" : " hidden")
-                      + (GetParent(m_emacsWindow) ? " parented" : " unparented") + "\n");
-        }
     }
 
     void MainWindow::StartEmacs()
