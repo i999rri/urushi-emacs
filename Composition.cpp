@@ -74,10 +74,30 @@ namespace urusi
             m_commit(m_text);
         }
 
+        Reset();
+    }
+
+    // Empty the text, on both sides.
+    //
+    // The context keeps a count of its own of where in the text things
+    // are, and goes on counting from where the last composition ended.
+    // Emptying the text without saying so leaves it counting from a
+    // place that no longer exists, and the next composition arrives as
+    // a replacement of a range that is not there.
+    void Composition::Reset()
+    {
+        auto length = static_cast<int32_t>(m_text.size());
+
         m_text.clear();
         if (m_composing_changed)
         {
             m_composing_changed(m_text);
+        }
+
+        if (m_context && length > 0)
+        {
+            m_context.NotifyTextChanged({ 0, length }, 0, { 0, 0 });
+            m_context.NotifySelectionChanged({ 0, 0 });
         }
     }
 
@@ -170,11 +190,8 @@ namespace urusi
 
         m_context.FocusRemoved([this](CoreTextEditContext const&, auto&&) {
             m_composing = false;
-            m_text.clear();
-            if (m_composing_changed)
-            {
-                m_composing_changed(m_text);
-            }
+            Say("focus removed");
+            Reset();
         });
     }
 }

@@ -56,6 +56,7 @@ namespace urusi
     private:
         void Bind();
         void Settle();
+        void Reset();
         void Say(std::string const& what);
 
         winrt::Windows::UI::Text::Core::CoreTextEditContext m_context{ nullptr };
