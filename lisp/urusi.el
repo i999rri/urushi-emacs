@@ -93,7 +93,8 @@ messages wait in a queue until Emacs looks at it."
                                             :object-type 'plist
                                             :false-object nil
                                             :null-object nil))
-      (error (message "urusi: %S in %s" err message)))))
+      ;; The echo area is drawn by whatever this was on its way to.
+      (error (urusi--log "%S in %s" err message)))))
 
 (defun urusi--log (format &rest arguments)
   "Write FORMAT with ARGUMENTS where the host will show it.
@@ -121,8 +122,15 @@ Each takes the message, as a plist.")
   "Functions to run when the host has lost track of what it shows.
 Whatever is drawing has to draw the whole of it again.")
 
+(defvar urusi--seen nil
+  "Kinds of message the host has sent, so each is only remarked on once.")
+
 (defun urusi--dispatch (message)
   "Handle MESSAGE, a plist parsed from the host."
+  (let ((type (plist-get message :type)))
+    (unless (member type urusi--seen)
+      (push type urusi--seen)
+      (urusi--log "first %s from the host" type)))
   (pcase (plist-get message :type)
     ("hello"
      (setq urusi-scale (or (plist-get message :scale) 1.0))
