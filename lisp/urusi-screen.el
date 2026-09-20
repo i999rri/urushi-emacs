@@ -154,14 +154,26 @@ KEY says which line this is between one screen and the next: a line
 whose key and contents are unchanged is left alone by the host, and one
 that has only moved is moved rather than built again.
 
-An empty line still takes its height, which is what the space is for."
-  (let ((background (urusi-screen-color
-                     (urusi-screen-face-attribute face :background))))
-    `(TextBlock :key ,key
-                :TextWrapping "NoWrap"
-                :LineHeight ,(* urusi-screen-line-height (urusi-screen-font-size))
-                ,@(when background `(:Background ,background))
-                ,@(or runs (list '(Run :Text " "))))))
+An empty line still takes its height, which is what the space is for.
+
+A TextBlock takes no background of its own and inherits no font from
+what it is in, so a line that wants a background is wrapped in a
+Border, and the font is on the line itself."
+  (let* ((background (urusi-screen-color
+                      (urusi-screen-face-attribute face :background)))
+         (foreground (urusi-screen-color
+                      (or (urusi-screen-face-attribute face :foreground)
+                          (face-attribute 'default :foreground))))
+         (text `(TextBlock :TextWrapping "NoWrap"
+                           :FontFamily ,(urusi-screen-font-family)
+                           :FontSize ,(urusi-screen-font-size)
+                           :LineHeight ,(* urusi-screen-line-height
+                                           (urusi-screen-font-size))
+                           ,@(when foreground `(:Foreground ,foreground))
+                           ,@(or runs (list '(Run :Text " "))))))
+    (if background
+        `(Border :key ,key :Background ,background ,text)
+      `(TextBlock :key ,key ,@(cdr text)))))
 
 ;;;; The components
 
@@ -230,14 +242,12 @@ text is broken exactly where Emacs has it broken."
 ;;;; The screen
 
 (defun urusi-screen-layout (parts _window)
-  "Return PARTS stacked from top to bottom, in the colours of `default'."
-  (let ((background (urusi-screen-color (face-attribute 'default :background)))
-        (foreground (urusi-screen-color (face-attribute 'default :foreground))))
+  "Return PARTS stacked from top to bottom, on the background of `default'.
+A panel has no colour or font to give its contents; each line carries
+its own."
+  (let ((background (urusi-screen-color (face-attribute 'default :background))))
     `(StackPanel :Orientation "Vertical"
                  ,@(when background `(:Background ,background))
-                 ,@(when foreground `(:Foreground ,foreground))
-                 :FontFamily ,(urusi-screen-font-family)
-                 :FontSize ,(urusi-screen-font-size)
                  ,@parts)))
 
 (defun urusi-screen-tree (&optional window)

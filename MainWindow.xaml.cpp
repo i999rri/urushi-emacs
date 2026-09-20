@@ -337,8 +337,10 @@ namespace winrt::urusi_emacs::implementation
                 }
                 catch (hresult_error const& e)
                 {
-                    SendError(L"XAML in row " + key + L": " + e.message());
-                    return;
+                    // One row that will not parse is one row missing,
+                    // not a screen lost.
+                    SendError(L"row " + key + L": " + e.message());
+                    continue;
                 }
                 row.as<FrameworkElement>().Tag(box_value(key));
                 wanted.push_back(row);
