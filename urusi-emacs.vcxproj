@@ -159,16 +159,17 @@
     </Midl>
   </ItemGroup>
   <ItemGroup>
-    <!-- Emacs itself, put here by scripts\stage-emacs.sh. -->
-    <Content Include="emacs\**\*">
+    <!--
+      Emacs itself, put here by scripts\stage-emacs.sh, and the Lisp it
+      loads at startup. None with DeploymentContent is what a C++
+      project puts in the package; Content is not picked up.
+    -->
+    <None Include="emacs\**\*">
       <DeploymentContent>true</DeploymentContent>
-    </Content>
-  </ItemGroup>
-  <ItemGroup>
-    <!-- Emacs loads this at startup, from the package. -->
-    <Content Include="lisp\urusi.el">
+    </None>
+    <None Include="lisp\urusi.el">
       <DeploymentContent>true</DeploymentContent>
-    </Content>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include="readme.txt">
