@@ -144,20 +144,14 @@ namespace urusi
         // Emacs wrote them in is what makes them readable. The write
         // end is never closed, so the reader below never sees the end
         // of the pipe and keeps up with Emacs for as long as it runs.
+        //
+        // These are the standard handles of the whole process only
+        // until Emacs has taken them: Emacs binds them to file
+        // descriptors of its own and puts the process back as it found
+        // it, because what a process holds here is what the programs it
+        // runs are given, and Emacs runs programs.
         SetStdHandle(STD_OUTPUT_HANDLE, write);
         SetStdHandle(STD_ERROR_HANDLE, write);
-
-        // And something to read from, which without a console there is
-        // not. Emacs gives a program it runs the standard handles this
-        // process holds, and a program given nothing to read from is a
-        // program that may never finish.
-        HANDLE nothing = CreateFileW(L"NUL", GENERIC_READ,
-                                     FILE_SHARE_READ | FILE_SHARE_WRITE,
-                                     &inheritable, OPEN_EXISTING, 0, nullptr);
-        if (nothing != INVALID_HANDLE_VALUE)
-        {
-            SetStdHandle(STD_INPUT_HANDLE, nothing);
-        }
 
         HANDLE reader = CreateThread(nullptr, 0, ReadOutput, this, 0, nullptr);
         if (!reader)

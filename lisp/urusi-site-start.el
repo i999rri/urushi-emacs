@@ -20,7 +20,7 @@
 (declare-function urusi-screen-mode "urusi-screen" (&optional arg))
 (defvar urusi-screen-mode)
 
-(defcustom urusi-site-start-trace t
+(defcustom urusi-site-start-trace nil
   "Whether to say what the init file is loading, as it loads it.
 
 An init file is read before there is a screen to show anything on, and
@@ -48,7 +48,19 @@ worth having."
   (urusi--log "call-process %s %S" program arguments))
 
 (defun urusi-site-start--trace (on)
-  "Say what is being loaded and run while an init file is read, if ON."
+  "Say what is being loaded and run while an init file is read, if ON.
+
+Also run a program and wait for it, because the host gives Emacs a
+pipe for its output and a program inherits what the process holds: a
+program that never comes back is the first thing to know about."
+  (when on
+    (urusi--log "a child says %S"
+                (condition-case error
+                    (with-temp-buffer
+                      (list (call-process "cmd" nil t nil "/c" "echo urusi-child")
+                            (string-trim (buffer-string))))
+                  (error error))))
+
   (dolist (advice '((load . urusi-site-start--loading)
                     (require . urusi-site-start--requiring)
                     (call-process . urusi-site-start--calling)
@@ -75,20 +87,10 @@ worth having."
   (require 'urusi)
   (require 'urusi-screen)
 
-  ;; How far Emacs got, for when it does not get all the way: nothing
-  ;; Emacs writes to its standard error reaches the host, so the only
-  ;; account of a startup is the one it sends.
+  ;; How far Emacs got, for when it does not get all the way: the
+  ;; screen is not there yet to say anything on, so the only account of
+  ;; a startup is the one it sends.
   (urusi--log "site-start")
-
-  ;; Whether anything Emacs runs comes back at all.  The host gives
-  ;; Emacs a pipe for its output, and a child inherits what the parent
-  ;; holds, so this is the first thing to know when one does not.
-  (urusi--log "a child says %S"
-              (condition-case error
-                  (with-temp-buffer
-                    (list (call-process "cmd" nil t nil "/c" "echo urusi-child")
-                          (string-trim (buffer-string))))
-                (error error)))
 
   (when urusi-site-start-trace
     (urusi-site-start--trace t))
