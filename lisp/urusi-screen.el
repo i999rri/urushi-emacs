@@ -264,7 +264,7 @@ text is broken exactly where Emacs has it broken."
                    (setq urusi-screen--pending nil)
                    (condition-case err
                        (urusi-screen-render)
-                     (error (message "urusi-screen: %S" err))))))))
+                     (error (urusi--log "screen: %S" err))))))))
 
 ;;;###autoload
 (define-minor-mode urusi-screen-mode
@@ -275,7 +275,11 @@ text is broken exactly where Emacs has it broken."
         (add-hook 'post-command-hook #'urusi-screen--after-command)
         (add-hook 'urusi-stale-hook #'urusi-screen-render)
         (urusi-forget)
-        (urusi-screen-render))
+        (condition-case err
+            (progn (urusi-screen-render)
+                   (urusi--log "screen mode on, %s lines"
+                               (count-lines (window-start) (window-end nil t))))
+          (error (urusi--log "screen: %S" err))))
     (remove-hook 'post-command-hook #'urusi-screen--after-command)
     (remove-hook 'urusi-stale-hook #'urusi-screen-render)))
 

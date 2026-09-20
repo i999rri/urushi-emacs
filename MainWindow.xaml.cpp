@@ -222,6 +222,15 @@ namespace winrt::urusi_emacs::implementation
         }
 
         auto type = message.GetNamedString(L"type", L"");
+
+        // The first of each kind, so that a message that never comes is
+        // as plain to see as one that fails.
+        if (m_seen.insert(std::wstring{ type }).second)
+        {
+            AppendLog("first " + to_string(type) + ", " + std::to_string(line.size())
+                      + " bytes\n");
+        }
+
         if (type == L"hello")
         {
             ShowStatus(L"");
@@ -468,6 +477,7 @@ namespace winrt::urusi_emacs::implementation
     void MainWindow::SendError(hstring const& text)
     {
         ShowStatus(text);
+        AppendLog("error: " + to_string(text) + "\n");
         JsonObject message;
         message.SetNamedValue(L"type", String(L"error"));
         message.SetNamedValue(L"message", String(text));

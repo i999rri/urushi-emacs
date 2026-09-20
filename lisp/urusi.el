@@ -95,6 +95,14 @@ messages wait in a queue until Emacs looks at it."
                                             :null-object nil))
       (error (message "urusi: %S in %s" err message)))))
 
+(defun urusi--log (format &rest arguments)
+  "Write FORMAT with ARGUMENTS where the host will show it.
+The echo area is no use for what goes wrong on the way to drawing it,
+so this goes to the standard error, which the host keeps a log of."
+  (princ (concat "urusi: " (apply #'format format arguments) "
+")
+         #'external-debugging-output))
+
 (defvar urusi-stale-hook nil
   "Functions to run when the host has lost track of what it shows.
 Whatever is drawing has to draw the whole of it again.")

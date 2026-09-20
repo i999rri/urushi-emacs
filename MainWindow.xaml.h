@@ -5,6 +5,7 @@
 #include "HostApi.h"
 
 #include <memory>
+#include <set>
 #include <string>
 
 namespace winrt::urusi_emacs::implementation
@@ -51,6 +52,7 @@ namespace winrt::urusi_emacs::implementation
 
         Microsoft::UI::Dispatching::DispatcherQueue m_dispatcher{ nullptr };
         std::string m_log;
+        std::set<std::wstring> m_seen;
         HWND m_emacsWindow{ nullptr };
     };
 }
