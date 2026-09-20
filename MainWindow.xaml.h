@@ -1,6 +1,7 @@
 #pragma once
 
 #include "MainWindow.g.h"
+#include "EmacsHost.h"
 #include "UiServer.h"
 
 #include <memory>
@@ -22,6 +23,7 @@ namespace winrt::urusi_emacs::implementation
 
     private:
         void Start(uint16_t port);
+        void StartEmacs();
 
         // Runs on the UI thread.
         void OnMessage(std::string const& line);
@@ -35,9 +37,11 @@ namespace winrt::urusi_emacs::implementation
         void Send(Windows::Data::Json::JsonObject const& message);
 
         void ShowStatus(winrt::hstring const& text);
+        void AppendLog(std::string const& text);
 
         Microsoft::UI::Dispatching::DispatcherQueue m_dispatcher{ nullptr };
         std::unique_ptr<urusi::UiServer> m_server;
+        std::string m_log;
     };
 }
 

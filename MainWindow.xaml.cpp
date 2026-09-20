@@ -32,6 +32,33 @@ namespace
     {
         return JsonValue::CreateStringValue(text);
     }
+
+    // Enough of Emacs's output to see how it started, and no more.
+    constexpr size_t kLogLimit = 16384;
+
+    // Where urusi.el is: URUSI_LISP_DIR, or lisp next to the
+    // application. Emacs takes its command line in the encoding of the
+    // system, so this stays narrow all the way.
+    std::string LispDirectory()
+    {
+        char configured[MAX_PATH]{};
+        DWORD length = GetEnvironmentVariableA("URUSI_LISP_DIR", configured, ARRAYSIZE(configured));
+        if (length > 0 && length < ARRAYSIZE(configured))
+        {
+            return std::string{ configured, length };
+        }
+
+        char path[MAX_PATH]{};
+        length = GetModuleFileNameA(nullptr, path, ARRAYSIZE(path));
+        if (length == 0 || length == ARRAYSIZE(path))
+        {
+            return {};
+        }
+
+        std::string directory{ path, length };
+        auto slash = directory.find_last_of('\\');
+        return slash == std::string::npos ? std::string{} : directory.substr(0, slash) + "\\lisp";
+    }
 }
 
 namespace winrt::urusi_emacs::implementation
@@ -40,6 +67,7 @@ namespace winrt::urusi_emacs::implementation
     {
         MainWindowT::InitializeComponent();
         Start(ReadPort());
+        StartEmacs();
     }
 
     void MainWindow::Start(uint16_t port)
@@ -74,6 +102,40 @@ namespace winrt::urusi_emacs::implementation
         catch (std::exception const& e)
         {
             ShowStatus(L"Cannot listen on 127.0.0.1:" + to_hstring(port) + L": " + to_hstring(e.what()));
+        }
+    }
+
+    void MainWindow::StartEmacs()
+    {
+        auto weak = get_weak();
+        auto dispatcher = m_dispatcher;
+
+        std::vector<std::string> args{ "emacs", "-Q" };
+        auto lisp = LispDirectory();
+        if (!lisp.empty())
+        {
+            args.push_back("-l");
+            args.push_back(lisp + "\\urusi.el");
+            args.push_back("--eval");
+            args.push_back("(urusi-connect)");
+        }
+
+        std::string error;
+        bool started = urusi::EmacsHost::Instance().Start(
+            urusi::EmacsHost::DefaultDll(),
+            args,
+            [weak, dispatcher](std::string text) {
+                dispatcher.TryEnqueue([weak, text = std::move(text)] {
+                    if (auto self = weak.get())
+                    {
+                        self->AppendLog(text);
+                    }
+                });
+            },
+            error);
+        if (!started)
+        {
+            AppendLog(error + "\n");
         }
     }
 
@@ -241,5 +303,19 @@ namespace winrt::urusi_emacs::implementation
     void MainWindow::ShowStatus(hstring const& text)
     {
         Status().Text(text);
+    }
+
+    void MainWindow::AppendLog(std::string const& text)
+    {
+        m_log += text;
+        if (m_log.size() > kLogLimit)
+        {
+            m_log.erase(0, m_log.size() - kLogLimit);
+        }
+        Log().Text(to_hstring(m_log));
+
+        // The extent only grows once the new text has been laid out.
+        LogView().UpdateLayout();
+        LogView().ChangeView(nullptr, LogView().ScrollableHeight(), nullptr);
     }
 }

@@ -10,6 +10,18 @@
     Title="urusi-emacs">
 
     <Grid>
+        <!-- What Emacs writes to its standard output and error. It is
+             the only place those go in a packaged application, and it
+             is where a failure to start shows up. -->
+        <ScrollViewer x:Name="LogView" Padding="16">
+            <TextBlock
+                x:Name="Log"
+                FontFamily="Consolas"
+                FontSize="12"
+                IsTextSelectionEnabled="True"
+                Opacity="0.7"
+                TextWrapping="Wrap" />
+        </ScrollViewer>
         <!-- The UI sent by Emacs goes here. -->
         <Grid x:Name="Surface" />
         <!-- Shown while waiting for Emacs, and for errors. -->
