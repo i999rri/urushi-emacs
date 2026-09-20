@@ -261,4 +261,22 @@
     <Error Condition="!Exists('packages\Microsoft.Windows.SDK.BuildTools.10.0.28000.2705\build\Microsoft.Windows.SDK.BuildTools.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.Windows.SDK.BuildTools.10.0.28000.2705\build\Microsoft.Windows.SDK.BuildTools.targets'))" />
     <Error Condition="!Exists('packages\Microsoft.Windows.ImplementationLibrary.1.0.260126.7\build\native\Microsoft.Windows.ImplementationLibrary.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.Windows.ImplementationLibrary.1.0.260126.7\build\native\Microsoft.Windows.ImplementationLibrary.targets'))" />
   </Target>
+  <!--
+    A run that is not packaged finds Emacs beside the executable, and
+    nothing puts it there: the None items above are the payload of the
+    package only. Copy the staged tree after every build, which after
+    the first time moves only what changed.
+  -->
+  <Target Name="CopyEmacsToOutput" AfterTargets="Build">
+    <ItemGroup>
+      <StagedEmacs Include="$(ProjectDir)emacs\**\*" />
+      <UrusiLisp Include="$(ProjectDir)lisp\*.el" />
+    </ItemGroup>
+    <Copy SourceFiles="@(StagedEmacs)"
+          DestinationFiles="@(StagedEmacs->'$(OutDir)emacs\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(UrusiLisp)"
+          DestinationFolder="$(OutDir)lisp"
+          SkipUnchangedFiles="true" />
+  </Target>
 </Project>
