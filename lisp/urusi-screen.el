@@ -49,9 +49,11 @@
 That is so on a terminal, where Emacs never asked for one."
   :type 'string)
 
-(defcustom urusi-screen-line-height 1.3
-  "Height of a screen line, as a multiple of the font size."
-  :type 'number)
+(defun urusi-screen-line-height ()
+  "Return the height of a screen line, in the pixels XAML counts in.
+It is the height Emacs laid the text out with, so that a screenful
+here is a screenful there."
+  (/ (default-line-height) (float urusi-scale)))
 
 (defcustom urusi-screen-components
   '(urusi-screen-header
@@ -167,8 +169,8 @@ Border, and the font is on the line itself."
          (text `(TextBlock :TextWrapping "NoWrap"
                            :FontFamily ,(urusi-screen-font-family)
                            :FontSize ,(urusi-screen-font-size)
-                           :LineHeight ,(* urusi-screen-line-height
-                                           (urusi-screen-font-size))
+                           :LineHeight ,(urusi-screen-line-height)
+                           :LineStackingStrategy "BlockLineHeight"
                            ,@(when foreground `(:Foreground ,foreground))
                            ,@(or runs (list '(Run :Text " "))))))
     (if background

@@ -282,6 +282,10 @@ namespace winrt::urusi_emacs::implementation
             reply.SetNamedValue(L"type", String(L"hello"));
             reply.SetNamedValue(L"host", String(L"urusi-emacs"));
             reply.SetNamedValue(L"version", JsonValue::CreateNumberValue(1));
+            // Emacs measures in the pixels of the screen and XAML in
+            // 96ths of an inch, and this is what lies between them.
+            reply.SetNamedValue(L"scale", JsonValue::CreateNumberValue(
+                Content() && Content().XamlRoot() ? Content().XamlRoot().RasterizationScale() : 1.0));
             Send(reply);
         }
         else if (type == L"screen")
@@ -305,6 +309,11 @@ namespace winrt::urusi_emacs::implementation
 
     void MainWindow::Screen(JsonObject const& message)
     {
+        // Emacs sets its frame to a size of its own during startup, and
+        // whenever Lisp asks it to. Where the frame goes is this
+        // window's to say, so say it again.
+        PlaceEmacsWindow();
+
         // The XAML around the rows comes only when it has changed, and
         // everything in it goes with it.
         if (message.HasKey(L"xaml"))

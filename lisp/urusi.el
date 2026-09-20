@@ -107,6 +107,12 @@ else does."
         (w32-host-post (json-serialize (list :type "log" :text text)))
       (princ (concat "urusi: " text "\n") #'external-debugging-output))))
 
+(defvar urusi-scale 1.0
+  "How many pixels of the screen go to one of the pixels XAML counts in.
+Emacs measures in the pixels of the screen, XAML in 96ths of an inch,
+and on a display that is scaled the two are not the same.  The host
+says which it is when it answers the first message.")
+
 (defvar urusi-stale-hook nil
   "Functions to run when the host has lost track of what it shows.
 Whatever is drawing has to draw the whole of it again.")
@@ -114,7 +120,9 @@ Whatever is drawing has to draw the whole of it again.")
 (defun urusi--dispatch (message)
   "Handle MESSAGE, a plist parsed from the host."
   (pcase (plist-get message :type)
-    ("hello" (message "urusi: Talking to %s" (plist-get message :host)))
+    ("hello"
+     (setq urusi-scale (or (plist-get message :scale) 1.0))
+     (message "urusi: Talking to %s" (plist-get message :host)))
     ("event" (urusi--call-handler (plist-get message :id) (plist-get message :args)))
     ("stale" (urusi-forget) (run-hooks 'urusi-stale-hook))
     ("error" (message "urusi: %s" (plist-get message :message)))))
