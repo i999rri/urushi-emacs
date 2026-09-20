@@ -191,28 +191,36 @@ beside the text rather than in a corner.")
       (setq urusi-screen--caret caret)
       (urusi--send (list :type "caret" :x x :y y :width width :height height)))))
 
-(defun urusi-screen-cursor (window)
-  "Return the cursor of WINDOW, to be laid over the text.
-Emacs knows where the point is on the screen, to the pixel, because it
-is Emacs that put it there; ask, and draw a bar at that spot.  Nothing
-about the lines has to change for the cursor to move, which is what
-keeps a keystroke to one line of the screen."
-  (when-let* ((point (if (eq window (selected-window))
-                         (point)
-                       (window-point window)))
-              ;; Emacs answers this from the screen it last drew, and
-              ;; has drawn none at all when this runs as it starts.
-              (position (or (posn-at-point point window)
-                            (progn (redisplay) (posn-at-point point window))))
-              (xy (posn-x-y position))
-              (color (or (urusi-screen-color (face-attribute 'cursor :background))
+(defun urusi-screen--columns-to (start end)
+  "Return how many columns the text from START to END takes."
+  (let ((columns 0)
+        (position start))
+    (while (< position end)
+      (setq columns (+ columns (urusi-screen-columns (char-after position))))
+      (setq position (1+ position)))
+    columns))
+
+(defun urusi-screen-cursor (point row start)
+  "Return the cursor at POINT, to be laid over the text.
+ROW is the screen line POINT is on, counting from the top of what is
+shown, and START is where that line begins.
+
+Where the cursor goes is counted the same way the text it sits in was
+laid out.  Emacs would answer this too, but it answers from the screen
+it last drew, which is not this one and is a keystroke behind it.
+
+Nothing about the lines has to change for the cursor to move, which is
+what keeps a keystroke to one line of the screen."
+  (when-let* ((color (or (urusi-screen-color (face-attribute 'cursor :background))
                          (urusi-screen-color (face-attribute 'default :foreground)))))
     ;; Emacs counts in the pixels of the screen, XAML in 96ths of an inch.
     (let* ((scale (float urusi-scale))
-           (left (/ (car xy) scale))
-           (top (/ (cdr xy) scale))
+           (x (* (urusi-screen--columns-to start point) (default-font-width)))
+           (y (* row (default-line-height)))
+           (left (/ x scale))
+           (top (/ y scale))
            (height (urusi-screen-line-height)))
-      (urusi-screen--tell-caret (car xy) (cdr xy) 2 (default-line-height))
+      (urusi-screen--tell-caret x y 2 (default-line-height))
       `(Canvas :key "cursor"
                :IsHitTestVisible "False"
                (Rectangle :Canvas.Left ,left
@@ -340,8 +348,12 @@ Border, and the font is on the line itself."
 Where each screen line starts and ends is asked of Emacs, so that the
 text is broken exactly where Emacs has it broken."
   (with-current-buffer (window-buffer window)
-    (let ((lines nil)
-          (end (window-end window t)))
+    (let* ((lines nil)
+           (end (window-end window t))
+           (point (if (eq window (selected-window)) (point) (window-point window)))
+           (row nil)
+           (row-start nil)
+           (index 0))
       (save-excursion
         (goto-char (window-start window))
         (while (< (point) end)
@@ -354,21 +366,31 @@ text is broken exactly where Emacs has it broken."
                    (last (if (and (< start stop) (eq (char-before stop) ?\n))
                              (1- stop)
                            stop)))
+              ;; The line the point is on is the last one to begin at or
+              ;; before it, since a line ends where the next one begins.
+              (when (<= start point)
+                (setq row index
+                      row-start start))
               ;; Where the line starts is what it is: a line that has
               ;; scrolled is the same line, and stays as it is.
               (push (urusi-screen-line (number-to-string start)
                                        (urusi-screen-runs start last))
-                    lines))))
+                    lines)
+              (setq index (1+ index)))))
         ;; A buffer that ends in a newline shows one more line after it,
         ;; empty, and that is where the point usually is.
         (when (and (= (point) end) (< (point-min) end) (eq (char-before end) ?
 ))
+          (when (<= end point)
+            (setq row index
+                  row-start end))
           (push (urusi-screen-line (number-to-string end) nil) lines)))
       ;; The cursor is laid over the lines rather than put in one, so
       ;; that moving it leaves every line as it was.
       `(Grid (Rows :key "buffer" ,@(nreverse lines))
              (Rows :key "cursor"
-                   ,@(when-let* ((cursor (urusi-screen-cursor window)))
+                   ,@(when-let* (((and row (<= point end)))
+                                 (cursor (urusi-screen-cursor point row row-start)))
                        (list cursor)))))))
 
 (put 'urusi-screen-buffer 'urusi-screen-stretch t)
