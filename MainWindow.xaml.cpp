@@ -92,6 +92,13 @@ namespace winrt::urusi_emacs::implementation
             }
         });
 
+        // Which build this is, so that a stale one is obvious.
+        AppendLog(std::string{ "urusi-emacs built " } + __DATE__ + " " + __TIME__
+                  + ((GetWindowLongPtrW(window, GWL_STYLE) & WS_CLIPCHILDREN)
+                         ? ", clipping children"
+                         : ", NOT clipping children")
+                  + "\n");
+
         ShowStatus(L"Waiting for Emacs");
     }
 
