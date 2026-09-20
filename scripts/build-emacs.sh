@@ -49,6 +49,23 @@ if [ -n "$deps" ]; then
         mingw-w64-x86_64-zlib >/dev/null
 fi
 
+# Emacs does not build from a checkout with CRLF line endings:
+# autoconf reads the stray return as part of a macro argument and
+# stops at "'\' is already registered with AC_CONFIG_FILES".  Git on
+# Windows converts on checkout unless told otherwise, and a submodule
+# does not inherit that from the repository above it.
+if [ "$(git -C "$src" config --get core.autocrlf || true)" != false ]; then
+    if [ -n "$(git -C "$src" status --porcelain)" ]; then
+        echo "$src has changes of its own; set core.autocrlf to false" >&2
+        echo "and check it out again by hand, then run this again." >&2
+        exit 1
+    fi
+    echo "=== line endings"
+    git -C "$src" config core.autocrlf false
+    git -C "$src" rm --cached -rq .
+    git -C "$src" reset --hard -q
+fi
+
 # configure is not in the repository, and autogen.sh looks for git,
 # which the mingw64 shell does not have; autoconf alone is what it
 # needs here.
