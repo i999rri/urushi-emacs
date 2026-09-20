@@ -87,6 +87,11 @@ namespace
         FlushFileBuffers(file);
     }
 
+    // Where a window is put to be out of sight: past the corner of
+    // every screen there could be, which is as far as a window is
+    // allowed to go.
+    constexpr int kOffscreen = -32000;
+
     // The window the Emacs frame lives in.
     //
     // Emacs draws its frame as it always has, and nobody sees it: what
@@ -94,8 +99,14 @@ namespace
     // child of the window that shows, because XAML draws into a layered
     // window and leaves every part it did not paint clear, and the
     // frame shows through those parts. So the frame is given a
-    // top-level window of its own that is never shown, which also puts
-    // it out of reach of the mouse and out of the way of the focus.
+    // top-level window of its own, off the edge of the screen, which
+    // also puts it out of reach of the mouse and out of the way of the
+    // focus.
+    //
+    // Off the screen rather than hidden: Emacs lays out only the frames
+    // it believes are being looked at, and what it reads that from is
+    // the window, so a window that is hidden is a frame with no screen
+    // to read back.
     HWND MakeOffscreenHolder()
     {
         static ATOM registered = [] {
@@ -112,14 +123,20 @@ namespace
             return nullptr;
         }
 
-        // Not WS_VISIBLE: the frame inside it is shown, and so counts
-        // as visible to Emacs, which will not lay out a frame it
-        // believes nobody is looking at.
-        return CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
-                               L"urusi-emacs-offscreen", L"",
-                               WS_POPUP | WS_CLIPCHILDREN,
-                               0, 0, 1, 1,
-                               nullptr, nullptr, GetModuleHandleW(nullptr), nullptr);
+        // WS_EX_TOOLWINDOW keeps it out of the list of windows to
+        // switch to, and WS_EX_NOACTIVATE out of the way of the focus.
+        HWND holder
+            = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
+                              L"urusi-emacs-offscreen", L"",
+                              WS_POPUP | WS_CLIPCHILDREN,
+                              kOffscreen, kOffscreen, 1, 1,
+                              nullptr, nullptr, GetModuleHandleW(nullptr), nullptr);
+
+        if (holder)
+        {
+            ShowWindow(holder, SW_SHOWNOACTIVATE);
+        }
+        return holder;
     }
 }
 
@@ -402,8 +419,6 @@ namespace winrt::urusi_emacs::implementation
                          SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOZORDER);
         }
 
-        // SWP_SHOWWINDOW: the frame is shown inside a window that is
-        // not, which is how Emacs comes to believe it is looked at.
         // SWP_ASYNCWINDOWPOS: the frame belongs to a thread of Emacs's,
         // and this thread must not wait on it.
         SetWindowPos(m_emacsWindow, nullptr, 0, 0, width, height,

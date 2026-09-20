@@ -276,6 +276,22 @@ every line as it was and a keystroke costs one line of the screen."
 
 ;;;; The windows
 
+(defvar urusi-screen--said-nothing 0
+  "How many times there has been no screen to read, and it was said.")
+
+(defun urusi-screen--nothing-to-draw (window)
+  "Say that WINDOW has no screen to read, and why it might not.
+A window with nothing in it looks the same as one this cannot read, and
+the difference is not something to find out twice."
+  (when (< urusi-screen--said-nothing 5)
+    (cl-incf urusi-screen--said-nothing)
+    (urusi--log "no rows for %S: frame visible %S, size %Sx%S, cursor %S"
+                window
+                (frame-visible-p (window-frame window))
+                (frame-pixel-width (window-frame window))
+                (frame-pixel-height (window-frame window))
+                (window-screen-cursor window))))
+
 (defun urusi-screen-window (window index)
   "Return WINDOW as XAML, where it sits on the frame.
 INDEX says which window this is, and names the parts of it the host
@@ -285,8 +301,11 @@ The lines and the cursor are each a set of rows of their own, so that a
 line that has not changed is not sent again and the cursor can move
 without any line being touched."
   (let* ((scale (float urusi-scale))
+         (rows (window-screen-rows window))
          (background (urusi-screen-color
                       (face-attribute 'default :background nil t))))
+    (unless rows
+      (urusi-screen--nothing-to-draw window))
     `(Canvas :Canvas.Left ,(/ (window-pixel-left window) scale)
              :Canvas.Top ,(/ (window-pixel-top window) scale)
              :Width ,(/ (window-pixel-width window) scale)
@@ -296,7 +315,7 @@ without any line being touched."
                    :panel "Canvas"
                    ,@(mapcar (lambda (line)
                                (funcall urusi-screen-line-function line))
-                             (window-screen-rows window)))
+                             rows))
              (Rows :key ,(format "cursor-%d" index)
                    :panel "Canvas"
                    ,@(when-let* ((cursor (funcall urusi-screen-cursor-function
