@@ -34,7 +34,7 @@ namespace urusi
 
         // ELEMENT is what holds the focus while typing; the context is
         // made for the window it is in.
-        void Start(Microsoft::UI::Xaml::FrameworkElement const& element,
+        void Start(winrt::Microsoft::UI::Xaml::FrameworkElement const& element,
                    CommitFn commit, ComposingFn composing);
 
         // Take the input, or give it back.
@@ -42,7 +42,7 @@ namespace urusi
 
         // Where the caret is on the screen, which is where the
         // candidates are shown.
-        void SetCaret(Windows::Foundation::Rect const& caret);
+        void SetCaret(winrt::Windows::Foundation::Rect const& caret);
 
         // Whether a composition is under way, so that keys belonging to
         // it are not passed on as keys.
@@ -52,7 +52,7 @@ namespace urusi
         void Bind();
         void Settle();
 
-        Windows::UI::Text::Core::CoreTextEditContext m_context{ nullptr };
+        winrt::Windows::UI::Text::Core::CoreTextEditContext m_context{ nullptr };
         CommitFn m_commit;
         ComposingFn m_composing_changed;
 
@@ -60,6 +60,6 @@ namespace urusi
         // the text this context holds: Emacs keeps everything else.
         std::wstring m_text;
         bool m_composing{ false };
-        Windows::Foundation::Rect m_caret{ 0, 0, 2, 16 };
+        winrt::Windows::Foundation::Rect m_caret{ 0, 0, 2, 16 };
     };
 }

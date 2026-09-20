@@ -1,12 +1,14 @@
 #include "pch.h"
 #include "Composition.h"
 
+#include <algorithm>
+
 using namespace winrt;
 using namespace Windows::UI::Text::Core;
 
 namespace urusi
 {
-    void Composition::Start(Microsoft::UI::Xaml::FrameworkElement const& element,
+    void Composition::Start(winrt::Microsoft::UI::Xaml::FrameworkElement const& element,
                             CommitFn commit, ComposingFn composing)
     {
         m_commit = std::move(commit);
@@ -41,7 +43,7 @@ namespace urusi
         }
     }
 
-    void Composition::SetCaret(Windows::Foundation::Rect const& caret)
+    void Composition::SetCaret(winrt::Windows::Foundation::Rect const& caret)
     {
         m_caret = caret;
 
@@ -79,8 +81,10 @@ namespace urusi
             auto start = std::clamp(range.StartCaretPosition, 0, size);
             auto end = std::clamp(range.EndCaretPosition, start, size);
 
-            request.Range({ start, end });
-            request.Text(hstring{ m_text.substr(start, static_cast<size_t>(end - start)) });
+            // The range asked for is the range answered: it is not
+            // ours to change.
+            request.Text(hstring{ m_text.substr(static_cast<size_t>(start),
+                                                static_cast<size_t>(end - start)) });
         });
 
         m_context.SelectionRequested([this](CoreTextEditContext const&,
