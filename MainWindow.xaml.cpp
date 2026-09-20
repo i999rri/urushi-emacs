@@ -171,8 +171,7 @@ namespace winrt::urusi_emacs::implementation
             AppendLog("attach " + std::to_string(attached) + ", focus "
                       + std::to_string(reinterpret_cast<INT_PTR>(focus)) + " ("
                       + to_string(hstring{ name }) + "), frame "
-                      + std::to_string(reinterpret_cast<INT_PTR>(m_emacsWindow)) + "
-");
+                      + std::to_string(reinterpret_cast<INT_PTR>(m_emacsWindow)) + "");
         }
     }
 
@@ -555,6 +554,10 @@ namespace winrt::urusi_emacs::implementation
 
     void MainWindow::AppendLog(std::string const& text)
     {
+        // The screen covers the log once Emacs draws one, and the
+        // debugger is where anyone looking for this will be.
+        OutputDebugStringA(("urusi| " + text).c_str());
+
         m_log += text;
         if (m_log.size() > kLogLimit)
         {
