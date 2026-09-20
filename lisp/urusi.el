@@ -95,11 +95,16 @@ messages wait in a queue until Emacs looks at it."
                                             :null-object nil))
       (error (message "urusi: %S in %s" err message)))))
 
+(defvar urusi-stale-hook nil
+  "Functions to run when the host has lost track of what it shows.
+Whatever is drawing has to draw the whole of it again.")
+
 (defun urusi--dispatch (message)
   "Handle MESSAGE, a plist parsed from the host."
   (pcase (plist-get message :type)
     ("hello" (message "urusi: Talking to %s" (plist-get message :host)))
     ("event" (urusi--call-handler (plist-get message :id) (plist-get message :args)))
+    ("stale" (urusi-forget) (run-hooks 'urusi-stale-hook))
     ("error" (message "urusi: %s" (plist-get message :message)))))
 
 (defun urusi--call-handler (id args)
@@ -134,16 +139,42 @@ messages wait in a queue until Emacs looks at it."
 
 (defun urusi--compile (tree)
   "Turn TREE into XAML.
-Return (XAML EVENTS HANDLERS), where EVENTS is the list the host uses to
-attach events and HANDLERS maps event ids to functions."
+Return (XAML EVENTS HANDLERS ROWS).
+
+EVENTS is the list the host uses to attach events, HANDLERS maps event
+ids to functions.
+
+ROWS is what the host is to keep between one screen and the next.  A
+node written as
+
+  (Rows :key NAME CHILD...)
+
+becomes an empty panel in the XAML, named after NAME, and its children
+are compiled one by one into ROWS as (NAME . ((KEY . XAML)...)).  Each
+child has to carry a :key of its own, which is what the host reuses it
+by: a child whose XAML has not changed is left alone, wherever it has
+moved to."
   (let ((next-name 0)
         (next-id 0)
         (events nil)
+        (rows nil)
         (handlers (make-hash-table :test #'eql)))
     (cl-labels
         ((node (form root)
            (cond
             ((stringp form) (urusi--escape form nil))
+            ((eq (car-safe form) 'Rows)
+             (let* ((rest (cdr form))
+                    (name (progn (cl-assert (eq (car rest) :key) t
+                                            "urusi: Rows needs a :key")
+                                 (urusi--value (cadr rest))))
+                    (children (cddr rest)))
+               (push (cons name
+                           (mapcar (lambda (child)
+                                     (cons (urusi--row-key child) (node child nil)))
+                                   children))
+                     rows)
+               (format "<StackPanel x:Name=\"%s\" />" (urusi--escape name t))))
             ((and (consp form) (symbolp (car form)))
              (let ((tag (symbol-name (car form)))
                    (rest (cdr form))
@@ -160,6 +191,9 @@ attach events and HANDLERS maps event ids to functions."
                      (push (cons (substring key 3) value) element-handlers))
                     ((string= key "Name")
                      (setq name (urusi--value value)))
+                    ;; A key says which element this is between one
+                    ;; screen and the next, and is not XAML's business.
+                    ((string= key "key"))
                     (t
                      (push (format " %s=\"%s\"" key (urusi--escape (urusi--value value) t))
                            attributes)))))
@@ -179,15 +213,57 @@ attach events and HANDLERS maps event ids to functions."
                      (concat open " />")
                    (concat open ">" children "</" tag ">")))))
             (t (error "urusi: Cannot render %S" form)))))
-      (list (node tree t) (nreverse events) handlers))))
+      (let ((xaml (node tree t)))
+        (list xaml (nreverse events) handlers (nreverse rows))))))
+
+(defun urusi--row-key (form)
+  "Return the :key of FORM, which a child of `Rows' must have."
+  (let ((key (plist-get (cdr-safe form) :key)))
+    (unless key
+      (error "urusi: A row needs a :key: %S" form))
+    (urusi--value key)))
 
 ;;;; Rendering
 
+(defvar urusi--shown nil
+  "What the host was last sent, as (XAML . ROWS), or nil for nothing.
+It is what a screen is compared against to find what has changed.")
+
 (defun urusi-render (tree)
-  "Show TREE, a UI written as s-expressions, in the host window."
-  (pcase-let ((`(,xaml ,events ,handlers) (urusi--compile tree)))
-    (urusi--send (list :type "render" :xaml xaml :events (vconcat events)))
+  "Show TREE, a UI written as s-expressions, in the host window.
+
+Only what has changed since the last call is sent.  The XAML around the
+rows goes when it differs from last time, and with it every row; a row
+goes when its own XAML differs.  Rows that have not changed are named
+and nothing more, and the host leaves the elements it has for them
+alone, so that what they were doing they go on doing."
+  (pcase-let* ((`(,xaml ,events ,handlers ,rows) (urusi--compile tree))
+               (`(,shown-xaml . ,shown-rows) urusi--shown)
+               (same-chrome (equal xaml shown-xaml)))
+    (urusi--send
+     (nconc (list :type "screen")
+            (unless same-chrome (list :xaml xaml :events (vconcat events)))
+            (list :rows
+                  (vconcat
+                   (mapcar
+                    (lambda (group)
+                      (let ((shown (and same-chrome (cdr (assoc (car group) shown-rows)))))
+                        (list :panel (car group)
+                              :items
+                              (vconcat
+                               (mapcar
+                                (lambda (row)
+                                  (if (equal (cdr row) (cdr (assoc (car row) shown)))
+                                      (list :key (car row))
+                                    (list :key (car row) :xaml (cdr row))))
+                                (cdr group))))))
+                    rows)))))
+    (setq urusi--shown (cons xaml rows))
     (setq urusi--handlers handlers)))
+
+(defun urusi-forget ()
+  "Forget what the host is showing, so that the next screen is sent whole."
+  (setq urusi--shown nil))
 
 (defun urusi-demo ()
   "Show a small UI in the host, to check that everything is connected."

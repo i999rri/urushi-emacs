@@ -65,14 +65,62 @@
             (setq posted (nreverse posted))
             (should (equal (json-parse-string (nth 0 posted) :object-type 'plist)
                            '(:type "hello" :version 1)))
-            (let ((render (json-parse-string (nth 1 posted) :object-type 'plist)))
-              (should (equal (plist-get render :type) "render"))
-              (should (equal (plist-get render :events)
+            (let ((screen (json-parse-string (nth 1 posted) :object-type 'plist)))
+              (should (equal (plist-get screen :type) "screen"))
+              (should (equal (plist-get screen :events)
                              [(:name "urusi1" :event "Click" :id 1)])))
             ;; The host reports the click; the id arrives as a JSON number.
             (push "{\"type\":\"event\",\"id\":1,\"args\":{}}" from-host)
             (urusi--take)
             (should clicked))
         (urusi-stop)))))
+
+(ert-deftest urusi-sends-only-what-changed ()
+  "Send a row again when it changes, and its name alone when it does not."
+  (let ((posted nil))
+    (cl-letf (((symbol-function 'w32-host-available-p) (lambda () t))
+              ((symbol-function 'w32-host-post)
+               (lambda (message) (push message posted) t)))
+      (unwind-protect
+          (let ((screen (lambda (second)
+                          `(Grid (Rows :key "buffer"
+                                       (TextBlock :key "a" "one")
+                                       (TextBlock :key "b" ,second))))))
+            (urusi-render (funcall screen "two"))
+            (urusi-render (funcall screen "two"))
+            (urusi-render (funcall screen "three"))
+            (setq posted (mapcar (lambda (message)
+                                   (json-parse-string message :object-type 'plist))
+                                 (nreverse posted)))
+            ;; The first time, everything: the XAML around the rows and
+            ;; every row in it.
+            (should (plist-get (nth 0 posted) :xaml))
+            (should (equal (plist-get (aref (plist-get (nth 0 posted) :rows) 0) :items)
+                           [(:key "a" :xaml "<TextBlock>one</TextBlock>")
+                            (:key "b" :xaml "<TextBlock>two</TextBlock>")]))
+            ;; The second, nothing but the names.
+            (should-not (plist-get (nth 1 posted) :xaml))
+            (should (equal (plist-get (aref (plist-get (nth 1 posted) :rows) 0) :items)
+                           [(:key "a") (:key "b")]))
+            ;; The third, the row that changed and no more.
+            (should (equal (plist-get (aref (plist-get (nth 2 posted) :rows) 0) :items)
+                           [(:key "a") (:key "b" :xaml "<TextBlock>three</TextBlock>")])))
+        (urusi-forget)))))
+
+(ert-deftest urusi-forgets-when-the-host-is-stale ()
+  "Send the whole screen again when the host says it has lost track."
+  (let ((posted nil))
+    (cl-letf (((symbol-function 'w32-host-available-p) (lambda () t))
+              ((symbol-function 'w32-host-post)
+               (lambda (message) (push message posted) t)))
+      (unwind-protect
+          (progn
+            (urusi-render '(Grid (Rows :key "buffer" (TextBlock :key "a" "one"))))
+            (urusi--dispatch '(:type "stale"))
+            (setq posted nil)
+            (urusi-render '(Grid (Rows :key "buffer" (TextBlock :key "a" "one"))))
+            (should (plist-get (json-parse-string (car posted) :object-type 'plist)
+                               :xaml)))
+        (urusi-forget)))))
 
 ;;; urusi-test.el ends here

@@ -148,12 +148,17 @@ which case overlays count as well."
               start next)))
     (nreverse runs)))
 
-(defun urusi-screen-line (runs &optional face)
+(defun urusi-screen-line (key runs &optional face)
   "Return a screen line showing RUNS, with the background of FACE.
+KEY says which line this is between one screen and the next: a line
+whose key and contents are unchanged is left alone by the host, and one
+that has only moved is moved rather than built again.
+
 An empty line still takes its height, which is what the space is for."
   (let ((background (urusi-screen-color
                      (urusi-screen-face-attribute face :background))))
-    `(TextBlock :TextWrapping "NoWrap"
+    `(TextBlock :key ,key
+                :TextWrapping "NoWrap"
                 :LineHeight ,(* urusi-screen-line-height (urusi-screen-font-size))
                 ,@(when background `(:Background ,background))
                 ,@(or runs (list '(Run :Text " "))))))
@@ -168,11 +173,13 @@ An empty line still takes its height, which is what the space is for."
                            (and header-line-format
                                 (format-mode-line header-line-format nil window))))))
     (when lines
-      `(StackPanel
-        ,@(mapcar (lambda (line)
-                    (urusi-screen-line (urusi-screen-runs 0 (length line) line)
-                                       'header-line))
-                  lines)))))
+      `(Rows :key "header"
+             ,@(cl-loop for line in lines
+                        for index from 0
+                        collect (urusi-screen-line
+                                 (format "header-%d" index)
+                                 (urusi-screen-runs 0 (length line) line)
+                                 'header-line))))))
 
 (defun urusi-screen-buffer (window)
   "Return the text WINDOW shows, one element per screen line.
@@ -193,14 +200,21 @@ text is broken exactly where Emacs has it broken."
                    (last (if (and (< start stop) (eq (char-before stop) ?\n))
                              (1- stop)
                            stop)))
-              (push (urusi-screen-line (urusi-screen-runs start last)) lines)))))
-      `(StackPanel ,@(nreverse lines)))))
+              ;; Where the line starts is what it is: a line that has
+              ;; scrolled is the same line, and stays as it is.
+              (push (urusi-screen-line (number-to-string start)
+                                       (urusi-screen-runs start last))
+                    lines)))))
+      `(Rows :key "buffer" ,@(nreverse lines)))))
 
 (defun urusi-screen-status (window)
   "Return the mode line of WINDOW."
   (when mode-line-format
     (let ((line (format-mode-line mode-line-format nil window)))
-      (urusi-screen-line (urusi-screen-runs 0 (length line) line) 'mode-line))))
+      `(Rows :key "status"
+             ,(urusi-screen-line "mode-line"
+                                 (urusi-screen-runs 0 (length line) line)
+                                 'mode-line)))))
 
 (defun urusi-screen-echo (_window)
   "Return the echo area, or the minibuffer while it is in use."
@@ -210,7 +224,8 @@ text is broken exactly where Emacs has it broken."
                   (buffer-substring (point-min) (point-max))))
                ((current-message))
                (t ""))))
-    (urusi-screen-line (urusi-screen-runs 0 (length text) text))))
+    `(Rows :key "echo"
+           ,(urusi-screen-line "echo" (urusi-screen-runs 0 (length text) text)))))
 
 ;;;; The screen
 
@@ -258,8 +273,11 @@ text is broken exactly where Emacs has it broken."
   (if urusi-screen-mode
       (progn
         (add-hook 'post-command-hook #'urusi-screen--after-command)
+        (add-hook 'urusi-stale-hook #'urusi-screen-render)
+        (urusi-forget)
         (urusi-screen-render))
-    (remove-hook 'post-command-hook #'urusi-screen--after-command)))
+    (remove-hook 'post-command-hook #'urusi-screen--after-command)
+    (remove-hook 'urusi-stale-hook #'urusi-screen-render)))
 
 (provide 'urusi-screen)
 ;;; urusi-screen.el ends here

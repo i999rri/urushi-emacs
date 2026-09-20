@@ -231,9 +231,9 @@ namespace winrt::urusi_emacs::implementation
             reply.SetNamedValue(L"version", JsonValue::CreateNumberValue(1));
             Send(reply);
         }
-        else if (type == L"render")
+        else if (type == L"screen")
         {
-            Render(message);
+            Screen(message);
         }
         else if (type == L"frame")
         {
@@ -246,26 +246,130 @@ namespace winrt::urusi_emacs::implementation
         }
     }
 
-    void MainWindow::Render(JsonObject const& message)
+    void MainWindow::Screen(JsonObject const& message)
     {
-        UIElement root{ nullptr };
-        try
+        // The XAML around the rows comes only when it has changed, and
+        // everything in it goes with it.
+        if (message.HasKey(L"xaml"))
         {
-            root = Markup::XamlReader::Load(message.GetNamedString(L"xaml", L"")).as<UIElement>();
-        }
-        catch (hresult_error const& e)
-        {
-            SendError(L"XAML: " + e.message());
-            return;
+            UIElement root{ nullptr };
+            try
+            {
+                root = Markup::XamlReader::Load(message.GetNamedString(L"xaml", L"")).as<UIElement>();
+            }
+            catch (hresult_error const& e)
+            {
+                SendError(L"XAML: " + e.message());
+                return;
+            }
+
+            Surface().Children().Clear();
+            Surface().Children().Append(root);
+            ShowStatus(L"");
+
+            if (auto element = root.try_as<FrameworkElement>())
+            {
+                AttachEvents(element, message.GetNamedArray(L"events", JsonArray{}));
+            }
         }
 
-        Surface().Children().Clear();
-        Surface().Children().Append(root);
-        ShowStatus(L"");
+        auto root = Surface().Children().Size() ? Surface().Children().GetAt(0) : nullptr;
+        auto named = root ? root.try_as<FrameworkElement>() : nullptr;
 
-        if (auto element = root.try_as<FrameworkElement>())
+        for (auto const& value : message.GetNamedArray(L"rows", JsonArray{}))
         {
-            AttachEvents(element, message.GetNamedArray(L"events", JsonArray{}));
+            auto group = value.GetObject();
+            auto name = group.GetNamedString(L"panel", L"");
+            auto target = named ? named.FindName(name) : nullptr;
+
+            if (auto panel = target ? target.try_as<Controls::Panel>() : nullptr)
+            {
+                ReconcileRows(panel, group.GetNamedArray(L"items", JsonArray{}));
+            }
+            else
+            {
+                SendError(L"no panel named " + name);
+            }
+        }
+    }
+
+    // Put the rows of PANEL in the order ITEMS gives, building the ones
+    // that came with XAML of their own and keeping the ones that did
+    // not. A row is known by its key, which it carries in its Tag.
+    void MainWindow::ReconcileRows(Controls::Panel const& panel, JsonArray const& items)
+    {
+        auto children = panel.Children();
+        std::vector<UIElement> wanted;
+        wanted.reserve(items.Size());
+
+        for (auto const& value : items)
+        {
+            auto item = value.GetObject();
+            auto key = item.GetNamedString(L"key", L"");
+
+            if (item.HasKey(L"xaml"))
+            {
+                UIElement row{ nullptr };
+                try
+                {
+                    row = Markup::XamlReader::Load(item.GetNamedString(L"xaml", L"")).as<UIElement>();
+                }
+                catch (hresult_error const& e)
+                {
+                    SendError(L"XAML in row " + key + L": " + e.message());
+                    return;
+                }
+                row.as<FrameworkElement>().Tag(box_value(key));
+                wanted.push_back(row);
+            }
+            else
+            {
+                // Kept from last time, and found by its key.
+                UIElement existing{ nullptr };
+                for (uint32_t i = 0; i < children.Size(); i++)
+                {
+                    auto child = children.GetAt(i).try_as<FrameworkElement>();
+                    if (child && unbox_value_or<hstring>(child.Tag(), L"") == key)
+                    {
+                        existing = child;
+                        break;
+                    }
+                }
+
+                if (!existing)
+                {
+                    // Emacs thinks this window shows something it does
+                    // not. Ask for the whole screen again.
+                    JsonObject stale;
+                    stale.SetNamedValue(L"type", JsonValue::CreateStringValue(L"stale"));
+                    Send(stale);
+                    return;
+                }
+                wanted.push_back(existing);
+            }
+        }
+
+        // Move what is out of place, rather than taking the lot apart:
+        // a row that is only further down the screen than it was keeps
+        // whatever it was doing.
+        for (uint32_t i = 0; i < wanted.size(); i++)
+        {
+            if (i < children.Size() && children.GetAt(i) == wanted[i])
+            {
+                continue;
+            }
+
+            uint32_t found = 0;
+            if (children.IndexOf(wanted[i], found))
+            {
+                children.RemoveAt(found);
+            }
+            children.InsertAt(i, wanted[i]);
+        }
+
+        while (children.Size() > wanted.size())
+        {
+            children.RemoveAtEnd();
         }
     }
 
