@@ -76,6 +76,12 @@ namespace winrt::urusi_emacs::implementation
         });
         HWND window = nullptr;
         check_hresult(try_as<::IWindowNative>()->get_WindowHandle(&window));
+
+        // WS_CLIPCHILDREN, or this window paints its own background
+        // over the frame, which only paints again when something
+        // invalidates it. What XAML draws is composed above both.
+        SetWindowLongPtrW(window, GWL_STYLE,
+                          GetWindowLongPtrW(window, GWL_STYLE) | WS_CLIPCHILDREN);
         urusi::HostApi::Instance().SetWindow(window);
 
         // The frame is placed over EditorSite and has to follow it.
