@@ -1,6 +1,7 @@
 #pragma once
 
 #include "MainWindow.g.h"
+#include "Composition.h"
 #include "EmacsHost.h"
 #include "HostApi.h"
 
@@ -32,6 +33,9 @@ namespace winrt::urusi_emacs::implementation
         // window's business from then on.
         void TakeEmacsWindow(HWND window);
         void TakeInputToEmacs();
+        void StartComposition();
+        void TypeIntoEmacs(std::wstring const& text);
+        void Caret(Windows::Data::Json::JsonObject const& message);
         void ForwardKey(Microsoft::UI::Xaml::Input::KeyRoutedEventArgs const& args,
                         bool down);
         void PlaceEmacsWindow();
@@ -60,6 +64,7 @@ namespace winrt::urusi_emacs::implementation
         std::set<std::wstring> m_seen;
         HWND m_emacsWindow{ nullptr };
         bool m_attached{ false };
+        urusi::Composition m_composition;
     };
 }
 

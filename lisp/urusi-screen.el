@@ -173,6 +173,24 @@ or a plist of attributes."
         (/ (* height 96.0) 720.0)
       14.0)))
 
+(defvar urusi-screen--composing ""
+  "What the input method is turning over, or an empty string.
+It is not in any buffer: the input method has not settled on it, and
+Emacs will not see it until it does.  Drawing it is this file's to do,
+because the window that would otherwise draw it cannot be seen.")
+
+(defvar urusi-screen--caret nil
+  "Where the cursor last was, as (X Y WIDTH HEIGHT), or nil.
+The host is told, so that the candidates of the input method appear
+beside the text rather than in a corner.")
+
+(defun urusi-screen--tell-caret (x y width height)
+  "Tell the host the cursor is at X, Y and is WIDTH by HEIGHT."
+  (let ((caret (list x y width height)))
+    (unless (equal caret urusi-screen--caret)
+      (setq urusi-screen--caret caret)
+      (urusi--send (list :type "caret" :x x :y y :width width :height height)))))
+
 (defun urusi-screen-cursor (window)
   "Return the cursor of WINDOW, to be laid over the text.
 Emacs knows where the point is on the screen, to the pixel, because it
@@ -190,14 +208,31 @@ keeps a keystroke to one line of the screen."
               (color (or (urusi-screen-color (face-attribute 'cursor :background))
                          (urusi-screen-color (face-attribute 'default :foreground)))))
     ;; Emacs counts in the pixels of the screen, XAML in 96ths of an inch.
-    (let ((scale (float urusi-scale)))
+    (let* ((scale (float urusi-scale))
+           (left (/ (car xy) scale))
+           (top (/ (cdr xy) scale))
+           (height (urusi-screen-line-height)))
+      (urusi-screen--tell-caret (car xy) (cdr xy) 2 (default-line-height))
       `(Canvas :key "cursor"
                :IsHitTestVisible "False"
-               (Rectangle :Canvas.Left ,(/ (car xy) scale)
-                          :Canvas.Top ,(/ (cdr xy) scale)
+               (Rectangle :Canvas.Left ,left
+                          :Canvas.Top ,top
                           :Width ,(/ 2 scale)
-                          :Height ,(urusi-screen-line-height)
-                          :Fill ,color)))))
+                          :Height ,height
+                          :Fill ,color)
+               ,@(unless (string-empty-p urusi-screen--composing)
+                   ;; What is being composed goes where it will end up,
+                   ;; underlined, as an input method draws it anywhere
+                   ;; else.
+                   `((Border :Canvas.Left ,left
+                             :Canvas.Top ,top
+                             :Background ,(urusi-screen-color
+                                           (face-attribute 'default :background))
+                             (TextBlock :Text ,urusi-screen--composing
+                                        :FontFamily ,(urusi-screen-wide-font-family)
+                                        :FontSize ,(urusi-screen-font-size)
+                                        :Foreground ,color
+                                        :TextDecorations "Underline"))))))))
 
 ;;;; Text
 
@@ -437,8 +472,11 @@ its own."
 
 (defun urusi-screen--message (message)
   "Take MESSAGE from the host, if it is one this file asked for."
-  (when (equal (plist-get message :type) "measured")
-    (urusi-screen--measured message)))
+  (pcase (plist-get message :type)
+    ("measured" (urusi-screen--measured message))
+    ("composition"
+     (setq urusi-screen--composing (or (plist-get message :text) ""))
+     (urusi-screen-render))))
 
 (provide 'urusi-screen)
 ;;; urusi-screen.el ends here

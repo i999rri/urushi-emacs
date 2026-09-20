@@ -105,20 +105,9 @@ namespace winrt::urusi_emacs::implementation
             }
         });
 
-        // XAML gives the focus to its own content when the window is
-        // activated, and to whatever is clicked afterwards. Wherever it
-        // lands, it belongs to Emacs.
         if (auto content = Content().try_as<UIElement>())
         {
-            content.GotFocus([weak](IInspectable const&, RoutedEventArgs const&) {
-                if (auto self = weak.get())
-                {
-                    self->TakeInputToEmacs();
-                }
-            });
-
-            // Whichever of the two holds the focus, the keys are
-            // Emacs's. XAML sees them first, so hand them over.
+            // What XAML sees, Emacs gets.
             content.KeyDown([weak](IInspectable const&, Input::KeyRoutedEventArgs const& args) {
                 if (auto self = weak.get())
                 {
@@ -132,6 +121,8 @@ namespace winrt::urusi_emacs::implementation
                 }
             });
         }
+
+        StartComposition();
 
         // Which build this is, so that a stale one is obvious.
         AppendLog("host", std::string{ "urusi-emacs built " } + __DATE__ + " " + __TIME__
@@ -172,8 +163,10 @@ namespace winrt::urusi_emacs::implementation
             m_attached = attached != FALSE;
         }
 
-        // Nothing of the frame is ever seen, but it is what types.
-        SetFocus(m_emacsWindow);
+        // The focus stays with XAML, which is where the input method
+        // talks; the keys are passed on from there. A frame that took
+        // the focus would take the input method with it, into a window
+        // that cannot be seen.
 
         if (m_seen.insert(L"focus").second)
         {
@@ -191,6 +184,79 @@ namespace winrt::urusi_emacs::implementation
         }
     }
 
+    // Let the input method have the keys first, and give Emacs what it
+    // makes of them. Everything it does not want arrives as a key, as
+    // before.
+    void MainWindow::StartComposition()
+    {
+        auto weak = get_weak();
+
+        m_composition.Start(
+            InputSink(),
+            [weak](std::wstring text) {
+                if (auto self = weak.get())
+                {
+                    self->TypeIntoEmacs(text);
+                }
+            },
+            [weak](std::wstring text) {
+                if (auto self = weak.get())
+                {
+                    JsonObject message;
+                    message.SetNamedValue(L"type", String(L"composition"));
+                    message.SetNamedValue(L"text", String(hstring{ text }));
+                    self->Send(message);
+                }
+            });
+
+        InputSink().Focus(FocusState::Programmatic);
+    }
+
+    // Put TEXT into Emacs as the characters it is. Emacs reads them
+    // the way it reads anything typed, so whatever is bound to them
+    // runs.
+    void MainWindow::TypeIntoEmacs(std::wstring const& text)
+    {
+        if (!m_emacsWindow)
+        {
+            return;
+        }
+
+        for (wchar_t character : text)
+        {
+            PostMessageW(m_emacsWindow, WM_CHAR, static_cast<WPARAM>(character), 1);
+        }
+    }
+
+    // Where Emacs says the caret is, in the pixels of the screen, so
+    // that the candidates appear beside it.
+    void MainWindow::Caret(JsonObject const& message)
+    {
+        HWND window = nullptr;
+        auto site = EditorSite();
+
+        if (!site.XamlRoot()
+            || FAILED(try_as<::IWindowNative>()->get_WindowHandle(&window)))
+        {
+            return;
+        }
+
+        // Emacs counts from the corner of the area it was given, in
+        // the pixels of the screen; this wants the corner of the
+        // screen, in the 96ths of an inch XAML counts in.
+        double scale = site.XamlRoot().RasterizationScale();
+        auto corner = site.TransformToVisual(Content()).TransformPoint({ 0, 0 });
+        POINT client{ 0, 0 };
+
+        ClientToScreen(window, &client);
+
+        m_composition.SetCaret({
+            static_cast<float>(client.x / scale + corner.X + message.GetNamedNumber(L"x", 0) / scale),
+            static_cast<float>(client.y / scale + corner.Y + message.GetNamedNumber(L"y", 0) / scale),
+            static_cast<float>(message.GetNamedNumber(L"width", 2) / scale),
+            static_cast<float>(message.GetNamedNumber(L"height", 16) / scale) });
+    }
+
     // Give ARGS to the Emacs frame as the key message it was, and let
     // Emacs make of it what it makes of any other. Only the key goes:
     // Emacs turns it into a character itself, from the state of the
@@ -200,6 +266,16 @@ namespace winrt::urusi_emacs::implementation
     {
         if (!m_emacsWindow)
         {
+            return;
+        }
+
+        // A key the input method is making something of is not a key:
+        // what it settles on arrives as text, and passing the key on
+        // as well would type it twice.
+        if (args.Key() == Windows::System::VirtualKey::None
+            || static_cast<int>(args.Key()) == 229)
+        {
+            args.Handled(true);
             return;
         }
 
@@ -337,6 +413,10 @@ namespace winrt::urusi_emacs::implementation
         else if (type == L"screen")
         {
             Screen(message);
+        }
+        else if (type == L"caret")
+        {
+            Caret(message);
         }
         else if (type == L"measure")
         {

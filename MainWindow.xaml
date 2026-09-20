@@ -31,6 +31,18 @@
         <!-- The screen, as Emacs Lisp built it. -->
         <Grid x:Name="Surface" />
 
+        <!-- Something has to hold the focus for the keys and the input
+             method to have somewhere to arrive. It is not a Button:
+             a button would answer the space bar itself. -->
+        <ContentControl
+            x:Name="InputSink"
+            IsTabStop="True"
+            Width="1"
+            Height="1"
+            Opacity="0"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top" />
+
         <!-- Shown while waiting for Emacs, and for errors. -->
         <TextBlock
             x:Name="Status"
