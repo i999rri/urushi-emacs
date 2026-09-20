@@ -68,6 +68,11 @@ correct for; see `urusi-screen--spacing'.")
   "Take the widths the host reported in MESSAGE, and draw again with them."
   (setq urusi-screen--advance (cons (plist-get message :narrow)
                                     (plist-get message :wide)))
+  (urusi--log "font %s %.2f, cell %d, drawn %.2f/%.2f, spacing %d/%d"
+              (urusi-screen-font-family) (urusi-screen-font-size)
+              (default-font-width)
+              (car urusi-screen--advance) (cdr urusi-screen--advance)
+              (urusi-screen--spacing 1) (urusi-screen--spacing 2))
   (urusi-forget)
   (urusi-screen-render))
 
