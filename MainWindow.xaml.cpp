@@ -9,6 +9,7 @@
 #include <microsoft.ui.xaml.window.h>
 
 #include <algorithm>
+#include <limits>
 #include <cmath>
 
 using namespace winrt;
@@ -337,6 +338,10 @@ namespace winrt::urusi_emacs::implementation
         {
             Screen(message);
         }
+        else if (type == L"measure")
+        {
+            Measure(message);
+        }
         else if (type == L"log")
         {
             AppendLog("emacs", to_string(message.GetNamedString(L"text", L"")) + "\n");
@@ -350,6 +355,28 @@ namespace winrt::urusi_emacs::implementation
         {
             SendError(L"unknown message type: " + type);
         }
+    }
+
+    // Say how wide a character of a font is here. Emacs lays its text
+    // out on a grid of whole pixels and XAML does not, so the two
+    // drift apart across a line unless Emacs is told what to correct
+    // for.
+    void MainWindow::Measure(JsonObject const& message)
+    {
+        constexpr int kSample = 100;
+
+        Controls::TextBlock block;
+        block.FontFamily(Media::FontFamily{ message.GetNamedString(L"family", L"Consolas") });
+        block.FontSize(message.GetNamedNumber(L"size", 14));
+        block.Text(hstring{ std::wstring(kSample, L'0') });
+        block.Measure({ std::numeric_limits<float>::infinity(),
+                        std::numeric_limits<float>::infinity() });
+
+        JsonObject reply;
+        reply.SetNamedValue(L"type", String(L"measured"));
+        reply.SetNamedValue(L"advance",
+                            JsonValue::CreateNumberValue(block.DesiredSize().Width / kSample));
+        Send(reply);
     }
 
     void MainWindow::Screen(JsonObject const& message)

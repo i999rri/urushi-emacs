@@ -113,6 +113,10 @@ Emacs measures in the pixels of the screen, XAML in 96ths of an inch,
 and on a display that is scaled the two are not the same.  The host
 says which it is when it answers the first message.")
 
+(defvar urusi-message-hook nil
+  "Functions to run with a message from the host this file does not know.
+Each takes the message, as a plist.")
+
 (defvar urusi-stale-hook nil
   "Functions to run when the host has lost track of what it shows.
 Whatever is drawing has to draw the whole of it again.")
@@ -125,7 +129,8 @@ Whatever is drawing has to draw the whole of it again.")
      (message "urusi: Talking to %s" (plist-get message :host)))
     ("event" (urusi--call-handler (plist-get message :id) (plist-get message :args)))
     ("stale" (urusi-forget) (run-hooks 'urusi-stale-hook))
-    ("error" (message "urusi: %s" (plist-get message :message)))))
+    ("error" (message "urusi: %s" (plist-get message :message)))
+    (_ (run-hook-with-args 'urusi-message-hook message))))
 
 (defun urusi--call-handler (id args)
   "Call the handler registered for event ID with ARGS."

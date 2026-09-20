@@ -49,6 +49,35 @@
 That is so on a terminal, where Emacs never asked for one."
   :type 'string)
 
+(defvar urusi-screen--advance nil
+  "How wide the host draws a character of the screen font, or nil.
+Emacs lays its text out on a grid of whole pixels and the host does
+not, so the two drift apart across a line.  Asking the host how wide it
+draws one character is what tells Emacs how much to correct for; see
+`urusi-screen--spacing'.")
+
+(defun urusi-screen--measure ()
+  "Ask the host how wide it draws a character of the screen font."
+  (setq urusi-screen--advance nil)
+  (urusi--send (list :type "measure"
+                     :family (urusi-screen-font-family)
+                     :size (urusi-screen-font-size))))
+
+(defun urusi-screen--measured (message)
+  "Take the width the host reported in MESSAGE, and draw again with it."
+  (setq urusi-screen--advance (plist-get message :advance))
+  (urusi-forget)
+  (urusi-screen-render))
+
+(defun urusi-screen--spacing ()
+  "Return what to add to each character so a line is as wide as Emacs has it.
+XAML counts it in thousandths of the font size."
+  (if (and urusi-screen--advance (< 0 urusi-screen--advance))
+      (round (* 1000 (/ (- (/ (default-font-width) (float urusi-scale))
+                           urusi-screen--advance)
+                        (urusi-screen-font-size))))
+    0))
+
 (defun urusi-screen-line-height ()
   "Return the height of a screen line, in the pixels XAML counts in.
 It is the height Emacs laid the text out with, so that a screenful
@@ -247,6 +276,7 @@ Border, and the font is on the line itself."
          (text `(TextBlock :TextWrapping "NoWrap"
                            :FontFamily ,(urusi-screen-font-family)
                            :FontSize ,(urusi-screen-font-size)
+                           :CharacterSpacing ,(urusi-screen--spacing)
                            :LineHeight ,(urusi-screen-line-height)
                            :LineStackingStrategy "BlockLineHeight"
                            ,@(when foreground `(:Foreground ,foreground))
@@ -397,13 +427,21 @@ its own."
       (progn
         (add-hook 'post-command-hook #'urusi-screen--after-command)
         (add-hook 'urusi-stale-hook #'urusi-screen-render)
+        (add-hook 'urusi-message-hook #'urusi-screen--message)
         (urusi-forget)
+        (urusi-screen--measure)
         ;; Nothing has been displayed yet when this runs during startup,
         ;; so Emacs has no screen to tell about; ask again once it has.
         (urusi-screen--after-command)
         (urusi--log "screen mode on"))
     (remove-hook 'post-command-hook #'urusi-screen--after-command)
-    (remove-hook 'urusi-stale-hook #'urusi-screen-render)))
+    (remove-hook 'urusi-stale-hook #'urusi-screen-render)
+    (remove-hook 'urusi-message-hook #'urusi-screen--message)))
+
+(defun urusi-screen--message (message)
+  "Take MESSAGE from the host, if it is one this file asked for."
+  (when (equal (plist-get message :type) "measured")
+    (urusi-screen--measured message)))
 
 (provide 'urusi-screen)
 ;;; urusi-screen.el ends here
