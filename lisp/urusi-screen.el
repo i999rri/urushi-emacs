@@ -150,25 +150,86 @@ which case overlays count as well."
               start next)))
     (nreverse runs)))
 
-(defun urusi-screen-highlight (start length background &optional foreground)
-  "Return a highlight over LENGTH characters from START, in BACKGROUND.
-This is how a stretch inside a line is given a colour of its own: a Run
-has no background in XAML, and a highlighter does.  It is what draws
-the cursor, and what a selection would be drawn with."
-  `(TextBlock.TextHighlighters
-    (TextHighlighter :Background ,background
-                     ,@(when foreground `(:Foreground ,foreground))
-                     (TextHighlighter.Ranges
-                      (TextRange :StartIndex ,start :Length ,length)))))
+(defun urusi-screen-cursor (window)
+  "Return the cursor of WINDOW, to be laid over the text.
+Emacs knows where the point is on the screen, to the pixel, because it
+is Emacs that put it there; ask, and draw a bar at that spot.  Nothing
+about the lines has to change for the cursor to move, which is what
+keeps a keystroke to one line of the screen."
+  (when-let* ((point (if (eq window (selected-window))
+                         (point)
+                       (window-point window)))
+              (position (posn-at-point point window))
+              (xy (posn-x-y position))
+              (color (or (urusi-screen-color (face-attribute 'cursor :background))
+                         (urusi-screen-color (face-attribute 'default :foreground)))))
+    ;; Emacs counts in the pixels of the screen, XAML in 96ths of an inch.
+    (let ((scale (float urusi-scale)))
+      `(Canvas :key "cursor"
+               :IsHitTestVisible "False"
+               (Rectangle :Canvas.Left ,(/ (car xy) scale)
+                          :Canvas.Top ,(/ (cdr xy) scale)
+                          :Width ,(/ 2 scale)
+                          :Height ,(urusi-screen-line-height)
+                          :Fill ,color)))))
 
-(defun urusi-screen-line (key runs &optional face highlights)
+;;;; Text
+
+(defun urusi-screen-run (text face)
+  "Return TEXT in FACE as a XAML inline."
+  (let ((foreground (urusi-screen-color
+                     (urusi-screen-face-attribute face :foreground)))
+        (weight (urusi-screen-face-attribute face :weight))
+        (slant (urusi-screen-face-attribute face :slant)))
+    `(Run :Text ,text
+          ,@(when foreground `(:Foreground ,foreground))
+          ,@(when (memq weight '(bold semi-bold ultra-bold extra-bold))
+              '(:FontWeight "Bold"))
+          ,@(when (memq slant '(italic oblique)) '(:FontStyle "Italic"))
+          ,@(when (urusi-screen-face-attribute face :underline)
+              '(:TextDecorations "Underline")))))
+
+(defun urusi-screen-runs (start end &optional object)
+  "Return the text from START to END as XAML inlines, split on face.
+OBJECT is a string to read from, or nil for the current buffer, in
+which case overlays count as well."
+  (let ((runs nil)
+        (position start))
+    (while (< position end)
+      (let* ((next (if object
+                       (or (next-single-property-change position 'face object end)
+                           end)
+                     (next-single-char-property-change position 'face nil end)))
+             (face (if object
+                       (get-text-property position 'face object)
+                     (get-char-property position 'face)))
+             (text (if object
+                       (substring-no-properties object position next)
+                     (buffer-substring-no-properties start next))))
+        (unless (string-empty-p text)
+          (push (urusi-screen-run text face) runs))
+        (setq position next
+              start next)))
+    (nreverse runs)))
+
+(defun urusi-screen-box (text background &optional foreground)
+  "Return TEXT on BACKGROUND, as something to put in a line.
+A Run takes no background in XAML, so a stretch that needs one is an
+element placed in the text rather than a stretch of it.  This is what
+draws the cursor, and what a selection or a face with a background of
+its own is drawn with."
+  `(InlineUIContainer
+    (Border :Background ,background
+            (TextBlock :Text ,text
+                       :FontFamily ,(urusi-screen-font-family)
+                       :FontSize ,(urusi-screen-font-size)
+                       ,@(when foreground `(:Foreground ,foreground))))))
+
+(defun urusi-screen-line (key runs &optional face)
   "Return a screen line showing RUNS, with the background of FACE.
 KEY says which line this is between one screen and the next: a line
 whose key and contents are unchanged is left alone by the host, and one
 that has only moved is moved rather than built again.
-
-HIGHLIGHTS are what `urusi-screen-highlight' returns, for the stretches
-of the line that carry a colour of their own.
 
 An empty line still takes its height, which is what the space is for.
 
@@ -186,10 +247,6 @@ Border, and the font is on the line itself."
                            :LineHeight ,(urusi-screen-line-height)
                            :LineStackingStrategy "BlockLineHeight"
                            ,@(when foreground `(:Foreground ,foreground))
-                           ;; The highlighters come before the text:
-                           ;; XAML reads a property element as the
-                           ;; property it names, not as content.
-                           ,@highlights
                            ,@(or runs (list '(Run :Text " "))))))
     (if background
         `(Border :key ,key :Background ,background ,text)
@@ -213,29 +270,12 @@ Border, and the font is on the line itself."
                                  (urusi-screen-runs 0 (length line) line)
                                  'header-line))))))
 
-(defun urusi-screen-cursor (point start last)
-  "Return the highlight for the cursor at POINT, if it is between START and LAST.
-The cursor is a character in the line drawn in the colours of the
-`cursor' face, which is what Emacs draws too when it draws a box."
-  (progn
-    (when (and (<= start point) (< point (1+ last)))
-      (list (urusi-screen-highlight
-             (- point start)
-             1
-             (or (urusi-screen-color (face-attribute 'cursor :background))
-                 (urusi-screen-color (face-attribute 'default :foreground)))
-             (urusi-screen-color (face-attribute 'default :background)))))))
-
 (defun urusi-screen-buffer (window)
   "Return the text WINDOW shows, one element per screen line.
 Where each screen line starts and ends is asked of Emacs, so that the
 text is broken exactly where Emacs has it broken."
   (with-current-buffer (window-buffer window)
-    ;; Where the cursor is, taken before the walk below moves about.
-    ;; The point of the selected window is the point, which window-point
-    ;; has not caught up to until the next redisplay.
-    (let ((cursor (if (eq window (selected-window)) (point) (window-point window)))
-          (lines nil)
+    (let ((lines nil)
           (end (window-end window t)))
       (save-excursion
         (goto-char (window-start window))
@@ -252,11 +292,14 @@ text is broken exactly where Emacs has it broken."
               ;; Where the line starts is what it is: a line that has
               ;; scrolled is the same line, and stays as it is.
               (push (urusi-screen-line (number-to-string start)
-                                       (urusi-screen-runs start last)
-                                       nil
-                                       (urusi-screen-cursor cursor start last))
+                                       (urusi-screen-runs start last))
                     lines)))))
-      `(Rows :key "buffer" ,@(nreverse lines)))))
+      ;; The cursor is laid over the lines rather than put in one, so
+      ;; that moving it leaves every line as it was.
+      `(Grid (Rows :key "buffer" ,@(nreverse lines))
+             (Rows :key "cursor"
+                   ,@(when-let* ((cursor (urusi-screen-cursor window)))
+                       (list cursor)))))))
 
 (defun urusi-screen-status (window)
   "Return the mode line of WINDOW."
