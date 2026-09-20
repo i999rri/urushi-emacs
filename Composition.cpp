@@ -53,9 +53,22 @@ namespace urusi
         }
     }
 
+    void Composition::Say(std::string const& what)
+    {
+        constexpr int kLimit = 400;
+
+        if (m_trace && m_said < kLimit)
+        {
+            ++m_said;
+            m_trace(what + "\n");
+        }
+    }
+
     // Hand on what the input method settled on, and start afresh.
     void Composition::Settle()
     {
+        Say("settle " + to_string(hstring{ m_text }));
+
         if (!m_text.empty() && m_commit)
         {
             m_commit(m_text);
@@ -85,6 +98,8 @@ namespace urusi
             // ours to change.
             request.Text(hstring{ m_text.substr(static_cast<size_t>(start),
                                                 static_cast<size_t>(end - start)) });
+            Say("requested " + std::to_string(range.StartCaretPosition) + ".."
+                + std::to_string(range.EndCaretPosition));
         });
 
         m_context.SelectionRequested([this](CoreTextEditContext const&,
@@ -105,6 +120,10 @@ namespace urusi
                            static_cast<size_t>(end - start),
                            std::wstring{ args.Text() });
             args.Result(CoreTextTextUpdatingResult::Succeeded);
+            Say("updating " + std::to_string(range.StartCaretPosition) + ".."
+                + std::to_string(range.EndCaretPosition) + " \""
+                + to_string(args.Text()) + "\" -> \"" + to_string(hstring{ m_text })
+                + "\", composing " + (m_composing ? "yes" : "no"));
 
             // Outside a composition there is nothing to turn over: what
             // arrives is what was meant, as when a key is typed with
@@ -131,11 +150,13 @@ namespace urusi
         m_context.CompositionStarted([this](CoreTextEditContext const&,
                                             CoreTextCompositionStartedEventArgs const&) {
             m_composing = true;
+            Say("started");
         });
 
         m_context.CompositionCompleted([this](CoreTextEditContext const&,
                                               CoreTextCompositionCompletedEventArgs const&) {
             m_composing = false;
+            Say("completed");
             Settle();
         });
 

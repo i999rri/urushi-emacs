@@ -32,6 +32,11 @@ namespace urusi
         using CommitFn = std::function<void(std::wstring)>;
         using ComposingFn = std::function<void(std::wstring)>;
 
+        // Where to write what the conversation was, for as long as
+        // anyone is likely to read it.
+        using TraceFn = std::function<void(std::string)>;
+        void Trace(TraceFn fn) { m_trace = std::move(fn); }
+
         // ELEMENT is what holds the focus while typing; the context is
         // made for the window it is in.
         void Start(winrt::Microsoft::UI::Xaml::FrameworkElement const& element,
@@ -51,10 +56,16 @@ namespace urusi
     private:
         void Bind();
         void Settle();
+        void Say(std::string const& what);
 
         winrt::Windows::UI::Text::Core::CoreTextEditContext m_context{ nullptr };
         CommitFn m_commit;
         ComposingFn m_composing_changed;
+        TraceFn m_trace;
+
+        // Enough of the conversation to see its shape, and not so much
+        // that a day's typing fills a disk.
+        int m_said{ 0 };
 
         // What the input method is turning over. It is the whole of
         // the text this context holds: Emacs keeps everything else.

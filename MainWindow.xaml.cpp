@@ -50,6 +50,43 @@ namespace
         return slash == std::string::npos ? std::string{} : directory.substr(0, slash) + "\\lisp";
     }
 
+    // The log, again, where it can be read without a debugger: beside
+    // the application, emptied when it starts, so that what is in it is
+    // this run and not the last one.
+    void WriteToLogFile(std::string const& line)
+    {
+        static HANDLE file = [] {
+            char path[MAX_PATH]{};
+            DWORD length = GetModuleFileNameA(nullptr, path, ARRAYSIZE(path));
+            if (length == 0 || length == ARRAYSIZE(path))
+            {
+                return INVALID_HANDLE_VALUE;
+            }
+
+            std::string name{ path, length };
+            auto slash = name.find_last_of('\\');
+            if (slash == std::string::npos)
+            {
+                return INVALID_HANDLE_VALUE;
+            }
+
+            // FILE_SHARE_READ, or nothing may look at it while it runs,
+            // which is the only time it is worth looking at.
+            return CreateFileA((name.substr(0, slash) + "\\urusi-emacs.log").c_str(),
+                               GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_DELETE, nullptr,
+                               CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+        }();
+
+        if (file == INVALID_HANDLE_VALUE)
+        {
+            return;
+        }
+
+        DWORD written = 0;
+        WriteFile(file, line.data(), static_cast<DWORD>(line.size()), &written, nullptr);
+        FlushFileBuffers(file);
+    }
+
     // The window the Emacs frame lives in.
     //
     // Emacs draws its frame as it always has, and nobody sees it: what
@@ -216,6 +253,12 @@ namespace winrt::urusi_emacs::implementation
     {
         auto weak = get_weak();
 
+        m_composition.Trace([weak](std::string what) {
+            if (auto self = weak.get())
+            {
+                self->AppendLog("ime", what);
+            }
+        });
         m_composition.Start(
             InputSink(),
             [weak](std::wstring text) {
@@ -246,6 +289,8 @@ namespace winrt::urusi_emacs::implementation
         {
             return;
         }
+
+        AppendLog("host", "type \"" + to_string(hstring{ text }) + "\"\n");
 
         for (wchar_t character : text)
         {
@@ -318,6 +363,10 @@ namespace winrt::urusi_emacs::implementation
             ? (down ? WM_SYSKEYDOWN : WM_SYSKEYUP)
             : (down ? WM_KEYDOWN : WM_KEYUP);
 
+        if (down)
+        {
+            AppendLog("host", "key " + std::to_string(static_cast<int>(args.Key())) + "\n");
+        }
         PostMessageW(m_emacsWindow, message,
                      static_cast<WPARAM>(args.Key()), extra);
         args.Handled(true);
@@ -753,6 +802,7 @@ namespace winrt::urusi_emacs::implementation
         // The screen covers the log once Emacs draws one, and the
         // debugger is where anyone looking for this will be.
         OutputDebugStringA(line.c_str());
+        WriteToLogFile(line);
 
         m_log += line;
         if (m_log.size() > kLogLimit)
