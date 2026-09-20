@@ -97,11 +97,15 @@ messages wait in a queue until Emacs looks at it."
 
 (defun urusi--log (format &rest arguments)
   "Write FORMAT with ARGUMENTS where the host will show it.
-The echo area is no use for what goes wrong on the way to drawing it,
-so this goes to the standard error, which the host keeps a log of."
-  (princ (concat "urusi: " (apply #'format format arguments) "
-")
-         #'external-debugging-output))
+The echo area is no use for what goes wrong on the way to drawing it.
+Neither is the standard error: by the time a host loads Emacs, its C
+runtime has taken the handles the process started with, and what Emacs
+writes there goes nowhere.  So this asks the host, the way everything
+else does."
+  (let ((text (apply #'format format arguments)))
+    (if (urusi-available-p)
+        (w32-host-post (json-serialize (list :type "log" :text text)))
+      (princ (concat "urusi: " text "\n") #'external-debugging-output))))
 
 (defvar urusi-stale-hook nil
   "Functions to run when the host has lost track of what it shows.

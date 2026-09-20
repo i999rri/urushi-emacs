@@ -8,6 +8,7 @@
 // frame a child of.
 #include <microsoft.ui.xaml.window.h>
 
+#include <algorithm>
 #include <cmath>
 
 using namespace winrt;
@@ -171,11 +172,15 @@ namespace winrt::urusi_emacs::implementation
         SetWindowPos(m_emacsWindow, HWND_TOP, x, y, width, height,
                      SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_ASYNCWINDOWPOS);
 
-        AppendLog("frame " + std::to_string(reinterpret_cast<INT_PTR>(m_emacsWindow))
-                  + " placed at " + std::to_string(x) + "," + std::to_string(y)
-                  + " " + std::to_string(width) + "x" + std::to_string(height)
-                  + (IsWindowVisible(m_emacsWindow) ? " visible" : " hidden")
-                  + (GetParent(m_emacsWindow) ? " parented" : " unparented") + "\n");
+        // Once: this runs on every step of a window being dragged.
+        if (m_seen.insert(L"placed").second)
+        {
+            AppendLog("frame " + std::to_string(reinterpret_cast<INT_PTR>(m_emacsWindow))
+                      + " placed at " + std::to_string(x) + "," + std::to_string(y)
+                      + " " + std::to_string(width) + "x" + std::to_string(height)
+                      + (IsWindowVisible(m_emacsWindow) ? " visible" : " hidden")
+                      + (GetParent(m_emacsWindow) ? " parented" : " unparented") + "\n");
+        }
     }
 
     void MainWindow::StartEmacs()
@@ -187,10 +192,23 @@ namespace winrt::urusi_emacs::implementation
         auto lisp = LispDirectory();
         if (!lisp.empty())
         {
-            args.push_back("-l");
-            args.push_back(lisp + "\\urusi-screen.el");
+            // Emacs loads the Lisp itself, inside a condition-case, so
+            // that a failure comes back here rather than going to a
+            // standard error that nothing reads. The directory goes on
+            // the load path, because one file there requires another.
+            // Lisp takes the path with forward slashes, which spares
+            // the escaping.
+            std::string path = lisp;
+            std::replace(path.begin(), path.end(), '\\', '/');
+
             args.push_back("--eval");
-            args.push_back("(progn (urusi-start) (urusi-screen-mode 1))");
+            args.push_back("(condition-case error"
+                           " (progn (add-to-list 'load-path \"" + path + "\")"
+                           " (require 'urusi-screen)"
+                           " (urusi-start) (urusi-screen-mode 1))"
+                           " (error (w32-host-post (json-serialize"
+                           " (list :type \"log\""
+                           " :text (format \"startup: %S\" error))))))");
         }
 
         std::string error;
@@ -243,6 +261,10 @@ namespace winrt::urusi_emacs::implementation
         else if (type == L"screen")
         {
             Screen(message);
+        }
+        else if (type == L"log")
+        {
+            AppendLog(to_string(message.GetNamedString(L"text", L"")) + "\n");
         }
         else if (type == L"frame")
         {
