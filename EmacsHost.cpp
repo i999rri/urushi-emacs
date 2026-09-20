@@ -133,6 +133,12 @@ namespace urusi
             return false;
         }
 
+        // The reading end is this application's alone. A program Emacs
+        // runs inherits what this process holds, and a program holding
+        // the other end of a pipe it never reads is a pipe that never
+        // ends.
+        SetHandleInformation(m_output, HANDLE_FLAG_INHERIT, 0);
+
         // A packaged application has no console, so Emacs would write
         // its messages nowhere. Both handles go to one pipe: the order
         // Emacs wrote them in is what makes them readable. The write
@@ -140,6 +146,18 @@ namespace urusi
         // of the pipe and keeps up with Emacs for as long as it runs.
         SetStdHandle(STD_OUTPUT_HANDLE, write);
         SetStdHandle(STD_ERROR_HANDLE, write);
+
+        // And something to read from, which without a console there is
+        // not. Emacs gives a program it runs the standard handles this
+        // process holds, and a program given nothing to read from is a
+        // program that may never finish.
+        HANDLE nothing = CreateFileW(L"NUL", GENERIC_READ,
+                                     FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                     &inheritable, OPEN_EXISTING, 0, nullptr);
+        if (nothing != INVALID_HANDLE_VALUE)
+        {
+            SetStdHandle(STD_INPUT_HANDLE, nothing);
+        }
 
         HANDLE reader = CreateThread(nullptr, 0, ReadOutput, this, 0, nullptr);
         if (!reader)
