@@ -150,11 +150,25 @@ which case overlays count as well."
               start next)))
     (nreverse runs)))
 
-(defun urusi-screen-line (key runs &optional face)
+(defun urusi-screen-highlight (start length background &optional foreground)
+  "Return a highlight over LENGTH characters from START, in BACKGROUND.
+This is how a stretch inside a line is given a colour of its own: a Run
+has no background in XAML, and a highlighter does.  It is what draws
+the cursor, and what a selection would be drawn with."
+  `(TextBlock.TextHighlighters
+    (TextHighlighter :Background ,background
+                     ,@(when foreground `(:Foreground ,foreground))
+                     (TextHighlighter.Ranges
+                      (TextRange :StartIndex ,start :Length ,length)))))
+
+(defun urusi-screen-line (key runs &optional face highlights)
   "Return a screen line showing RUNS, with the background of FACE.
 KEY says which line this is between one screen and the next: a line
 whose key and contents are unchanged is left alone by the host, and one
 that has only moved is moved rather than built again.
+
+HIGHLIGHTS are what `urusi-screen-highlight' returns, for the stretches
+of the line that carry a colour of their own.
 
 An empty line still takes its height, which is what the space is for.
 
@@ -172,6 +186,10 @@ Border, and the font is on the line itself."
                            :LineHeight ,(urusi-screen-line-height)
                            :LineStackingStrategy "BlockLineHeight"
                            ,@(when foreground `(:Foreground ,foreground))
+                           ;; The highlighters come before the text:
+                           ;; XAML reads a property element as the
+                           ;; property it names, not as content.
+                           ,@highlights
                            ,@(or runs (list '(Run :Text " "))))))
     (if background
         `(Border :key ,key :Background ,background ,text)
@@ -195,12 +213,29 @@ Border, and the font is on the line itself."
                                  (urusi-screen-runs 0 (length line) line)
                                  'header-line))))))
 
+(defun urusi-screen-cursor (point start last)
+  "Return the highlight for the cursor at POINT, if it is between START and LAST.
+The cursor is a character in the line drawn in the colours of the
+`cursor' face, which is what Emacs draws too when it draws a box."
+  (progn
+    (when (and (<= start point) (< point (1+ last)))
+      (list (urusi-screen-highlight
+             (- point start)
+             1
+             (or (urusi-screen-color (face-attribute 'cursor :background))
+                 (urusi-screen-color (face-attribute 'default :foreground)))
+             (urusi-screen-color (face-attribute 'default :background)))))))
+
 (defun urusi-screen-buffer (window)
   "Return the text WINDOW shows, one element per screen line.
 Where each screen line starts and ends is asked of Emacs, so that the
 text is broken exactly where Emacs has it broken."
   (with-current-buffer (window-buffer window)
-    (let ((lines nil)
+    ;; Where the cursor is, taken before the walk below moves about.
+    ;; The point of the selected window is the point, which window-point
+    ;; has not caught up to until the next redisplay.
+    (let ((cursor (if (eq window (selected-window)) (point) (window-point window)))
+          (lines nil)
           (end (window-end window t)))
       (save-excursion
         (goto-char (window-start window))
@@ -217,7 +252,9 @@ text is broken exactly where Emacs has it broken."
               ;; Where the line starts is what it is: a line that has
               ;; scrolled is the same line, and stays as it is.
               (push (urusi-screen-line (number-to-string start)
-                                       (urusi-screen-runs start last))
+                                       (urusi-screen-runs start last)
+                                       nil
+                                       (urusi-screen-cursor cursor start last))
                     lines)))))
       `(Rows :key "buffer" ,@(nreverse lines)))))
 
