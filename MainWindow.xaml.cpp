@@ -365,17 +365,28 @@ namespace winrt::urusi_emacs::implementation
     {
         constexpr int kSample = 100;
 
-        Controls::TextBlock block;
-        block.FontFamily(Media::FontFamily{ message.GetNamedString(L"family", L"Consolas") });
-        block.FontSize(message.GetNamedNumber(L"size", 14));
-        block.Text(hstring{ std::wstring(kSample, L'0') });
-        block.Measure({ std::numeric_limits<float>::infinity(),
-                        std::numeric_limits<float>::infinity() });
+        auto family = Media::FontFamily{ message.GetNamedString(L"family", L"Consolas") };
+        double size = message.GetNamedNumber(L"size", 14);
+
+        // One of each kind that Emacs counts differently: a character
+        // of one column and one of two. A font for the Latin alphabet
+        // has no kana, so the second is measured in whatever the
+        // system falls back to, which is what would be drawn.
+        auto advance = [&](wchar_t sample) {
+            Controls::TextBlock block;
+            block.FontFamily(family);
+            block.FontSize(size);
+            block.Text(hstring{ std::wstring(kSample, sample) });
+            block.Measure({ std::numeric_limits<float>::infinity(),
+                            std::numeric_limits<float>::infinity() });
+            return block.DesiredSize().Width / kSample;
+        };
 
         JsonObject reply;
         reply.SetNamedValue(L"type", String(L"measured"));
-        reply.SetNamedValue(L"advance",
-                            JsonValue::CreateNumberValue(block.DesiredSize().Width / kSample));
+        reply.SetNamedValue(L"narrow", JsonValue::CreateNumberValue(advance(L'0')));
+        // HIRAGANA LETTER A, spelled out: this file is read as bytes.
+        reply.SetNamedValue(L"wide", JsonValue::CreateNumberValue(advance(L'\x3042')));
         Send(reply);
     }
 

@@ -50,11 +50,12 @@ That is so on a terminal, where Emacs never asked for one."
   :type 'string)
 
 (defvar urusi-screen--advance nil
-  "How wide the host draws a character of the screen font, or nil.
-Emacs lays its text out on a grid of whole pixels and the host does
-not, so the two drift apart across a line.  Asking the host how wide it
-draws one character is what tells Emacs how much to correct for; see
-`urusi-screen--spacing'.")
+  "How wide the host draws a character, as (NARROW . WIDE), or nil.
+Emacs lays its text out on a grid of whole columns -- one for most
+characters, two for the likes of kana -- while the host draws at the
+width the font asks for, so the two drift apart across a line.  Asking
+the host how wide it draws one of each is what tells Emacs how much to
+correct for; see `urusi-screen--spacing'.")
 
 (defun urusi-screen--measure ()
   "Ask the host how wide it draws a character of the screen font."
@@ -64,19 +65,31 @@ draws one character is what tells Emacs how much to correct for; see
                      :size (urusi-screen-font-size))))
 
 (defun urusi-screen--measured (message)
-  "Take the width the host reported in MESSAGE, and draw again with it."
-  (setq urusi-screen--advance (plist-get message :advance))
+  "Take the widths the host reported in MESSAGE, and draw again with them."
+  (setq urusi-screen--advance (cons (plist-get message :narrow)
+                                    (plist-get message :wide)))
   (urusi-forget)
   (urusi-screen-render))
 
-(defun urusi-screen--spacing ()
-  "Return what to add to each character so a line is as wide as Emacs has it.
-XAML counts it in thousandths of the font size."
-  (if (and urusi-screen--advance (< 0 urusi-screen--advance))
-      (round (* 1000 (/ (- (/ (default-font-width) (float urusi-scale))
-                           urusi-screen--advance)
-                        (urusi-screen-font-size))))
-    0))
+(defun urusi-screen-columns (character)
+  "Return how many columns Emacs gives CHARACTER, as far as this file cares.
+What is not twice as wide is treated as once, tabs included: a tab is
+drawn as the one character it is until there is something better."
+  (if (= (char-width character) 2) 2 1))
+
+(defun urusi-screen--spacing (columns)
+  "Return what to add to each character that Emacs gives COLUMNS columns.
+That is what makes a line as wide here as Emacs laid it out.  XAML
+counts it in thousandths of the font size."
+  (let ((drawn (if (= columns 1)
+                   (car-safe urusi-screen--advance)
+                 (cdr-safe urusi-screen--advance))))
+    (if (and (numberp drawn) (< 0 drawn))
+        (round (* 1000 (/ (- (/ (* columns (default-font-width))
+                                (float urusi-scale))
+                             drawn)
+                          (urusi-screen-font-size))))
+      0)))
 
 (defun urusi-screen-line-height ()
   "Return the height of a screen line, in the pixels XAML counts in.
@@ -140,45 +153,6 @@ or a plist of attributes."
         (/ (* height 96.0) 720.0)
       14.0)))
 
-;;;; Text
-
-(defun urusi-screen-run (text face)
-  "Return TEXT in FACE as a XAML inline."
-  (let ((foreground (urusi-screen-color
-                     (urusi-screen-face-attribute face :foreground)))
-        (weight (urusi-screen-face-attribute face :weight))
-        (slant (urusi-screen-face-attribute face :slant)))
-    `(Run :Text ,text
-          ,@(when foreground `(:Foreground ,foreground))
-          ,@(when (memq weight '(bold semi-bold ultra-bold extra-bold))
-              '(:FontWeight "Bold"))
-          ,@(when (memq slant '(italic oblique)) '(:FontStyle "Italic"))
-          ,@(when (urusi-screen-face-attribute face :underline)
-              '(:TextDecorations "Underline")))))
-
-(defun urusi-screen-runs (start end &optional object)
-  "Return the text from START to END as XAML inlines, split on face.
-OBJECT is a string to read from, or nil for the current buffer, in
-which case overlays count as well."
-  (let ((runs nil)
-        (position start))
-    (while (< position end)
-      (let* ((next (if object
-                       (or (next-single-property-change position 'face object end)
-                           end)
-                     (next-single-char-property-change position 'face nil end)))
-             (face (if object
-                       (get-text-property position 'face object)
-                     (get-char-property position 'face)))
-             (text (if object
-                       (substring-no-properties object position next)
-                     (buffer-substring-no-properties start next))))
-        (unless (string-empty-p text)
-          (push (urusi-screen-run text face) runs))
-        (setq position next
-              start next)))
-    (nreverse runs)))
-
 (defun urusi-screen-cursor (window)
   "Return the cursor of WINDOW, to be laid over the text.
 Emacs knows where the point is on the screen, to the pixel, because it
@@ -207,13 +181,16 @@ keeps a keystroke to one line of the screen."
 
 ;;;; Text
 
-(defun urusi-screen-run (text face)
-  "Return TEXT in FACE as a XAML inline."
+(defun urusi-screen-run (text face &optional columns)
+  "Return TEXT in FACE as a XAML inline.
+COLUMNS is how many columns Emacs gives each character of TEXT, which
+is what decides how far apart they are drawn."
   (let ((foreground (urusi-screen-color
                      (urusi-screen-face-attribute face :foreground)))
         (weight (urusi-screen-face-attribute face :weight))
         (slant (urusi-screen-face-attribute face :slant)))
     `(Run :Text ,text
+          :CharacterSpacing ,(urusi-screen--spacing (or columns 1))
           ,@(when foreground `(:Foreground ,foreground))
           ,@(when (memq weight '(bold semi-bold ultra-bold extra-bold))
               '(:FontWeight "Bold"))
@@ -222,40 +199,39 @@ keeps a keystroke to one line of the screen."
               '(:TextDecorations "Underline")))))
 
 (defun urusi-screen-runs (start end &optional object)
-  "Return the text from START to END as XAML inlines, split on face.
+  "Return the text from START to END as XAML inlines.
+An inline ends where the face changes, and where the width of the
+characters changes: how far apart they are drawn belongs to the inline
+they are in, and Emacs draws a character of two columns twice as far
+from the next as one of one.
+
 OBJECT is a string to read from, or nil for the current buffer, in
 which case overlays count as well."
-  (let ((runs nil)
-        (position start))
-    (while (< position end)
-      (let* ((next (if object
-                       (or (next-single-property-change position 'face object end)
-                           end)
-                     (next-single-char-property-change position 'face nil end)))
-             (face (if object
-                       (get-text-property position 'face object)
-                     (get-char-property position 'face)))
-             (text (if object
-                       (substring-no-properties object position next)
-                     (buffer-substring-no-properties start next))))
-        (unless (string-empty-p text)
-          (push (urusi-screen-run text face) runs))
-        (setq position next
-              start next)))
-    (nreverse runs)))
-
-(defun urusi-screen-box (text background &optional foreground)
-  "Return TEXT on BACKGROUND, as something to put in a line.
-A Run takes no background in XAML, so a stretch that needs one is an
-element placed in the text rather than a stretch of it.  This is what
-draws the cursor, and what a selection or a face with a background of
-its own is drawn with."
-  `(InlineUIContainer
-    (Border :Background ,background
-            (TextBlock :Text ,text
-                       :FontFamily ,(urusi-screen-font-family)
-                       :FontSize ,(urusi-screen-font-size)
-                       ,@(when foreground `(:Foreground ,foreground))))))
+  (cl-flet ((character (at) (if object (aref object at) (char-after at)))
+            (face-at (at) (if object
+                              (get-text-property at 'face object)
+                            (get-char-property at 'face))))
+    (let ((runs nil)
+          (position start))
+      (while (< position end)
+        (let* ((face (face-at position))
+               (columns (urusi-screen-columns (character position)))
+               (face-end (if object
+                             (or (next-single-property-change position 'face object end)
+                                 end)
+                           (next-single-char-property-change position 'face nil end)))
+               (next (1+ position)))
+          (while (and (< next face-end)
+                      (= columns (urusi-screen-columns (character next))))
+            (setq next (1+ next)))
+          (push (urusi-screen-run
+                 (if object
+                     (substring-no-properties object position next)
+                   (buffer-substring-no-properties position next))
+                 face columns)
+                runs)
+          (setq position next)))
+      (nreverse runs))))
 
 (defun urusi-screen-line (key runs &optional face)
   "Return a screen line showing RUNS, with the background of FACE.
@@ -276,7 +252,6 @@ Border, and the font is on the line itself."
          (text `(TextBlock :TextWrapping "NoWrap"
                            :FontFamily ,(urusi-screen-font-family)
                            :FontSize ,(urusi-screen-font-size)
-                           :CharacterSpacing ,(urusi-screen--spacing)
                            :LineHeight ,(urusi-screen-line-height)
                            :LineStackingStrategy "BlockLineHeight"
                            ,@(when foreground `(:Foreground ,foreground))
