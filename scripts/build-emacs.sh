@@ -30,6 +30,7 @@ if [ -n "$deps" ]; then
     echo "=== dependencies"
     pacman -S --noconfirm --needed \
         base-devel \
+        git \
         mingw-w64-x86_64-toolchain \
         mingw-w64-x86_64-autotools \
         mingw-w64-x86_64-xpm-nox \
@@ -54,10 +55,15 @@ fi
 # stops at "'\' is already registered with AC_CONFIG_FILES".  Git on
 # Windows converts on checkout unless told otherwise, and a submodule
 # does not inherit that from the repository above it.
-if [ "$(git -C "$src" config --get core.autocrlf || true)" != false ]; then
+if grep -q $'\r' "$src/configure.ac"; then
+    command -v git >/dev/null || {
+        echo "$src was checked out with CRLF and git is not in this shell." >&2
+        echo "Install it: pacman -S git, or run this with --deps." >&2
+        exit 1
+    }
     if [ -n "$(git -C "$src" status --porcelain)" ]; then
-        echo "$src has changes of its own; set core.autocrlf to false" >&2
-        echo "and check it out again by hand, then run this again." >&2
+        echo "$src has changes of its own, and its files have to be laid" >&2
+        echo "down again to lose the CRLF.  Deal with those first." >&2
         exit 1
     fi
     echo "=== line endings"
