@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="urusi_emacs.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:urusi_emacs"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Title="urusi-emacs">
+
+    <Grid>
+        <!-- The UI sent by Emacs goes here. -->
+        <Grid x:Name="Surface" />
+        <!-- Shown while waiting for Emacs, and for errors. -->
+        <TextBlock
+            x:Name="Status"
+            Margin="16"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            Opacity="0.6"
+            TextWrapping="Wrap" />
+    </Grid>
+</Window>

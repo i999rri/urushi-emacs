@@ -1,0 +1,19 @@
+# Visual Studio
+.vs/
+*.user
+
+# Build output
+x64/
+ARM64/
+Win32/
+Debug/
+Release/
+Generated Files/
+AppPackages/
+BundleArtifacts/
+
+# NuGet (packages.config restores into packages/)
+packages/
+
+# Emacs
+*.elc
