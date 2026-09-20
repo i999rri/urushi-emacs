@@ -92,7 +92,6 @@ namespace winrt::urusi_emacs::implementation
     void MainWindow::TakeEmacsWindow(HWND window)
     {
         m_emacsWindow = window;
-        LogView().Visibility(Visibility::Collapsed);
         ShowStatus(L"");
         PlaceEmacsWindow();
     }
@@ -117,12 +116,23 @@ namespace winrt::urusi_emacs::implementation
         auto origin = site.TransformToVisual(root).TransformPoint({ 0, 0 });
         auto pixels = [scale](double value) { return static_cast<int>(std::lround(value * scale)); };
 
-        // SWP_ASYNCWINDOWPOS: the window belongs to a thread of Emacs's,
-        // and this one must not wait on it.
-        SetWindowPos(m_emacsWindow, nullptr,
-                     pixels(origin.X), pixels(origin.Y),
-                     pixels(site.ActualWidth()), pixels(site.ActualHeight()),
-                     SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_ASYNCWINDOWPOS);
+        int x = pixels(origin.X);
+        int y = pixels(origin.Y);
+        int width = pixels(site.ActualWidth());
+        int height = pixels(site.ActualHeight());
+
+        // HWND_TOP: XAML draws into a window of its own that covers all
+        // of this one, and the frame has to be above it to be seen.
+        // SWP_ASYNCWINDOWPOS: the frame belongs to a thread of Emacs's,
+        // and this thread must not wait on it.
+        SetWindowPos(m_emacsWindow, HWND_TOP, x, y, width, height,
+                     SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_ASYNCWINDOWPOS);
+
+        AppendLog("frame " + std::to_string(reinterpret_cast<INT_PTR>(m_emacsWindow))
+                  + " placed at " + std::to_string(x) + "," + std::to_string(y)
+                  + " " + std::to_string(width) + "x" + std::to_string(height)
+                  + (IsWindowVisible(m_emacsWindow) ? " visible" : " hidden")
+                  + (GetParent(m_emacsWindow) ? " parented" : " unparented") + "\n");
     }
 
     void MainWindow::StartEmacs()
