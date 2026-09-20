@@ -25,6 +25,21 @@ namespace
     {
         return std::string{ what } + ": error " + std::to_string(GetLastError());
     }
+
+    // Only for saying where Emacs was looked for, so the encoding of
+    // the system is as good as it needs to be.
+    std::string Narrow(std::wstring const& text)
+    {
+        int size = WideCharToMultiByte(CP_ACP, 0, text.c_str(), -1, nullptr, 0, nullptr, nullptr);
+        if (size <= 1)
+        {
+            return {};
+        }
+
+        std::string narrow(static_cast<size_t>(size) - 1, '\0');
+        WideCharToMultiByte(CP_ACP, 0, text.c_str(), -1, narrow.data(), size, nullptr, nullptr);
+        return narrow;
+    }
 }
 
 namespace urusi
@@ -64,10 +79,20 @@ namespace urusi
             return false;
         }
 
-        HMODULE module = LoadLibraryW(dll.c_str());
+        if (GetFileAttributesW(dll.c_str()) == INVALID_FILE_ATTRIBUTES)
+        {
+            error = "no Emacs at " + Narrow(dll) + " (run scripts/stage-emacs.sh)";
+            return false;
+        }
+
+        // LOAD_WITH_ALTERED_SEARCH_PATH: Emacs brings the few DLLs it
+        // needs from mingw64 and they sit next to it, but the loader
+        // would look for them beside this application instead. With
+        // the flag, the directory of the DLL takes that place.
+        HMODULE module = LoadLibraryExW(dll.c_str(), nullptr, LOAD_WITH_ALTERED_SEARCH_PATH);
         if (!module)
         {
-            error = LastErrorText("cannot load libemacs.dll");
+            error = LastErrorText(("cannot load " + Narrow(dll)).c_str());
             return false;
         }
 
