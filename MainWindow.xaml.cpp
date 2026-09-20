@@ -4,8 +4,8 @@
 #include "MainWindow.g.cpp"
 #endif
 
-// For the window handle of this window, which is what Emacs makes its
-// frame a child of.
+// For the window handle of this window, which is what tells Emacs that
+// there is a host here at all.
 #include <microsoft.ui.xaml.window.h>
 
 #include <algorithm>
@@ -26,29 +26,6 @@ namespace
     // Enough of Emacs's output to see how it started, and no more.
     constexpr size_t kLogLimit = 16384;
 
-    // Where urusi.el is: URUSI_LISP_DIR, or lisp next to the
-    // application. Emacs takes its command line in the encoding of the
-    // system, so this stays narrow all the way.
-    std::string LispDirectory()
-    {
-        char configured[MAX_PATH]{};
-        DWORD length = GetEnvironmentVariableA("URUSI_LISP_DIR", configured, ARRAYSIZE(configured));
-        if (length > 0 && length < ARRAYSIZE(configured))
-        {
-            return std::string{ configured, length };
-        }
-
-        char path[MAX_PATH]{};
-        length = GetModuleFileNameA(nullptr, path, ARRAYSIZE(path));
-        if (length == 0 || length == ARRAYSIZE(path))
-        {
-            return {};
-        }
-
-        std::string directory{ path, length };
-        auto slash = directory.find_last_of('\\');
-        return slash == std::string::npos ? std::string{} : directory.substr(0, slash) + "\\lisp";
-    }
 
     // The log, again, where it can be read without a debugger: beside
     // the application, emptied when it starts, so that what is in it is
@@ -118,44 +95,6 @@ namespace
         }
     }
 
-    // The window the Emacs frame lives in.
-    //
-    // Emacs draws its frame as it always has, and nobody sees it: what
-    // is seen is built in Lisp and drawn by XAML. The frame cannot be a
-    // child of the window that shows, because XAML draws into a layered
-    // window and leaves every part it did not paint clear, and the
-    // frame shows through those parts. So the frame is given a
-    // top-level window of its own that is never shown, which also puts
-    // it out of reach of the mouse and out of the way of the focus.
-    //
-    // Emacs would ordinarily take a window it cannot see for one nobody
-    // is looking at, and lay out nothing; it knows better about the
-    // frames a host draws, and lays them out all the same.
-    HWND MakeOffscreenHolder()
-    {
-        static ATOM registered = [] {
-            WNDCLASSEXW description{ sizeof(description) };
-
-            description.lpfnWndProc = DefWindowProcW;
-            description.hInstance = GetModuleHandleW(nullptr);
-            description.lpszClassName = L"urusi-emacs-offscreen";
-            return RegisterClassExW(&description);
-        }();
-
-        if (!registered)
-        {
-            return nullptr;
-        }
-
-        // Not WS_VISIBLE, and never shown: nothing of it is ever drawn
-        // and nothing can reach it. WS_EX_TOOLWINDOW keeps it out of
-        // the list of windows to switch to as well.
-        return CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
-                               L"urusi-emacs-offscreen", L"",
-                               WS_POPUP | WS_CLIPCHILDREN,
-                               0, 0, 1, 1,
-                               nullptr, nullptr, GetModuleHandleW(nullptr), nullptr);
-    }
 }
 
 namespace winrt::urusi_emacs::implementation
@@ -183,14 +122,20 @@ namespace winrt::urusi_emacs::implementation
                 }
             });
         });
-        m_holder = MakeOffscreenHolder();
-        urusi::HostApi::Instance().SetWindow(m_holder);
+        HWND window = nullptr;
+        check_hresult(try_as<::IWindowNative>()->get_WindowHandle(&window));
 
-        // The frame is sized to EditorSite and has to follow it.
+        // Emacs asks for this to know that a host is here, and makes
+        // its frame a message-only window when one is. It is not a
+        // parent: nothing of Emacs is ever on this window.
+        urusi::HostApi::Instance().SetWindow(window);
+
+        // Emacs lays its text out to the size of its frame, and the
+        // frame is as big as the area the screen is drawn in.
         EditorSite().SizeChanged([weak](IInspectable const&, SizeChangedEventArgs const&) {
             if (auto self = weak.get())
             {
-                self->SizeEmacsWindow();
+                self->SizeEmacsFrame();
             }
         });
 
@@ -225,8 +170,7 @@ namespace winrt::urusi_emacs::implementation
         StartComposition();
 
         // Which build this is, so that a stale one is obvious.
-        AppendLog("host", std::string{ "urusi-emacs built " } + __DATE__ + " " + __TIME__
-                  + (m_holder ? "\n" : ", no offscreen holder: the frame will show\n"));
+        AppendLog("host", std::string{ "urusi-emacs built " } + __DATE__ + " " + __TIME__ + "\n");
 
         ShowStatus(L"Waiting for Emacs");
     }
@@ -235,7 +179,7 @@ namespace winrt::urusi_emacs::implementation
     {
         m_emacsWindow = window;
         ShowStatus(L"");
-        SizeEmacsWindow();
+        SizeEmacsFrame();
         TakeInputToEmacs();
     }
 
@@ -409,40 +353,40 @@ namespace winrt::urusi_emacs::implementation
         args.Handled(true);
     }
 
-    // The frame is never seen, but its size is still what Emacs lays
-    // its text out to, so it is kept the size of the area the screen is
-    // drawn in.
-    void MainWindow::SizeEmacsWindow()
+    // Emacs lays its text out to the size of its frame, so the frame is
+    // told the size of the area the screen is drawn in.
+    //
+    // Told, rather than resized: the frame's window is on no screen and
+    // its size means nothing to Windows, and a window message would
+    // cost Emacs the thread it reads its input on, which a keystroke
+    // then waits behind.
+    void MainWindow::SizeEmacsFrame()
     {
-        if (!m_emacsWindow)
-        {
-            return;
-        }
-
         auto site = EditorSite();
         if (!site.XamlRoot())
         {
             return;
         }
 
-        // XAML works in device-independent pixels and a window in
-        // physical ones.
+        // XAML works in device-independent pixels and Emacs in the ones
+        // of the screen.
         double scale = site.XamlRoot().RasterizationScale();
         auto pixels = [scale](double value) { return static_cast<int>(std::lround(value * scale)); };
 
-        int width = pixels(site.ActualWidth());
-        int height = pixels(site.ActualHeight());
+        SIZE size{ pixels(site.ActualWidth()), pixels(site.ActualHeight()) };
 
-        if (m_holder)
+        if (size.cx <= 0 || size.cy <= 0
+            || (size.cx == m_emacsSize.cx && size.cy == m_emacsSize.cy))
         {
-            SetWindowPos(m_holder, nullptr, 0, 0, width, height,
-                         SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOZORDER);
+            return;
         }
+        m_emacsSize = size;
 
-        // SWP_ASYNCWINDOWPOS: the frame belongs to a thread of Emacs's,
-        // and this thread must not wait on it.
-        SetWindowPos(m_emacsWindow, nullptr, 0, 0, width, height,
-                     SWP_NOACTIVATE | SWP_NOZORDER | SWP_SHOWWINDOW | SWP_ASYNCWINDOWPOS);
+        JsonObject message;
+        message.SetNamedValue(L"type", String(L"resize"));
+        message.SetNamedValue(L"width", JsonValue::CreateNumberValue(size.cx));
+        message.SetNamedValue(L"height", JsonValue::CreateNumberValue(size.cy));
+        Send(message);
     }
 
     void MainWindow::StartEmacs()
@@ -450,28 +394,24 @@ namespace winrt::urusi_emacs::implementation
         auto weak = get_weak();
         auto dispatcher = m_dispatcher;
 
-        std::vector<std::string> args{ "emacs", "-Q" };
-        auto lisp = LispDirectory();
-        if (!lisp.empty())
-        {
-            // Emacs loads the Lisp itself, inside a condition-case, so
-            // that a failure comes back here rather than going to a
-            // standard error that nothing reads. The directory goes on
-            // the load path, because one file there requires another.
-            // Lisp takes the path with forward slashes, which spares
-            // the escaping.
-            std::string path = lisp;
-            std::replace(path.begin(), path.end(), '\\', '/');
-
-            args.push_back("--eval");
-            args.push_back("(condition-case error"
-                           " (progn (add-to-list 'load-path \"" + path + "\")"
-                           " (require 'urusi-screen)"
-                           " (urusi-start) (urusi-screen-mode 1))"
-                           " (error (w32-host-post (json-serialize"
-                           " (list :type \"log\""
-                           " :text (format \"startup: %S\" error))))))");
-        }
+        // No -Q: this is the user's Emacs, and it reads the user's init
+        // file like any other. urusi's own Lisp sits among the Lisp of
+        // the installation, so an init file can require it and say what
+        // the screen should look like before this runs.
+        //
+        // --eval is handled after the init file, which is why the
+        // screen is started from here and not from a file loaded
+        // earlier. It is wrapped in a condition-case so that a failure
+        // comes back through the host: Emacs's standard error goes
+        // nowhere here.
+        std::vector<std::string> args{
+            "emacs",
+            "--eval",
+            "(condition-case error"
+            " (progn (require 'urusi-screen) (urusi-start) (urusi-screen-mode 1))"
+            " (error (w32-host-post (json-serialize"
+            " (list :type \"log\" :text (format \"startup: %S\" error))))))"
+        };
 
         std::string error;
         bool started = urusi::EmacsHost::Instance().Start(
@@ -587,11 +527,6 @@ namespace winrt::urusi_emacs::implementation
 
     void MainWindow::Screen(JsonObject const& message)
     {
-        // Emacs sets its frame to a size of its own during startup, and
-        // whenever Lisp asks it to. Where the frame goes is this
-        // window's to say, so say it again.
-        SizeEmacsWindow();
-
         // The XAML around the rows comes only when it has changed, and
         // everything in it goes with it.
         if (message.HasKey(L"xaml"))

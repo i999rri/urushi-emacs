@@ -38,10 +38,7 @@ The host then builds from `urusi-emacs.slnx`, in Visual Studio with the Windows 
 
 Emacs's standard output and error are shown in the window, which is where a failure to start appears.
 
-Two environment variables override where things are, for running against a build that is not staged:
-
-- `URUSI_EMACS_DLL` — the path of `libemacs.dll`.
-- `URUSI_LISP_DIR` — the directory holding `urusi.el`.
+`URUSI_EMACS_DLL` overrides the path of `libemacs.dll`, for running against a build that is not staged.
 
 <details>
 <summary>日本語</summary>
@@ -84,9 +81,6 @@ scripts/stage-emacs.sh
 
 Emacs の標準出力とエラーはウインドウに出る。起動に失敗したときもそこに出る。
 
-ステージングしていないビルドで動かしたいときは環境変数で上書きできる。
-
-- `URUSI_EMACS_DLL` — `libemacs.dll` のパス。
-- `URUSI_LISP_DIR` — `urusi.el` があるディレクトリ。
+ステージングしていないビルドで動かしたいときは `URUSI_EMACS_DLL` で `libemacs.dll` のパスを上書きできる。
 
 </details>

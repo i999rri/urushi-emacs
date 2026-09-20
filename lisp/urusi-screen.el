@@ -469,10 +469,25 @@ Long enough to see what a keystroke costs, and then quiet."
     (remove-hook 'urusi-stale-hook #'urusi-screen-render)
     (remove-hook 'urusi-message-hook #'urusi-screen--message)))
 
+(defun urusi-screen--resize (message)
+  "Lay the frame out to the size the host says it has room for.
+
+The frame's own window is on no screen and its size means nothing to
+Windows, so the size comes as a message rather than as a window being
+resized.  Which also means it cannot come back: nothing here moves a
+window that something else would then tell us about."
+  (let ((width (plist-get message :width))
+        (height (plist-get message :height)))
+    (when (and (numberp width) (numberp height) (< 0 width) (< 0 height))
+      (set-frame-size (selected-frame) (truncate width) (truncate height) t)
+      (urusi-forget)
+      (urusi-screen-render))))
+
 (defun urusi-screen--message (message)
   "Answer MESSAGE from the host, if it is this file's to answer."
   (pcase (plist-get message :type)
     ("measured" (urusi-screen--measured message))
+    ("resize" (urusi-screen--resize message))
     ("composition"
      (setq urusi-screen--composing (or (plist-get message :text) ""))
      (urusi-screen-render))))

@@ -169,9 +169,6 @@
     <None Include="emacs\**\*">
       <DeploymentContent>true</DeploymentContent>
     </None>
-    <None Include="lisp\*.el">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include="readme.txt">
@@ -272,13 +269,16 @@
   <Target Name="CopyEmacsToOutput" AfterTargets="Build">
     <ItemGroup>
       <StagedEmacs Include="$(ProjectDir)emacs\**\*" />
+      <!-- Beside the Lisp of the Emacs installation, which is where an
+           init file can find it before it says what the screen should
+           look like. -->
       <UrusiLisp Include="$(ProjectDir)lisp\*.el" />
     </ItemGroup>
     <Copy SourceFiles="@(StagedEmacs)"
           DestinationFiles="@(StagedEmacs->'$(OutDir)emacs\%(RecursiveDir)%(Filename)%(Extension)')"
           SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(UrusiLisp)"
-          DestinationFolder="$(OutDir)lisp"
+          DestinationFolder="$(OutDir)emacs\share\emacs\site-lisp\urusi"
           SkipUnchangedFiles="true" />
   </Target>
 </Project>
