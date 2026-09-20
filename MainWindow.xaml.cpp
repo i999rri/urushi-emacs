@@ -187,7 +187,7 @@ namespace winrt::urusi_emacs::implementation
             AppendLog("host", "attach " + std::to_string(attached) + ", focus "
                       + std::to_string(reinterpret_cast<INT_PTR>(focus)) + " ("
                       + to_string(hstring{ name }) + "), frame "
-                      + std::to_string(reinterpret_cast<INT_PTR>(m_emacsWindow)) + "");
+                      + std::to_string(reinterpret_cast<INT_PTR>(m_emacsWindow)) + "\n");
         }
     }
 
@@ -365,16 +365,16 @@ namespace winrt::urusi_emacs::implementation
     {
         constexpr int kSample = 100;
 
-        auto family = Media::FontFamily{ message.GetNamedString(L"family", L"Consolas") };
+        auto narrow = message.GetNamedString(L"family", L"Consolas");
+        auto wide = message.GetNamedString(L"wide-family", narrow);
         double size = message.GetNamedNumber(L"size", 14);
 
         // One of each kind that Emacs counts differently: a character
-        // of one column and one of two. A font for the Latin alphabet
-        // has no kana, so the second is measured in whatever the
-        // system falls back to, which is what would be drawn.
-        auto advance = [&](wchar_t sample) {
+        // of one column and one of two, each in the font it is drawn
+        // in.
+        auto advance = [&](hstring const& family, wchar_t sample) {
             Controls::TextBlock block;
-            block.FontFamily(family);
+            block.FontFamily(Media::FontFamily{ family });
             block.FontSize(size);
             block.Text(hstring{ std::wstring(kSample, sample) });
             block.Measure({ std::numeric_limits<float>::infinity(),
@@ -384,9 +384,9 @@ namespace winrt::urusi_emacs::implementation
 
         JsonObject reply;
         reply.SetNamedValue(L"type", String(L"measured"));
-        reply.SetNamedValue(L"narrow", JsonValue::CreateNumberValue(advance(L'0')));
+        reply.SetNamedValue(L"narrow", JsonValue::CreateNumberValue(advance(narrow, L'0')));
         // HIRAGANA LETTER A, spelled out: this file is read as bytes.
-        reply.SetNamedValue(L"wide", JsonValue::CreateNumberValue(advance(L'\x3042')));
+        reply.SetNamedValue(L"wide", JsonValue::CreateNumberValue(advance(wide, L'\x3042')));
         Send(reply);
     }
 

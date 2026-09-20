@@ -49,6 +49,15 @@
 That is so on a terminal, where Emacs never asked for one."
   :type 'string)
 
+(defcustom urusi-screen-wide-font "MS Gothic"
+  "Font to draw the characters Emacs gives two columns in.
+A font for the Latin alphabet has no kana, and what the host falls
+back to for them is not what Emacs fell back to, so the two draw them
+different widths and the text comes out strewn about.  Naming a font
+that has them settles it: a full-width character of such a font is as
+wide as the font is tall, which is the room Emacs makes for it."
+  :type 'string)
+
 (defvar urusi-screen--advance nil
   "How wide the host draws a character, as (NARROW . WIDE), or nil.
 Emacs lays its text out on a grid of whole columns -- one for most
@@ -57,20 +66,26 @@ width the font asks for, so the two drift apart across a line.  Asking
 the host how wide it draws one of each is what tells Emacs how much to
 correct for; see `urusi-screen--spacing'.")
 
+(defun urusi-screen-wide-font-family ()
+  "Return the family to draw a character of two columns in."
+  (or urusi-screen-wide-font (urusi-screen-font-family)))
+
 (defun urusi-screen--measure ()
-  "Ask the host how wide it draws a character of the screen font."
+  "Ask the host how wide it draws a character of each width."
   (setq urusi-screen--advance nil)
   (urusi--send (list :type "measure"
                      :family (urusi-screen-font-family)
+                     :wide-family (urusi-screen-wide-font-family)
                      :size (urusi-screen-font-size))))
+
 
 (defun urusi-screen--measured (message)
   "Take the widths the host reported in MESSAGE, and draw again with them."
   (setq urusi-screen--advance (cons (plist-get message :narrow)
                                     (plist-get message :wide)))
-  (urusi--log "font %s %s, cell %s, drawn %s/%s, spacing %s/%s"
-              (urusi-screen-font-family) (urusi-screen-font-size)
-              (default-font-width)
+  (urusi--log "font %s / %s at %s, cell %s, drawn %s/%s, spacing %s/%s"
+              (urusi-screen-font-family) (urusi-screen-wide-font-family)
+              (urusi-screen-font-size) (default-font-width)
               (car urusi-screen--advance) (cdr urusi-screen--advance)
               (urusi-screen--spacing 1) (urusi-screen--spacing 2))
   (urusi-forget)
@@ -196,6 +211,8 @@ is what decides how far apart they are drawn."
         (slant (urusi-screen-face-attribute face :slant)))
     `(Run :Text ,text
           :CharacterSpacing ,(urusi-screen--spacing (or columns 1))
+          ,@(when (eql columns 2)
+              `(:FontFamily ,(urusi-screen-wide-font-family)))
           ,@(when foreground `(:Foreground ,foreground))
           ,@(when (memq weight '(bold semi-bold ultra-bold extra-bold))
               '(:FontWeight "Bold"))
