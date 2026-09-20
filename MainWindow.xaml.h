@@ -32,6 +32,8 @@ namespace winrt::urusi_emacs::implementation
         // window's business from then on.
         void TakeEmacsWindow(HWND window);
         void TakeInputToEmacs();
+        void ForwardKey(Microsoft::UI::Xaml::Input::KeyRoutedEventArgs const& args,
+                        bool down);
         void PlaceEmacsWindow();
 
         // Runs on the UI thread.

@@ -115,6 +115,21 @@ namespace winrt::urusi_emacs::implementation
                     self->TakeInputToEmacs();
                 }
             });
+
+            // Whichever of the two holds the focus, the keys are
+            // Emacs's. XAML sees them first, so hand them over.
+            content.KeyDown([weak](IInspectable const&, Input::KeyRoutedEventArgs const& args) {
+                if (auto self = weak.get())
+                {
+                    self->ForwardKey(args, true);
+                }
+            });
+            content.KeyUp([weak](IInspectable const&, Input::KeyRoutedEventArgs const& args) {
+                if (auto self = weak.get())
+                {
+                    self->ForwardKey(args, false);
+                }
+            });
         }
 
         // Which build this is, so that a stale one is obvious.
@@ -173,6 +188,37 @@ namespace winrt::urusi_emacs::implementation
                       + to_string(hstring{ name }) + "), frame "
                       + std::to_string(reinterpret_cast<INT_PTR>(m_emacsWindow)) + "");
         }
+    }
+
+    // Give ARGS to the Emacs frame as the key message it was, and let
+    // Emacs make of it what it makes of any other. Only the key goes:
+    // Emacs turns it into a character itself, from the state of the
+    // keyboard, which is this thread's as well now that the two input
+    // queues are one.
+    void MainWindow::ForwardKey(Input::KeyRoutedEventArgs const& args, bool down)
+    {
+        if (!m_emacsWindow)
+        {
+            return;
+        }
+
+        auto status = args.KeyStatus();
+        LPARAM extra = static_cast<LPARAM>(status.RepeatCount)
+            | (static_cast<LPARAM>(status.ScanCode) << 16)
+            | (status.IsExtendedKey ? (1LL << 24) : 0)
+            | (status.IsMenuKeyDown ? (1LL << 29) : 0)
+            | (status.WasKeyDown ? (1LL << 30) : 0)
+            | (down ? 0 : (1LL << 31));
+
+        // Alt held is a system key to Windows and the meta key to
+        // Emacs, and it arrives under another name.
+        UINT message = status.IsMenuKeyDown
+            ? (down ? WM_SYSKEYDOWN : WM_SYSKEYUP)
+            : (down ? WM_KEYDOWN : WM_KEYUP);
+
+        PostMessageW(m_emacsWindow, message,
+                     static_cast<WPARAM>(args.Key()), extra);
+        args.Handled(true);
     }
 
     void MainWindow::PlaceEmacsWindow()
