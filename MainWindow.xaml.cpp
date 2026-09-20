@@ -104,6 +104,19 @@ namespace winrt::urusi_emacs::implementation
             }
         });
 
+        // XAML gives the focus to its own content when the window is
+        // activated, and to whatever is clicked afterwards. Wherever it
+        // lands, it belongs to Emacs.
+        if (auto content = Content().try_as<UIElement>())
+        {
+            content.GotFocus([weak](IInspectable const&, RoutedEventArgs const&) {
+                if (auto self = weak.get())
+                {
+                    self->TakeInputToEmacs();
+                }
+            });
+        }
+
         // Which build this is, so that a stale one is obvious.
         AppendLog(std::string{ "urusi-emacs built " } + __DATE__ + " " + __TIME__
                   + ((GetWindowLongPtrW(window, GWL_STYLE) & WS_CLIPCHILDREN)
@@ -124,20 +137,43 @@ namespace winrt::urusi_emacs::implementation
 
     void MainWindow::TakeInputToEmacs()
     {
+        if (!m_emacsWindow)
+        {
+            return;
+        }
+
         // The frame window belongs to a thread of Emacs's own, and a
         // thread may only give the focus to a window on its own input
         // queue. Joining the two queues lets this one hand the focus
         // over, and lets Emacs read the modifier keys as they really
         // are, which is what its own key handling asks the system for.
         DWORD emacs = GetWindowThreadProcessId(m_emacsWindow, nullptr);
+        BOOL attached = TRUE;
 
-        if (emacs && emacs != GetCurrentThreadId())
+        if (emacs && emacs != GetCurrentThreadId() && !m_attached)
         {
-            AttachThreadInput(GetCurrentThreadId(), emacs, TRUE);
+            attached = AttachThreadInput(GetCurrentThreadId(), emacs, TRUE);
+            m_attached = attached != FALSE;
         }
 
         // Nothing of the frame is ever seen, but it is what types.
         SetFocus(m_emacsWindow);
+
+        if (m_seen.insert(L"focus").second)
+        {
+            HWND focus = GetFocus();
+            wchar_t name[64]{};
+
+            if (focus)
+            {
+                GetClassNameW(focus, name, ARRAYSIZE(name));
+            }
+            AppendLog("attach " + std::to_string(attached) + ", focus "
+                      + std::to_string(reinterpret_cast<INT_PTR>(focus)) + " ("
+                      + to_string(hstring{ name }) + "), frame "
+                      + std::to_string(reinterpret_cast<INT_PTR>(m_emacsWindow)) + "
+");
+        }
     }
 
     void MainWindow::PlaceEmacsWindow()

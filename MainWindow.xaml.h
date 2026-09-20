@@ -54,6 +54,7 @@ namespace winrt::urusi_emacs::implementation
         std::string m_log;
         std::set<std::wstring> m_seen;
         HWND m_emacsWindow{ nullptr };
+        bool m_attached{ false };
     };
 }
 
