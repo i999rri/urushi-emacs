@@ -183,7 +183,9 @@ moved to."
                     (children (cddr rest)))
                (push (cons name
                            (mapcar (lambda (child)
-                                     (cons (urusi--row-key child) (node child nil)))
+                                     ;; A row is read on its own, so it
+                                     ;; declares the namespaces itself.
+                                     (cons (urusi--row-key child) (node child t)))
                                    children))
                      rows)
                (format "<StackPanel x:Name=\"%s\" />" (urusi--escape name t))))

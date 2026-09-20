@@ -96,16 +96,30 @@
             ;; every row in it.
             (should (plist-get (nth 0 posted) :xaml))
             (should (equal (plist-get (aref (plist-get (nth 0 posted) :rows) 0) :items)
-                           [(:key "a" :xaml "<TextBlock>one</TextBlock>")
-                            (:key "b" :xaml "<TextBlock>two</TextBlock>")]))
+                           (vector
+                            (list :key "a"
+                                  :xaml (concat "<TextBlock" urusi-test--ns ">one</TextBlock>"))
+                            (list :key "b"
+                                  :xaml (concat "<TextBlock" urusi-test--ns ">two</TextBlock>")))))
             ;; The second, nothing but the names.
             (should-not (plist-get (nth 1 posted) :xaml))
             (should (equal (plist-get (aref (plist-get (nth 1 posted) :rows) 0) :items)
                            [(:key "a") (:key "b")]))
             ;; The third, the row that changed and no more.
             (should (equal (plist-get (aref (plist-get (nth 2 posted) :rows) 0) :items)
-                           [(:key "a") (:key "b" :xaml "<TextBlock>three</TextBlock>")])))
+                           (vector
+                            (list :key "a")
+                            (list :key "b"
+                                  :xaml (concat "<TextBlock" urusi-test--ns
+                                                ">three</TextBlock>"))))))
         (urusi-forget)))))
+
+(ert-deftest urusi-rows-declare-the-namespaces ()
+  "A row is read on its own, so it has to bring the namespaces with it."
+  (let ((rows (nth 3 (urusi--compile
+                      '(Grid (Rows :key "buffer" (TextBlock :key "a" "one")))))))
+    (should (equal (cdr (assoc "a" (cdr (assoc "buffer" rows))))
+                   (concat "<TextBlock" urusi-test--ns ">one</TextBlock>")))))
 
 (ert-deftest urusi-forgets-when-the-host-is-stale ()
   "Send the whole screen again when the host says it has lost track."
