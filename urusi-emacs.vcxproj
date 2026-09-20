@@ -131,7 +131,8 @@
       <DependentUpon>MainWindow.xaml</DependentUpon>
     </ClInclude>
     <ClInclude Include="EmacsHost.h" />
-    <ClInclude Include="UiServer.h" />
+    <ClInclude Include="HostApi.h" />
+    <ClInclude Include="w32host.h" />
   </ItemGroup>
   <ItemGroup>
     <ApplicationDefinition Include="App.xaml" />
@@ -148,7 +149,7 @@
       <DependentUpon>MainWindow.xaml</DependentUpon>
     </ClCompile>
     <ClCompile Include="EmacsHost.cpp" />
-    <ClCompile Include="UiServer.cpp" />
+    <ClCompile Include="HostApi.cpp" />
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
   </ItemGroup>
   <ItemGroup>

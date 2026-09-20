@@ -2,8 +2,10 @@
 
 ;;; Commentary:
 
-;; Talks to the urusi-emacs host, a WinUI 3 app, over a TCP connection on the
-;; loopback interface, one JSON message per line.
+;; Builds the window of the urusi-emacs host, a WinUI 3 application that
+;; loads Emacs into its own process.  Messages go by calling the host,
+;; with `w32-host-post' and `w32-host-take-events'; each one is a line of
+;; JSON.
 ;;
 ;; A UI is a tree of s-expressions:
 ;;
@@ -26,19 +28,22 @@
 (require 'cl-lib)
 (require 'subr-x)
 
+(declare-function w32-host-available-p "w32host.c")
+(declare-function w32-host-post "w32host.c" (message))
+(declare-function w32-host-take-events "w32host.c")
+
 (defgroup urusi nil
   "Native WinUI 3 UI built from Emacs Lisp."
   :group 'environment)
 
-(defcustom urusi-port 7680
-  "Port the urusi-emacs host listens on, on 127.0.0.1."
-  :type 'integer)
+(defcustom urusi-poll-interval 0.05
+  "How often to look for messages from the host, in seconds.
+The host sends from a thread of its own, which cannot run Lisp, so its
+messages wait in a queue until Emacs looks at it."
+  :type 'number)
 
-(defvar urusi--process nil
-  "Connection to the host.")
-
-(defvar urusi--pending ""
-  "Output from the host that does not end in a newline yet.")
+(defvar urusi--timer nil
+  "Timer that looks for messages from the host.")
 
 (defvar urusi--handlers (make-hash-table :test #'eql)
   "Event handlers of the UI currently shown, keyed by event id.")
@@ -48,58 +53,48 @@
           " xmlns:x=\"http://schemas.microsoft.com/winfx/2006/xaml\"")
   "Namespace declarations the root element needs for XamlReader.Load.")
 
-;;;; Connection
+;;;; Talking to the host
 
-(defun urusi-connect ()
-  "Connect to the urusi-emacs host."
+(defun urusi-available-p ()
+  "Return non-nil if this Emacs runs inside the urusi-emacs host."
+  (and (fboundp 'w32-host-available-p) (w32-host-available-p)))
+
+(defun urusi-start ()
+  "Start talking to the urusi-emacs host."
   (interactive)
-  (urusi-disconnect)
-  (setq urusi--pending "")
-  (setq urusi--process
-        (make-network-process :name "urusi"
-                              :host "127.0.0.1"
-                              :service urusi-port
-                              :coding 'utf-8-unix
-                              :noquery t
-                              :filter #'urusi--filter
-                              :sentinel #'urusi--sentinel))
+  (unless (urusi-available-p)
+    (user-error "urusi: This Emacs does not run inside the host"))
+  (urusi-stop)
+  (setq urusi--timer
+        (run-with-timer urusi-poll-interval urusi-poll-interval #'urusi--take))
   (urusi--send '(:type "hello" :version 1)))
 
-(defun urusi-disconnect ()
-  "Disconnect from the urusi-emacs host."
+(defun urusi-stop ()
+  "Stop looking for messages from the host."
   (interactive)
-  (when (process-live-p urusi--process)
-    (delete-process urusi--process))
-  (setq urusi--process nil))
+  (when urusi--timer
+    (cancel-timer urusi--timer)
+    (setq urusi--timer nil)))
 
 (defun urusi--send (message)
-  "Send MESSAGE, a plist, to the host as one line of JSON."
-  (unless (process-live-p urusi--process)
-    (user-error "urusi: Not connected (M-x urusi-connect)"))
-  (process-send-string urusi--process (concat (json-serialize message) "\n")))
+  "Send MESSAGE, a plist, to the host as one JSON object."
+  (unless (w32-host-post (json-serialize message))
+    (user-error "urusi: This Emacs does not run inside the host")))
 
-(defun urusi--filter (_process output)
-  "Split OUTPUT from the host into lines and handle each message."
-  (setq urusi--pending (concat urusi--pending output))
-  (let (newline)
-    (while (setq newline (string-search "\n" urusi--pending))
-      (let ((line (substring urusi--pending 0 newline)))
-        (setq urusi--pending (substring urusi--pending (1+ newline)))
-        (unless (string-empty-p line)
-          (urusi--dispatch (json-parse-string line
-                                              :object-type 'plist
-                                              :false-object nil
-                                              :null-object nil)))))))
-
-(defun urusi--sentinel (_process event)
-  "Report that the connection ended, as described by EVENT."
-  (unless (string-prefix-p "open" event)
-    (message "urusi: %s" (string-trim event))))
+(defun urusi--take ()
+  "Handle the messages the host has sent since the last look."
+  (dolist (message (w32-host-take-events))
+    (condition-case err
+        (urusi--dispatch (json-parse-string message
+                                            :object-type 'plist
+                                            :false-object nil
+                                            :null-object nil))
+      (error (message "urusi: %S in %s" err message)))))
 
 (defun urusi--dispatch (message)
   "Handle MESSAGE, a plist parsed from the host."
   (pcase (plist-get message :type)
-    ("hello" (message "urusi: Connected to %s" (plist-get message :host)))
+    ("hello" (message "urusi: Talking to %s" (plist-get message :host)))
     ("event" (urusi--call-handler (plist-get message :id) (plist-get message :args)))
     ("error" (message "urusi: %s" (plist-get message :message)))))
 
@@ -193,8 +188,8 @@ attach events and HANDLERS maps event ids to functions."
 (defun urusi-demo ()
   "Show a small UI in the host, to check that everything is connected."
   (interactive)
-  (unless (process-live-p urusi--process)
-    (urusi-connect))
+  (unless urusi--timer
+    (urusi-start))
   (let ((count 0))
     (urusi-render
      `(StackPanel :Padding 24 :Spacing 12

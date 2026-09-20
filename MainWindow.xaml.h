@@ -2,7 +2,7 @@
 
 #include "MainWindow.g.h"
 #include "EmacsHost.h"
-#include "UiServer.h"
+#include "HostApi.h"
 
 #include <memory>
 #include <string>
@@ -17,12 +17,13 @@ namespace winrt::urusi_emacs::implementation
             // See https://github.com/microsoft/cppwinrt/tree/master/nuget#initializecomponent
         }
 
-        // Starts listening for Emacs once the named elements (Surface, Status)
-        // exist, which is only after the generated InitializeComponent.
+        // Takes the messages of Emacs once the named elements (Surface,
+        // Status, Log) exist, which is only after the generated
+        // InitializeComponent.
         void InitializeComponent();
 
     private:
-        void Start(uint16_t port);
+        void Start();
         void StartEmacs();
 
         // Runs on the UI thread.
@@ -40,7 +41,6 @@ namespace winrt::urusi_emacs::implementation
         void AppendLog(std::string const& text);
 
         Microsoft::UI::Dispatching::DispatcherQueue m_dispatcher{ nullptr };
-        std::unique_ptr<urusi::UiServer> m_server;
         std::string m_log;
     };
 }

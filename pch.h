@@ -1,7 +1,4 @@
 #pragma once
-// winsock2.h must precede windows.h, which otherwise pulls in the older winsock.h.
-#include <winsock2.h>
-#include <ws2tcpip.h>
 #include <windows.h>
 #include <unknwn.h>
 #include <restrictederrorinfo.h>

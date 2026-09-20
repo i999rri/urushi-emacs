@@ -62,5 +62,14 @@ while [ -n "$pending" ]; do
     pending=$next
 done
 
+# The host is built against this, so it must be the one Emacs was
+# built from.
+srcdir=$(sed -n 's/^srcdir *= *//p' "$build/src/Makefile" | head -1)
+if [ -f "$srcdir/w32host.h" ]; then
+    cp "$srcdir/w32host.h" "$(dirname "$stage")/w32host.h"
+else
+    echo "warning: no w32host.h in $srcdir, left the one here alone" >&2
+fi
+
 echo "staged $(du -sh "$stage" | cut -f1) in $(find "$stage" -type f | wc -l) files"
 ls "$stage/bin"

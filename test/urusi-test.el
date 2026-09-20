@@ -48,40 +48,31 @@
 
 (ert-deftest urusi-round-trip-with-fake-host ()
   "Render through a fake host, then deliver an event back to the handler."
-  (let* ((received nil)
-         (host-connection nil)
-         (server (make-network-process
-                  :name "urusi-fake-host" :server t :host "127.0.0.1" :service t
-                  :coding 'utf-8-unix :noquery t
-                  :log (lambda (_server connection _message)
-                         (setq host-connection connection))
-                  :filter (lambda (_process output)
-                            (setq received (concat received output)))))
-         (urusi-port (process-contact server :service))
-         (clicked nil))
-    (unwind-protect
-        (progn
-          (urusi-connect)
-          (urusi-render `(Button :Content "OK" :on-Click ,(lambda () (setq clicked t))))
-          ;; Wait until the fake host has both lines: hello and render.
-          (with-timeout (5 (error "Fake host received %S" received))
-            (while (< (cl-count ?\n (or received "")) 2)
-              (accept-process-output nil 0.05)))
-          (let ((lines (split-string received "\n" t)))
-            (should (equal (json-parse-string (nth 0 lines) :object-type 'plist)
+  (let ((posted nil)
+        (from-host nil)
+        (clicked nil))
+    ;; Stand in for the host: these three are what libemacs.dll adds when
+    ;; a host application loads it, and are missing in a plain Emacs.
+    (cl-letf (((symbol-function 'w32-host-available-p) (lambda () t))
+              ((symbol-function 'w32-host-post)
+               (lambda (message) (push message posted) t))
+              ((symbol-function 'w32-host-take-events)
+               (lambda () (prog1 (nreverse from-host) (setq from-host nil)))))
+      (unwind-protect
+          (progn
+            (urusi-start)
+            (urusi-render `(Button :Content "OK" :on-Click ,(lambda () (setq clicked t))))
+            (setq posted (nreverse posted))
+            (should (equal (json-parse-string (nth 0 posted) :object-type 'plist)
                            '(:type "hello" :version 1)))
-            (let ((render (json-parse-string (nth 1 lines) :object-type 'plist)))
+            (let ((render (json-parse-string (nth 1 posted) :object-type 'plist)))
               (should (equal (plist-get render :type) "render"))
               (should (equal (plist-get render :events)
-                             [(:name "urusi1" :event "Click" :id 1)]))))
-          ;; The host reports the click; the id arrives as a JSON number.
-          (process-send-string host-connection
-                               "{\"type\":\"event\",\"id\":1,\"args\":{}}\n")
-          (with-timeout (5 (error "Handler was not called"))
-            (while (not clicked)
-              (accept-process-output nil 0.05)))
-          (should clicked))
-      (urusi-disconnect)
-      (delete-process server))))
+                             [(:name "urusi1" :event "Click" :id 1)])))
+            ;; The host reports the click; the id arrives as a JSON number.
+            (push "{\"type\":\"event\",\"id\":1,\"args\":{}}" from-host)
+            (urusi--take)
+            (should clicked))
+        (urusi-stop)))))
 
 ;;; urusi-test.el ends here

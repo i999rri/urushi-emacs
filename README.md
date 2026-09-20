@@ -2,7 +2,9 @@
 
 A WinUI 3 application that owns the window and takes its contents from Emacs, so that the interface can be built with native controls and described in Elisp.
 
-Emacs runs inside this process. The application loads `libemacs.dll` — Emacs built as a DLL, from the [`urusi` branch of the fork](https://github.com/i999rri/emacs/tree/urusi) — and calls its exported `w32_emacs_init` on a thread with the 8 MB stack Emacs expects. Nothing is serialised between processes and no socket is listening; the only thing crossing the boundary is a C call.
+Emacs runs inside this process. The application loads `libemacs.dll` — Emacs built as a DLL, from the [`urusi` branch of the fork](https://github.com/i999rri/emacs/tree/urusi) — and calls its exported `w32_emacs_init` on a thread with the 8 MB stack Emacs expects.
+
+The two then talk by calling each other. The application exports `w32_host_get_api`, Emacs asks for it as it starts, and from then on Lisp sends a message with `w32-host-post` and takes the ones coming back with `w32-host-take-events`. `w32host.h` describes that interface and is a copy of the fork's, refreshed by the staging script. No socket is listening and nothing crosses a process boundary.
 
 ## Building
 
@@ -38,7 +40,9 @@ Two environment variables override where things are, for running against a build
 
 ウインドウを持つのは WinUI 3 のアプリで、その中身を Emacs が決める。ネイティブのコントロールで見た目を作って、それを Elisp で書けるようにするのが目的。
 
-Emacs はこのプロセスの中で動く。アプリが `libemacs.dll`（[fork の `urusi` ブランチ](https://github.com/i999rri/emacs/tree/urusi)で DLL としてビルドした Emacs）を読み込んで、export されている `w32_emacs_init` を 8 MB スタックのスレッドで呼ぶ。プロセス間のやり取りはないし、ソケットも開かない。境界を越えるのは C の関数呼び出しだけ。
+Emacs はこのプロセスの中で動く。アプリが `libemacs.dll`（[fork の `urusi` ブランチ](https://github.com/i999rri/emacs/tree/urusi)で DLL としてビルドした Emacs）を読み込んで、export されている `w32_emacs_init` を 8 MB スタックのスレッドで呼ぶ。
+
+やり取りはお互いを呼ぶだけ。アプリが `w32_host_get_api` を export していて、Emacs が起動時にそれを取りに来る。あとは Lisp から `w32-host-post` で送って、`w32-host-take-events` で受け取る。`w32host.h` がそのインターフェースで、fork のものをコピーしてある（ステージングのスクリプトが更新する）。ソケットは開かないし、プロセス境界を越えるものもない。
 
 ### ビルド
 

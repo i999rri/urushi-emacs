@@ -4,30 +4,12 @@
 #include "MainWindow.g.cpp"
 #endif
 
-#include <cwchar>
-
 using namespace winrt;
 using namespace Microsoft::UI::Xaml;
 using namespace Windows::Data::Json;
 
 namespace
 {
-    constexpr uint16_t kDefaultPort = 7680;
-
-    // The port can be overridden with URUSI_PORT, for running a second host
-    // next to an installed one.
-    uint16_t ReadPort()
-    {
-        wchar_t buffer[16]{};
-        DWORD length = GetEnvironmentVariableW(L"URUSI_PORT", buffer, ARRAYSIZE(buffer));
-        if (length == 0 || length >= ARRAYSIZE(buffer))
-        {
-            return kDefaultPort;
-        }
-        unsigned long value = wcstoul(buffer, nullptr, 10);
-        return (value > 0 && value <= 65535) ? static_cast<uint16_t>(value) : kDefaultPort;
-    }
-
     JsonValue String(hstring const& text)
     {
         return JsonValue::CreateStringValue(text);
@@ -66,43 +48,27 @@ namespace winrt::urusi_emacs::implementation
     void MainWindow::InitializeComponent()
     {
         MainWindowT::InitializeComponent();
-        Start(ReadPort());
+        Start();
         StartEmacs();
     }
 
-    void MainWindow::Start(uint16_t port)
+    void MainWindow::Start()
     {
         m_dispatcher = Microsoft::UI::Dispatching::DispatcherQueue::GetForCurrentThread();
         auto weak = get_weak();
         auto dispatcher = m_dispatcher;
 
-        try
-        {
-            m_server = std::make_unique<urusi::UiServer>(
-                port,
-                [weak, dispatcher](std::string line) {
-                    dispatcher.TryEnqueue([weak, line = std::move(line)] {
-                        if (auto self = weak.get())
-                        {
-                            self->OnMessage(line);
-                        }
-                    });
-                },
-                [weak, dispatcher, port] {
-                    dispatcher.TryEnqueue([weak, port] {
-                        if (auto self = weak.get())
-                        {
-                            self->Surface().Children().Clear();
-                            self->ShowStatus(L"Emacs disconnected. Waiting on 127.0.0.1:" + to_hstring(port));
-                        }
-                    });
-                });
-            ShowStatus(L"Waiting for Emacs on 127.0.0.1:" + to_hstring(port));
-        }
-        catch (std::exception const& e)
-        {
-            ShowStatus(L"Cannot listen on 127.0.0.1:" + to_hstring(port) + L": " + to_hstring(e.what()));
-        }
+        // Emacs posts from its own thread, and the window may only be
+        // touched from this one.
+        urusi::HostApi::Instance().OnMessage([weak, dispatcher](std::string message) {
+            dispatcher.TryEnqueue([weak, message = std::move(message)] {
+                if (auto self = weak.get())
+                {
+                    self->OnMessage(message);
+                }
+            });
+        });
+        ShowStatus(L"Waiting for Emacs");
     }
 
     void MainWindow::StartEmacs()
@@ -117,7 +83,7 @@ namespace winrt::urusi_emacs::implementation
             args.push_back("-l");
             args.push_back(lisp + "\\urusi.el");
             args.push_back("--eval");
-            args.push_back("(urusi-connect)");
+            args.push_back("(urusi-start)");
         }
 
         std::string error;
@@ -294,10 +260,7 @@ namespace winrt::urusi_emacs::implementation
 
     void MainWindow::Send(JsonObject const& message)
     {
-        if (m_server)
-        {
-            m_server->Send(to_string(message.Stringify()));
-        }
+        urusi::HostApi::Instance().Send(to_string(message.Stringify()));
     }
 
     void MainWindow::ShowStatus(hstring const& text)
