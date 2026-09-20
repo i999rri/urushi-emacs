@@ -49,6 +49,41 @@ namespace
         auto slash = directory.find_last_of('\\');
         return slash == std::string::npos ? std::string{} : directory.substr(0, slash) + "\\lisp";
     }
+
+    // The window the Emacs frame lives in.
+    //
+    // Emacs draws its frame as it always has, and nobody sees it: what
+    // is seen is built in Lisp and drawn by XAML. The frame cannot be a
+    // child of the window that shows, because XAML draws into a layered
+    // window and leaves every part it did not paint clear, and the
+    // frame shows through those parts. So the frame is given a
+    // top-level window of its own that is never shown, which also puts
+    // it out of reach of the mouse and out of the way of the focus.
+    HWND MakeOffscreenHolder()
+    {
+        static ATOM registered = [] {
+            WNDCLASSEXW description{ sizeof(description) };
+
+            description.lpfnWndProc = DefWindowProcW;
+            description.hInstance = GetModuleHandleW(nullptr);
+            description.lpszClassName = L"urusi-emacs-offscreen";
+            return RegisterClassExW(&description);
+        }();
+
+        if (!registered)
+        {
+            return nullptr;
+        }
+
+        // Not WS_VISIBLE: the frame inside it is shown, and so counts
+        // as visible to Emacs, which will not lay out a frame it
+        // believes nobody is looking at.
+        return CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
+                               L"urusi-emacs-offscreen", L"",
+                               WS_POPUP | WS_CLIPCHILDREN,
+                               0, 0, 1, 1,
+                               nullptr, nullptr, GetModuleHandleW(nullptr), nullptr);
+    }
 }
 
 namespace winrt::urusi_emacs::implementation
@@ -76,27 +111,20 @@ namespace winrt::urusi_emacs::implementation
                 }
             });
         });
-        HWND window = nullptr;
-        check_hresult(try_as<::IWindowNative>()->get_WindowHandle(&window));
+        m_holder = MakeOffscreenHolder();
+        urusi::HostApi::Instance().SetWindow(m_holder);
 
-        // WS_CLIPCHILDREN, or this window paints its own background
-        // over the frame, which only paints again when something
-        // invalidates it. What XAML draws is composed above both.
-        SetWindowLongPtrW(window, GWL_STYLE,
-                          GetWindowLongPtrW(window, GWL_STYLE) | WS_CLIPCHILDREN);
-        urusi::HostApi::Instance().SetWindow(window);
-
-        // The frame is placed over EditorSite and has to follow it.
+        // The frame is sized to EditorSite and has to follow it.
         EditorSite().SizeChanged([weak](IInspectable const&, SizeChangedEventArgs const&) {
             if (auto self = weak.get())
             {
-                self->PlaceEmacsWindow();
+                self->SizeEmacsWindow();
             }
         });
 
-        // Clicking anywhere in the window is a way back to Emacs: XAML
-        // is drawn over the frame and takes the pointer, and with it
-        // the focus, which Emacs needs to be typed into.
+        // Emacs reads the modifier keys from the input queue of the
+        // thread its frame belongs to, so this thread's queue has to be
+        // joined to it again whenever the window comes back.
         Activated([weak](IInspectable const&, WindowActivatedEventArgs const& args) {
             if (auto self = weak.get();
                 self && args.WindowActivationState() != WindowActivationState::Deactivated)
@@ -126,10 +154,7 @@ namespace winrt::urusi_emacs::implementation
 
         // Which build this is, so that a stale one is obvious.
         AppendLog("host", std::string{ "urusi-emacs built " } + __DATE__ + " " + __TIME__
-                  + ((GetWindowLongPtrW(window, GWL_STYLE) & WS_CLIPCHILDREN)
-                         ? ", clipping children"
-                         : ", NOT clipping children")
-                  + "\n");
+                  + (m_holder ? "\n" : ", no offscreen holder: the frame will show\n"));
 
         ShowStatus(L"Waiting for Emacs");
     }
@@ -138,7 +163,7 @@ namespace winrt::urusi_emacs::implementation
     {
         m_emacsWindow = window;
         ShowStatus(L"");
-        PlaceEmacsWindow();
+        SizeEmacsWindow();
         TakeInputToEmacs();
     }
 
@@ -298,7 +323,10 @@ namespace winrt::urusi_emacs::implementation
         args.Handled(true);
     }
 
-    void MainWindow::PlaceEmacsWindow()
+    // The frame is never seen, but its size is still what Emacs lays
+    // its text out to, so it is kept the size of the area the screen is
+    // drawn in.
+    void MainWindow::SizeEmacsWindow()
     {
         if (!m_emacsWindow)
         {
@@ -306,8 +334,7 @@ namespace winrt::urusi_emacs::implementation
         }
 
         auto site = EditorSite();
-        auto root = Content();
-        if (!site.XamlRoot() || !root)
+        if (!site.XamlRoot())
         {
             return;
         }
@@ -315,20 +342,23 @@ namespace winrt::urusi_emacs::implementation
         // XAML works in device-independent pixels and a window in
         // physical ones.
         double scale = site.XamlRoot().RasterizationScale();
-        auto origin = site.TransformToVisual(root).TransformPoint({ 0, 0 });
         auto pixels = [scale](double value) { return static_cast<int>(std::lround(value * scale)); };
 
-        int x = pixels(origin.X);
-        int y = pixels(origin.Y);
         int width = pixels(site.ActualWidth());
         int height = pixels(site.ActualHeight());
 
-        // HWND_TOP: XAML draws into a window of its own that covers all
-        // of this one, and the frame has to be above it to be seen.
+        if (m_holder)
+        {
+            SetWindowPos(m_holder, nullptr, 0, 0, width, height,
+                         SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOZORDER);
+        }
+
+        // SWP_SHOWWINDOW: the frame is shown inside a window that is
+        // not, which is how Emacs comes to believe it is looked at.
         // SWP_ASYNCWINDOWPOS: the frame belongs to a thread of Emacs's,
         // and this thread must not wait on it.
-        SetWindowPos(m_emacsWindow, HWND_TOP, x, y, width, height,
-                     SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_ASYNCWINDOWPOS);
+        SetWindowPos(m_emacsWindow, nullptr, 0, 0, width, height,
+                     SWP_NOACTIVATE | SWP_NOZORDER | SWP_SHOWWINDOW | SWP_ASYNCWINDOWPOS);
     }
 
     void MainWindow::StartEmacs()
@@ -475,7 +505,7 @@ namespace winrt::urusi_emacs::implementation
         // Emacs sets its frame to a size of its own during startup, and
         // whenever Lisp asks it to. Where the frame goes is this
         // window's to say, so say it again.
-        PlaceEmacsWindow();
+        SizeEmacsWindow();
 
         // The XAML around the rows comes only when it has changed, and
         // everything in it goes with it.

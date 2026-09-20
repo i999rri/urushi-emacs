@@ -23,9 +23,9 @@
         </ScrollViewer>
 
         <!-- The size of the Emacs frame, which decides how much text
-             Emacs lays out. Its window is kept over this and is never
-             seen: XAML is drawn above it, and the screen it shows is
-             built in Lisp from what Emacs decided to display. -->
+             Emacs lays out. The frame itself is elsewhere, in a window
+             that is never shown; what is seen here is built in Lisp
+             from what Emacs decided to display. -->
         <Border x:Name="EditorSite" />
 
         <!-- The screen, as Emacs Lisp built it. -->

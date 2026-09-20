@@ -29,8 +29,8 @@ namespace winrt::urusi_emacs::implementation
         void StartEmacs();
 
         // The Emacs frame is a window of Emacs's own, made a child of
-        // this one. Emacs says when it exists; where it goes is this
-        // window's business from then on.
+        // one that is never shown. Emacs says when it exists; how big
+        // it is is this window's business from then on.
         void TakeEmacsWindow(HWND window);
         void TakeInputToEmacs();
         void StartComposition();
@@ -38,7 +38,7 @@ namespace winrt::urusi_emacs::implementation
         void Caret(Windows::Data::Json::JsonObject const& message);
         void ForwardKey(Microsoft::UI::Xaml::Input::KeyRoutedEventArgs const& args,
                         bool down);
-        void PlaceEmacsWindow();
+        void SizeEmacsWindow();
 
         // Runs on the UI thread.
         void OnMessage(std::string const& line);
@@ -63,6 +63,9 @@ namespace winrt::urusi_emacs::implementation
         std::string m_log;
         std::set<std::wstring> m_seen;
         HWND m_emacsWindow{ nullptr };
+        // What the frame is a child of, so that it is never on the
+        // screen and never in this window's way.
+        HWND m_holder{ nullptr };
         bool m_attached{ false };
         urusi::Composition m_composition;
     };
