@@ -287,11 +287,10 @@ its own."
         (add-hook 'post-command-hook #'urusi-screen--after-command)
         (add-hook 'urusi-stale-hook #'urusi-screen-render)
         (urusi-forget)
-        (condition-case err
-            (progn (urusi-screen-render)
-                   (urusi--log "screen mode on, %s lines"
-                               (count-lines (window-start) (window-end nil t))))
-          (error (urusi--log "screen: %S" err))))
+        ;; Nothing has been displayed yet when this runs during startup,
+        ;; so Emacs has no screen to tell about; ask again once it has.
+        (urusi-screen--after-command)
+        (urusi--log "screen mode on"))
     (remove-hook 'post-command-hook #'urusi-screen--after-command)
     (remove-hook 'urusi-stale-hook #'urusi-screen-render)))
 
