@@ -87,11 +87,6 @@ namespace
         FlushFileBuffers(file);
     }
 
-    // Where a window is put to be out of sight: past the corner of
-    // every screen there could be, which is as far as a window is
-    // allowed to go.
-    constexpr int kOffscreen = -32000;
-
     // The window the Emacs frame lives in.
     //
     // Emacs draws its frame as it always has, and nobody sees it: what
@@ -99,14 +94,12 @@ namespace
     // child of the window that shows, because XAML draws into a layered
     // window and leaves every part it did not paint clear, and the
     // frame shows through those parts. So the frame is given a
-    // top-level window of its own, off the edge of the screen, which
-    // also puts it out of reach of the mouse and out of the way of the
-    // focus.
+    // top-level window of its own that is never shown, which also puts
+    // it out of reach of the mouse and out of the way of the focus.
     //
-    // Off the screen rather than hidden: Emacs lays out only the frames
-    // it believes are being looked at, and what it reads that from is
-    // the window, so a window that is hidden is a frame with no screen
-    // to read back.
+    // Emacs would ordinarily take a window it cannot see for one nobody
+    // is looking at, and lay out nothing; it knows better about the
+    // frames a host draws, and lays them out all the same.
     HWND MakeOffscreenHolder()
     {
         static ATOM registered = [] {
@@ -123,20 +116,14 @@ namespace
             return nullptr;
         }
 
-        // WS_EX_TOOLWINDOW keeps it out of the list of windows to
-        // switch to, and WS_EX_NOACTIVATE out of the way of the focus.
-        HWND holder
-            = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
-                              L"urusi-emacs-offscreen", L"",
-                              WS_POPUP | WS_CLIPCHILDREN,
-                              kOffscreen, kOffscreen, 1, 1,
-                              nullptr, nullptr, GetModuleHandleW(nullptr), nullptr);
-
-        if (holder)
-        {
-            ShowWindow(holder, SW_SHOWNOACTIVATE);
-        }
-        return holder;
+        // Not WS_VISIBLE, and never shown: nothing of it is ever drawn
+        // and nothing can reach it. WS_EX_TOOLWINDOW keeps it out of
+        // the list of windows to switch to as well.
+        return CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
+                               L"urusi-emacs-offscreen", L"",
+                               WS_POPUP | WS_CLIPCHILDREN,
+                               0, 0, 1, 1,
+                               nullptr, nullptr, GetModuleHandleW(nullptr), nullptr);
     }
 }
 
