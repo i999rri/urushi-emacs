@@ -141,6 +141,7 @@
     <ClInclude Include="MouseTranslation.h" />
     <ClInclude Include="Rows.h" />
     <ClInclude Include="Session.h" />
+    <ClInclude Include="Splitter.h" />
     <ClInclude Include="Utf.h" />
     <ClInclude Include="HostCalls.h" />
     <ClInclude Include="EmacsHost.h" />

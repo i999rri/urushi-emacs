@@ -675,8 +675,6 @@ namespace winrt::urusi_emacs::implementation
     // remember, and it is told.
     void MainWindow::AttachSplitters(UIElement const& root)
     {
-        constexpr double kMinimumPart = 40;
-
         struct Drag
         {
             bool active{ false };
@@ -707,12 +705,13 @@ namespace winrt::urusi_emacs::implementation
 
             auto splitter = element.try_as<FrameworkElement>();
             std::wstring name = splitter ? std::wstring{ splitter.Name() } : L"";
-            if (name.rfind(L"urusi-splitter:", 0) != 0)
+            auto parsed = urusi::ParseSplitter(name);
+            if (!parsed)
             {
                 continue;
             }
 
-            bool horizontal = name.size() > 15 && name[15] == L'h';
+            bool horizontal = parsed->horizontal;
             auto drag = std::make_shared<Drag>();
 
             // The cursor says it can be dragged, and which way. It is a
@@ -769,36 +768,26 @@ namespace winrt::urusi_emacs::implementation
 
                 auto point = args.GetCurrentPoint(grid).Position();
                 double moved = (horizontal ? point.X : point.Y) - drag->start;
-                moved = std::clamp(moved, kMinimumPart - drag->before, drag->after - kMinimumPart);
-
-                auto pixels = [](double value) { return GridLength{ value, GridUnitType::Pixel }; };
+                GridLength pixels{ 0, GridUnitType::Pixel };
                 auto shares = [](GridLength const& value) { return value.GridUnitType == GridUnitType::Star; };
 
                 if (horizontal)
                 {
                     auto before = grid.ColumnDefinitions().GetAt(index - 1);
                     auto after = grid.ColumnDefinitions().GetAt(index + 1);
-                    if (shares(before.Width()) && !shares(after.Width()))
-                    {
-                        after.Width(pixels(drag->after - moved));
-                    }
-                    else
-                    {
-                        before.Width(pixels(drag->before + moved));
-                    }
+                    auto resize = urusi::DragSplitter(drag->before, drag->after, moved,
+                                                      shares(before.Width()), shares(after.Width()));
+                    pixels.Value = resize.length;
+                    (resize.before ? before : after).Width(pixels);
                 }
                 else
                 {
                     auto before = grid.RowDefinitions().GetAt(index - 1);
                     auto after = grid.RowDefinitions().GetAt(index + 1);
-                    if (shares(before.Height()) && !shares(after.Height()))
-                    {
-                        after.Height(pixels(drag->after - moved));
-                    }
-                    else
-                    {
-                        before.Height(pixels(drag->before + moved));
-                    }
+                    auto resize = urusi::DragSplitter(drag->before, drag->after, moved,
+                                                      shares(before.Height()), shares(after.Height()));
+                    pixels.Value = resize.length;
+                    (resize.before ? before : after).Height(pixels);
                 }
                 args.Handled(true);
             });

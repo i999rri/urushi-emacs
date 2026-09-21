@@ -8,6 +8,7 @@
 #include "KeyTranslation.h"
 #include "MouseTranslation.h"
 #include "Rows.h"
+#include "Splitter.h"
 
 #include <chrono>
 #include <map>

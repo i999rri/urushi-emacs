@@ -61,6 +61,7 @@
     <ClCompile Include="test_key_translation.cpp" />
     <ClCompile Include="test_mouse_translation.cpp" />
     <ClCompile Include="test_rows.cpp" />
+    <ClCompile Include="test_splitter.cpp" />
     <ClCompile Include="test_traces.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -71,6 +72,7 @@
     <ClInclude Include="..\host\MouseTranslation.h" />
     <ClInclude Include="..\host\Rows.h" />
     <ClInclude Include="..\host\Session.h" />
+    <ClInclude Include="..\host\Splitter.h" />
     <ClInclude Include="..\host\Utf.h" />
     <ClInclude Include="TraceReader.h" />
   </ItemGroup>
