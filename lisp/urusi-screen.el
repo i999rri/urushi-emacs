@@ -535,6 +535,7 @@ Long enough to see what a keystroke costs, and then quiet."
 (defun urusi-screen-render ()
   "Show the screen in the host window."
   (interactive)
+  (urusi-screen--fit-frame (selected-frame))
   (if (<= urusi-screen-timings urusi-screen--timed)
       (progn (redisplay)
              (urusi-render (urusi-screen-tree)))
@@ -591,6 +592,28 @@ Long enough to see what a keystroke costs, and then quiet."
     (remove-hook 'urusi-message-hook #'urusi-screen--message)
     (remove-hook 'urusi-host-event-functions #'urusi-screen--window-changed)))
 
+(defvar urusi-screen--room nil
+  "How much room the host has for the frame, as (WIDTH . HEIGHT) in pixels.")
+
+(defun urusi-screen--fit-frame (frame)
+  "Make FRAME as big as the room the host has for it, if it is not.
+Return non-nil if it had to be resized.
+
+The room is for the whole frame, fringes and all, but `set-frame-size'
+sizes only the part of it text goes in: what is around that is taken
+off first.  What is around it can change afterwards, as when the
+fringes are made wider, and Emacs then keeps the text as big as it was
+and makes the frame bigger, past the room it has; which is why this is
+asked again every time the screen is drawn."
+  (when-let* ((room urusi-screen--room)
+              ((not (and (= (car room) (frame-native-width frame))
+                         (= (cdr room) (frame-native-height frame))))))
+    (set-frame-size frame
+                    (- (car room) (- (frame-native-width frame) (frame-text-width frame)))
+                    (- (cdr room) (- (frame-native-height frame) (frame-text-height frame)))
+                    t)
+    t))
+
 (defun urusi-screen--resize (message)
   "Lay the frame out to the size the host says it has room for.
 
@@ -601,7 +624,8 @@ window that something else would then tell us about."
   (let ((width (plist-get message :width))
         (height (plist-get message :height)))
     (when (and (numberp width) (numberp height) (< 0 width) (< 0 height))
-      (set-frame-size (selected-frame) (truncate width) (truncate height) t)
+      (setq urusi-screen--room (cons (truncate width) (truncate height)))
+      (urusi-screen--fit-frame (selected-frame))
       (urusi-forget)
       (urusi-screen-render))))
 
