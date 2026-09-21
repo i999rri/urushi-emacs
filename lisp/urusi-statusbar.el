@@ -154,6 +154,16 @@ PROPERTIES are those of `urusi-statusbar-text'."
                            (match-string 1 vc))))
     (apply #'urusi-statusbar-text (concat (string #x2387) " " branch) properties)))
 
+(defun urusi-statusbar-message (_window &rest properties)
+  "What Emacs is saying in the echo area, while it says it.
+Only its first line, cut off where there is no more room when it is in
+the FILL of `urusi-statusbar'.  PROPERTIES are those of
+`urusi-statusbar-text'."
+  (when-let* ((message (current-message))
+              (line (car (split-string (substring-no-properties message) "\n")))
+              ((not (string-empty-p line))))
+    (apply #'urusi-statusbar-text line properties)))
+
 (defun urusi-statusbar-diagnostics (window &rest properties)
   "How many errors and warnings Flymake has found in WINDOW's buffer.
 Clicking it lists them.  PROPERTIES are those of `urusi-statusbar-button'."
@@ -174,13 +184,16 @@ Clicking it lists them.  PROPERTIES are those of `urusi-statusbar-button'."
 
 ;;;; The bar
 
-(cl-defun urusi-statusbar (frame &rest properties &key left right
+(cl-defun urusi-statusbar (frame &rest properties &key left fill right
                                  &allow-other-keys)
   "Return a status bar about the window being worked in on FRAME.
 LEFT and RIGHT are the segments that go from its left end and from its
 right end, each a function of the window returning XAML or nil, or a
-list (FUNCTION PROPERTIES...) that gives it PROPERTIES as well.  The
-rest of PROPERTIES are properties of the Grid it is, its height and
+list (FUNCTION PROPERTIES...) that gives it PROPERTIES as well.  FILL
+are segments that go between them and take the room they leave, the
+last of them all that is left: what does not fit in it is cut off,
+which is what something as long as a message wants.  The rest of
+PROPERTIES are properties of the Grid it is, its height and
 background for one, and :Foreground, the colour of what it says.
 
 It is a row of its own, so that what it says changing sends the bar and
@@ -200,7 +213,7 @@ nothing else."
            ,@(when row (list :Grid.Row row))
            (Grid :key "bar"
                  ,@(urusi-titlebar--without
-                    properties '(:left :right :Grid.Column :Grid.Row :Foreground))
+                    properties '(:left :fill :right :Grid.Column :Grid.Row :Foreground))
                  ;; A Grid has no colour for text to take.  Text and
                  ;; buttons each take the theme's unless they are told
                  ;; otherwise, so they are told here, all at once.
@@ -220,10 +233,24 @@ nothing else."
                              when color
                              collect `(SolidColorBrush :x:Key ,key :Color ,color)))
                  (Grid.ColumnDefinitions
+                  (ColumnDefinition :Width "Auto")
                   (ColumnDefinition :Width "*")
                   (ColumnDefinition :Width "Auto"))
                  (StackPanel :Orientation "Horizontal" ,@(funcall build left))
-                 (StackPanel :Orientation "Horizontal" :Grid.Column 1
+                 ;; Each in a column of its own, the last taking the rest:
+                 ;; a StackPanel would give them all the room they ask
+                 ;; for, and nothing would ever be cut off.
+                 ,(let ((segments (funcall build fill)))
+                    `(Grid :Grid.Column 1
+                           (Grid.ColumnDefinitions
+                            ,@(cl-loop for rest on segments
+                                       collect `(ColumnDefinition
+                                                 :Width ,(if (cdr rest) "Auto" "*"))))
+                           ,@(cl-loop for segment in segments
+                                      for column from 0
+                                      collect (append segment
+                                                      (list :Grid.Column column)))))
+                 (StackPanel :Orientation "Horizontal" :Grid.Column 2
                              ,@(funcall build right))))))
 
 (provide 'urusi-statusbar)

@@ -29,6 +29,24 @@
     (should (string-match-p "<Setter Property=\"Foreground\" Value=\"#000000\" />" xaml))
     (should (string-match-p "x:Key=\"ButtonForeground\" Color=\"#000000\"" xaml))))
 
+(ert-deftest urusi-statusbar-fill-takes-the-rest ()
+  "Segments that fill go between the ends, the last of them in what is left."
+  (let ((xaml (urusi-statusbar-test--bar
+               :fill (list (lambda (_) (urusi-statusbar-text "a"))
+                           (lambda (_) (urusi-statusbar-text "b"))))))
+    (should (string-match-p (concat "<Grid Grid.Column=\"1\"><Grid.ColumnDefinitions>"
+                                    "<ColumnDefinition Width=\"Auto\" />"
+                                    "<ColumnDefinition Width=\"\\*\" />")
+                            xaml))
+    (should (string-match-p "<TextBlock Text=\"b\" [^>]*Grid.Column=\"1\"" xaml))))
+
+(ert-deftest urusi-statusbar-says-the-message ()
+  "The message segment says the first line of what the echo area says."
+  (cl-letf (((symbol-function 'current-message) (lambda () "one\ntwo")))
+    (should (equal (plist-get (cdr (urusi-statusbar-message nil)) :Text) "one")))
+  (cl-letf (((symbol-function 'current-message) (lambda () nil)))
+    (should-not (urusi-statusbar-message nil))))
+
 (ert-deftest urusi-statusbar-names-a-cc-mode-without-its-flags ()
   "A mode of CC Mode is named without how it is set."
   (require 'cc-mode)
