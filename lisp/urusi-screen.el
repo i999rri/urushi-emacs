@@ -482,7 +482,26 @@ text in a taller font for one, and Emacs shows as much of it as fits."
                    :panel "Canvas"
                    ,@(when-let* ((cursor (funcall urusi-screen-cursor-function
                                                   window)))
-                       (list cursor))))))
+                       (list cursor)))
+             ,@(urusi-screen--dividers window width height))))
+
+(defun urusi-screen--dividers (window width height)
+  "Return the dividers of WINDOW, which is WIDTH by HEIGHT, as Emacs draws them.
+With `window-divider-mode', a window keeps a strip at its bottom and its
+right for them, which is in its size and none of its lines."
+  (let ((scale (float urusi-scale))
+        (color (urusi-screen-color
+                (face-attribute 'window-divider :foreground (window-frame window) t)))
+        (bottom (window-bottom-divider-width window))
+        (right (window-right-divider-width window)))
+    (when color
+      (append
+       (when (< 0 bottom)
+         `((Rectangle :Canvas.Top ,(- height (/ bottom scale))
+                      :Width ,width :Height ,(/ bottom scale) :Fill ,color)))
+       (when (< 0 right)
+         `((Rectangle :Canvas.Left ,(- width (/ right scale))
+                      :Width ,(/ right scale) :Height ,height :Fill ,color)))))))
 
 (defun urusi-screen--tab-line (window line width)
   "Return LINE, the tab line of WINDOW, WIDTH wide.
