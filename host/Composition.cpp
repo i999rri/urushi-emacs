@@ -23,7 +23,13 @@ namespace urusi
         m_context.InputScope(CoreTextInputScope::Default);
         Bind();
 
+        // The input method only talks to a context that has the focus,
+        // and turning it on and off is part of that talk, from a key or
+        // from the taskbar alike. The focus the element has is the
+        // focus the context has.
         element.Loaded([this](auto&&, auto&&) { Focus(true); });
+        element.GotFocus([this](auto&&, auto&&) { Focus(true); });
+        element.LostFocus([this](auto&&, auto&&) { Focus(false); });
     }
 
     void Composition::Focus(bool enter)
@@ -36,10 +42,12 @@ namespace urusi
         if (enter)
         {
             m_context.NotifyFocusEnter();
+            Say("focus enter");
         }
         else
         {
             m_context.NotifyFocusLeave();
+            Say("focus leave");
         }
     }
 

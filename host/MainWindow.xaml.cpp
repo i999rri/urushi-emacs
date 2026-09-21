@@ -155,6 +155,7 @@ namespace winrt::urusi_emacs::implementation
             {
                 self->TakeInputToEmacs();
                 self->KeepFocus();
+                self->ResumeComposition();
             }
             self->TellEmacsFocus(active);
             self->SendHostEvent(active ? L"activated" : L"deactivated", JsonObject{});
@@ -873,6 +874,24 @@ namespace winrt::urusi_emacs::implementation
         if (!focused || !focused.XamlRoot())
         {
             InputSink().Focus(FocusState::Programmatic);
+        }
+    }
+
+    // Tell the input method again that the keys come here, when the
+    // window comes back. The element kept the focus while the window was
+    // away, so it is not given it again and says nothing, but the input
+    // method went on to talk to whatever window was in front meanwhile.
+    void MainWindow::ResumeComposition()
+    {
+        auto root = Content().XamlRoot();
+        if (!root)
+        {
+            return;
+        }
+
+        if (Input::FocusManager::GetFocusedElement(root) == InputSink())
+        {
+            m_composition.Focus(true);
         }
     }
 

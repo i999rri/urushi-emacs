@@ -67,6 +67,7 @@ namespace winrt::urusi_emacs::implementation
         std::vector<Microsoft::UI::Xaml::FrameworkElement> PanelSites();
         void SizeFrame(Microsoft::UI::Xaml::FrameworkElement const& site, std::wstring const& id);
         void KeepFocus();
+        void ResumeComposition();
         void SendHostEvent(winrt::hstring const& name,
                            Windows::Data::Json::JsonObject const& details);
 
