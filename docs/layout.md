@@ -44,7 +44,7 @@ A buffer is sent to it with `urusi-layout-display-in-panel`, an action for `disp
 
 ```elisp
 (add-to-list 'display-buffer-alist
-             '("\*compilation\*"
+             '("\\*compilation\\*"
                (urusi-layout-display-in-panel)
                (panel . output)))
 ```
