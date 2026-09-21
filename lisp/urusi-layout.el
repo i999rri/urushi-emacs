@@ -169,9 +169,15 @@ the output of a compilation for one, is not where typing is to go."
     (unless (frame-live-p frame)
       (let* ((selected (selected-frame))
              (panel (urusi-layout--find id))
-             (buffer (get-buffer-create
-                      (or (plist-get (urusi-layout--properties panel) :buffer)
-                          "*scratch*"))))
+             (name (or (plist-get (urusi-layout--properties panel) :buffer)
+                       "*scratch*"))
+             (buffer (or (get-buffer name)
+                         ;; One made here is a place for what is to come,
+                         ;; the output of a compilation for one, and has
+                         ;; nothing to type in yet: q quits it.
+                         (with-current-buffer (get-buffer-create name)
+                           (special-mode)
+                           (current-buffer)))))
         (setq frame (make-frame `((parent-frame . ,(urusi-root-frame))
                                   (urusi-panel . ,id)
                                   (name . ,(format "urusi-%s" id))
@@ -359,6 +365,29 @@ is selected."
       (when (urusi-layout--get (urusi-layout--find id) :hidden)
         (urusi-layout-show id))
       (window--display-buffer buffer window 'reuse alist))))
+
+;;;; Quitting a panel
+
+(defcustom urusi-layout-quit-hides-panel t
+  "Whether quitting a window in the frame of a panel hides the panel.
+`quit-window', which q is in most buffers that show something rather
+than hold something to edit, would otherwise show another buffer in its
+place, when what was wanted was the panel out of the way."
+  :type 'boolean)
+
+(defun urusi-layout--quit-window (quit &optional kill window)
+  "Hide the panel WINDOW is in, if it is in one; else QUIT it, KILL and all.
+The buffer is left as it is, to be there when the panel is shown again,
+unless KILL says it is to go."
+  (let* ((window (window-normalize-window window))
+         (id (frame-parameter (window-frame window) 'urusi-panel)))
+    (if (not (and urusi-layout-quit-hides-panel id (urusi-layout--find id)))
+        (funcall quit kill window)
+      (when kill
+        (kill-buffer (window-buffer window)))
+      (urusi-layout-hide id))))
+
+(advice-add 'quit-window :around #'urusi-layout--quit-window)
 
 ;;;; Following the frame that is selected
 
