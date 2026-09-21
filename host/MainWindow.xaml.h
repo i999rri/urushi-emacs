@@ -5,6 +5,7 @@
 #include "EmacsHost.h"
 #include "HostApi.h"
 #include "HostCalls.h"
+#include "KeyTranslation.h"
 
 #include <chrono>
 #include <map>

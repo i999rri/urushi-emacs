@@ -104,38 +104,6 @@ namespace
         WriteFile(file, line.data(), static_cast<DWORD>(line.size()), &written, nullptr);
         FlushFileBuffers(file);
     }
-
-    // Whether KEY is one the input method answers itself, rather than
-    // one that means a character.
-    //
-    // These are the keys that turn it on and off and work its way
-    // through a conversion, and the one Windows sends in place of a key
-    // it has already handled. None of them is Emacs's to see, and
-    // taking them here is what stops the input method being switched at
-    // all.
-    bool IsInputMethodKey(winrt::Windows::System::VirtualKey key)
-    {
-        switch (static_cast<int>(key))
-        {
-        case VK_KANA:           // and VK_HANGUL: the same number
-        case VK_JUNJA:
-        case VK_FINAL:
-        case VK_KANJI:          // and VK_HANJA
-        case VK_CONVERT:
-        case VK_NONCONVERT:
-        case VK_ACCEPT:
-        case VK_MODECHANGE:
-        case VK_PROCESSKEY:
-        case VK_OEM_ATTN:
-        case VK_OEM_AUTO:
-        case VK_OEM_ENLW:
-        case VK_OEM_BACKTAB:
-            return true;
-        default:
-            return false;
-        }
-    }
-
 }
 
 namespace winrt::urusi_emacs::implementation
@@ -478,38 +446,26 @@ namespace winrt::urusi_emacs::implementation
             return;
         }
 
-        // A key the input method is making something of is not a key:
-        // what it settles on arrives as text, and passing the key on
-        // as well would type it twice. A key that works the input
-        // method itself is not a key either, and is left alone
-        // entirely: answering it here is what stops it turning the
-        // input method on and off.
-        if (args.Key() == Windows::System::VirtualKey::None
-            || IsInputMethodKey(args.Key()))
+        auto status = args.KeyStatus();
+        auto message = urusi::TranslateKey({
+            .key = static_cast<int>(args.Key()),
+            .repeat = status.RepeatCount,
+            .scanCode = status.ScanCode,
+            .extended = status.IsExtendedKey,
+            .menuDown = status.IsMenuKeyDown,
+            .wasDown = status.WasKeyDown,
+            .down = down,
+        });
+        if (!message)
         {
             return;
         }
-
-        auto status = args.KeyStatus();
-        LPARAM extra = static_cast<LPARAM>(status.RepeatCount)
-            | (static_cast<LPARAM>(status.ScanCode) << 16)
-            | (status.IsExtendedKey ? (1LL << 24) : 0)
-            | (status.IsMenuKeyDown ? (1LL << 29) : 0)
-            | (status.WasKeyDown ? (1LL << 30) : 0)
-            | (down ? 0 : (1LL << 31));
-
-        // Alt held is a system key to Windows and the meta key to
-        // Emacs, and it arrives under another name.
-        UINT message = status.IsMenuKeyDown
-            ? (down ? WM_SYSKEYDOWN : WM_SYSKEYUP)
-            : (down ? WM_KEYDOWN : WM_KEYUP);
 
         if (down && m_debug)
         {
             AppendLog("host", "key " + std::to_string(static_cast<int>(args.Key())) + "\n");
         }
-        PostMessageW(m_emacsWindow, message,
-                     static_cast<WPARAM>(args.Key()), extra);
+        PostMessageW(m_emacsWindow, message->message, message->wParam, message->lParam);
         args.Handled(true);
     }
 

@@ -58,12 +58,14 @@
     <ClCompile Include="test_activation.cpp" />
     <ClCompile Include="test_engagement.cpp" />
     <ClCompile Include="test_ime_buffer.cpp" />
+    <ClCompile Include="test_key_translation.cpp" />
     <ClCompile Include="test_traces.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\host\Activation.h" />
     <ClInclude Include="..\host\Engagement.h" />
     <ClInclude Include="..\host\ImeBuffer.h" />
+    <ClInclude Include="..\host\KeyTranslation.h" />
     <ClInclude Include="..\host\Session.h" />
     <ClInclude Include="..\host\Utf.h" />
     <ClInclude Include="TraceReader.h" />
