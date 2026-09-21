@@ -928,18 +928,35 @@ namespace winrt::urusi_emacs::implementation
     // window comes back. The element kept the focus while the window was
     // away, so it is not given it again and says nothing, but the input
     // method went on to talk to whatever window was in front meanwhile.
+    //
+    // Not at once: when the window comes back, XAML puts its focus back
+    // after telling it so, and until it has there is no focus to find.
+    // Last in line, after whatever XAML does about coming back, and
+    // only if the window is still in front by then.
     void MainWindow::ResumeComposition()
     {
-        auto root = Content().XamlRoot();
-        if (!root)
-        {
-            return;
-        }
+        auto weak = get_weak();
+        m_dispatcher.TryEnqueue(
+            Microsoft::UI::Dispatching::DispatcherQueuePriority::Low,
+            [weak] {
+                auto self = weak.get();
+                if (!self || !self->IsForeground())
+                {
+                    return;
+                }
 
-        if (Input::FocusManager::GetFocusedElement(root) == InputSink())
-        {
-            m_composition.Focus(true);
-        }
+                auto root = self->Content().XamlRoot();
+                if (!root)
+                {
+                    return;
+                }
+
+                self->KeepFocus();
+                if (Input::FocusManager::GetFocusedElement(root) == self->InputSink())
+                {
+                    self->m_composition.Focus(true);
+                }
+            });
     }
 
     // Tell Windows which parts of what Lisp drew are the title bar, when
