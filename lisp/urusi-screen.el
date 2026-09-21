@@ -679,6 +679,31 @@ frame they were built for."
 (defvar urusi-screen--sites (make-hash-table :test #'equal)
   "The frame shown where each name says, other than the root frame's.")
 
+(defcustom urusi-screen-echo-area t
+  "Whether the echo area at the bottom of the frame is shown.
+t shows it, as Emacs does.  `when-active' shows it only while the
+minibuffer is being typed in there, and leaves it out otherwise, for a
+screen that says what Emacs says somewhere else, a status bar with
+`urusi-statusbar-message' in it for one.
+
+Emacs keeps the line whether or not it is shown, so leaving it out
+makes the frame taller than the room it has by that line, and the line
+goes past the bottom, under whatever is there."
+  :type '(choice (const :tag "Shown" t)
+                 (const :tag "Only while typed in" when-active)))
+
+(defun urusi-screen--echo-area-margin (frame)
+  "Return the properties that put the echo area of FRAME out of sight.
+That is nothing unless `urusi-screen-echo-area' says to leave it out,
+and nothing while the minibuffer is being typed in there."
+  (let ((window (minibuffer-window frame)))
+    (when (and (eq urusi-screen-echo-area 'when-active)
+               (window-live-p window)
+               (eq (window-frame window) frame)
+               (not (eq window (active-minibuffer-window))))
+      `(:Margin ,(format "0,0,0,%s" (- (/ (window-pixel-height window)
+                                          (float urusi-scale))))))))
+
 (defun urusi-screen-frame-site (frame &optional name)
   "Return the windows of FRAME in the element the host sizes the frame by.
 It is named urusi-frame: the host makes the frame as big as it is, so
@@ -691,7 +716,9 @@ urusi-frame:NAME, which the host sizes it by in the same way.  The
 element carries the number of the frame's window, which the host sends
 the mouse to."
   (if (not name)
-      `(Grid :Name "urusi-frame" ,(urusi-screen-windows frame))
+      `(Grid :Name "urusi-frame"
+             ,@(urusi-screen--echo-area-margin frame)
+             ,(urusi-screen-windows frame))
     (puthash name frame urusi-screen--sites)
     `(Grid :Name ,(concat "urusi-frame:" name)
            :Tag ,(frame-parameter frame 'window-id)
@@ -724,6 +751,7 @@ parts take the room they need."
                       for row from 0
                       collect (if (urusi-screen--frame-part-p part)
                                   `(Grid :Name "urusi-frame" :Grid.Row ,row
+                                         ,@(urusi-screen--echo-area-margin frame)
                                          ,(cdr part))
                                 (urusi-screen--in-row (cdr part) row))))))
 
