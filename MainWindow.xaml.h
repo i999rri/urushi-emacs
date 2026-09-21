@@ -52,6 +52,12 @@ namespace winrt::urusi_emacs::implementation
                           Windows::Data::Json::JsonArray const& events);
 
         void Call(Windows::Data::Json::JsonObject const& message);
+
+        // What Lisp built, found by the names it gave.
+        Microsoft::UI::Xaml::FrameworkElement Named(winrt::hstring const& name);
+        Microsoft::UI::Xaml::FrameworkElement FrameSite();
+        void FollowLayout();
+        void UpdateTitleBarRegions();
         void SendHostEvent(winrt::hstring const& name,
                            Windows::Data::Json::JsonObject const& details);
 

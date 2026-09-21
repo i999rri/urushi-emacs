@@ -28,4 +28,6 @@
 // For showing and hiding the window itself, which Window only offers
 // through its AppWindow.
 #include <winrt/Microsoft.UI.Windowing.h>
+// For telling Windows which parts of what Lisp drew are the title bar.
+#include <winrt/Microsoft.UI.Input.h>
 #include <wil/cppwinrt_helpers.h>

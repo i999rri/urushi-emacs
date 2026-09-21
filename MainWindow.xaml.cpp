@@ -450,9 +450,127 @@ namespace winrt::urusi_emacs::implementation
     // its size means nothing to Windows, and a window message would
     // cost Emacs the thread it reads its input on, which a keystroke
     // then waits behind.
+    // The element of what Lisp built that is named NAME, or null.
+    FrameworkElement MainWindow::Named(hstring const& name)
+    {
+        if (Surface().Children().Size() == 0)
+        {
+            return nullptr;
+        }
+
+        auto root = Surface().Children().GetAt(0).try_as<FrameworkElement>();
+        auto found = root ? root.FindName(name) : nullptr;
+        return found ? found.try_as<FrameworkElement>() : nullptr;
+    }
+
+    // Where the Emacs frame goes, whose size is the frame's: the element
+    // Lisp named urusi-frame, or the whole window if it named none. What
+    // Lisp puts around the frame, a title bar or a panel beside it, is
+    // room the frame does not have.
+    FrameworkElement MainWindow::FrameSite()
+    {
+        if (auto site = Named(L"urusi-frame"))
+        {
+            return site;
+        }
+        return EditorSite();
+    }
+
+    // Keep the frame the size of where Lisp put it, and the title bar
+    // where Lisp drew it, as the window is resized.
+    //
+    // Whether the window has a title bar of its own follows from the
+    // same thing: if Lisp drew one, the window's own is taken away, and
+    // if it drew none the window keeps the one it has. The border stays
+    // either way, since it is what the window is resized by.
+    void MainWindow::FollowLayout()
+    {
+        auto weak = get_weak();
+        auto titlebar = Named(L"urusi-titlebar");
+
+        if (auto overlapped = AppWindow().Presenter().try_as<Microsoft::UI::Windowing::OverlappedPresenter>();
+            overlapped && overlapped.HasTitleBar() == (titlebar != nullptr))
+        {
+            overlapped.SetBorderAndTitleBar(true, titlebar == nullptr);
+        }
+
+        auto changed = [weak](IInspectable const&, SizeChangedEventArgs const&) {
+            if (auto self = weak.get())
+            {
+                self->SizeEmacsFrame();
+                self->UpdateTitleBarRegions();
+            }
+        };
+
+        if (auto site = Named(L"urusi-frame"))
+        {
+            site.SizeChanged(changed);
+        }
+        if (titlebar)
+        {
+            titlebar.SizeChanged(changed);
+        }
+        UpdateTitleBarRegions();
+    }
+
+    // Tell Windows which parts of what Lisp drew are the title bar, when
+    // the window has none of its own: the element named urusi-titlebar
+    // moves the window and maximizes it when clicked twice, and the
+    // controls on it are left to be clicked.
+    void MainWindow::UpdateTitleBarRegions()
+    {
+        auto app = AppWindow();
+        auto overlapped = app.Presenter().try_as<Microsoft::UI::Windowing::OverlappedPresenter>();
+        auto source = Microsoft::UI::Input::InputNonClientPointerSource::GetForWindowId(app.Id());
+        auto titlebar = Named(L"urusi-titlebar");
+
+        if (!titlebar || !titlebar.XamlRoot() || (overlapped && overlapped.HasTitleBar()))
+        {
+            source.ClearRegionRects(Microsoft::UI::Input::NonClientRegionKind::Caption);
+            source.ClearRegionRects(Microsoft::UI::Input::NonClientRegionKind::Passthrough);
+            return;
+        }
+
+        // Windows counts in the pixels of the screen, from the corner of
+        // the window's client area, which is where XAML's root is.
+        double scale = titlebar.XamlRoot().RasterizationScale();
+        auto rect = [scale](FrameworkElement const& element) {
+            auto corner = element.TransformToVisual(nullptr).TransformPoint({ 0, 0 });
+            return Windows::Graphics::RectInt32{
+                static_cast<int32_t>(std::lround(corner.X * scale)),
+                static_cast<int32_t>(std::lround(corner.Y * scale)),
+                static_cast<int32_t>(std::lround(element.ActualWidth() * scale)),
+                static_cast<int32_t>(std::lround(element.ActualHeight() * scale)) };
+        };
+
+        // Every control on the title bar, and not what is inside one: a
+        // button is clicked as a whole.
+        std::vector<Windows::Graphics::RectInt32> controls;
+        std::function<void(DependencyObject const&)> collect = [&](DependencyObject const& parent) {
+            int count = Media::VisualTreeHelper::GetChildrenCount(parent);
+            for (int i = 0; i < count; ++i)
+            {
+                auto child = Media::VisualTreeHelper::GetChild(parent, i);
+                auto control = child.try_as<Controls::Control>();
+                if (control && control.IsHitTestVisible() && control.Visibility() == Visibility::Visible)
+                {
+                    controls.push_back(rect(control));
+                }
+                else
+                {
+                    collect(child);
+                }
+            }
+        };
+        collect(titlebar);
+
+        source.SetRegionRects(Microsoft::UI::Input::NonClientRegionKind::Caption, { rect(titlebar) });
+        source.SetRegionRects(Microsoft::UI::Input::NonClientRegionKind::Passthrough, controls);
+    }
+
     void MainWindow::SizeEmacsFrame()
     {
-        auto site = EditorSite();
+        auto site = FrameSite();
         if (!site.XamlRoot())
         {
             return;
@@ -665,6 +783,10 @@ namespace winrt::urusi_emacs::implementation
             {
                 AttachEvents(element, message.GetNamedArray(L"events", JsonArray{}));
             }
+
+            // Where Lisp put the frame and the title bar goes with the
+            // XAML around the rows, and they are new elements now.
+            FollowLayout();
         }
 
         auto root = Surface().Children().Size() ? Surface().Children().GetAt(0) : nullptr;

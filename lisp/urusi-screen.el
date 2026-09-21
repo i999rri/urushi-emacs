@@ -371,14 +371,104 @@ draws what it has to say there like anything else."
                       collect (funcall urusi-screen-window-function
                                        window index))))
 
+;;;; The title bar
+
+(defface urusi-screen-titlebar
+  '((t :inherit default))
+  "Face of the title bar the screen draws in place of the window's own.
+Its background is the bar's, and its foreground the title's and the
+buttons'."
+  :group 'urusi-screen)
+
+(defcustom urusi-screen-titlebar-height 32
+  "How tall the title bar is, in the pixels XAML counts in.
+It is the height Windows draws its own at."
+  :type 'number)
+
+(defconst urusi-screen--caption-font "Segoe Fluent Icons, Segoe MDL2 Assets"
+  "Font the buttons of the title bar draw their symbols in.
+Windows draws the buttons of its own title bars in the first, and the
+second is the one Windows 10 has, with the same symbols in the same
+places.")
+
+(defun urusi-screen--caption-button (name symbol action)
+  "Return a title bar button NAME showing SYMBOL, doing ACTION when clicked.
+SYMBOL is a character of `urusi-screen--caption-font'."
+  (let ((foreground (urusi-screen-color
+                     (face-attribute 'urusi-screen-titlebar :foreground nil t))))
+    `(Button :Name ,name
+             :Content ,(string symbol)
+             :FontFamily ,urusi-screen--caption-font
+             :FontSize 10
+             :Width 46
+             :Height ,urusi-screen-titlebar-height
+             :Padding 0
+             :CornerRadius 0
+             :BorderThickness 0
+             :Background "Transparent"
+             ,@(when foreground `(:Foreground ,foreground))
+             :on-Click ,action)))
+
+(defun urusi-screen--toggle-maximized ()
+  "Maximize the window, or restore it if it is maximized already."
+  (urusi-call "window.state"
+              (list :state (if (member urusi-window-state '("maximized" "fullscreen"))
+                               "normal"
+                             "maximized"))))
+
+(defun urusi-screen-titlebar (_frame)
+  "Return the title bar the screen draws in place of the window's own.
+It is named urusi-titlebar, and that name is what tells the host to take
+the window's own title bar away and to let this one move the window;
+the buttons on it are left to be clicked.
+
+Closing leaves Emacs the way `save-buffers-kill-emacs' does, asking
+about the buffers that are not saved first."
+  (let ((background (urusi-screen-color
+                     (face-attribute 'urusi-screen-titlebar :background nil t)))
+        (foreground (urusi-screen-color
+                     (face-attribute 'urusi-screen-titlebar :foreground nil t)))
+        (maximized (member urusi-window-state '("maximized" "fullscreen"))))
+    `(Grid :Name "urusi-titlebar"
+           :Height ,urusi-screen-titlebar-height
+           ,@(when background `(:Background ,background))
+           (Grid.ColumnDefinitions
+            (ColumnDefinition :Width "*")
+            (ColumnDefinition :Width "Auto"))
+           ;; A row of its own, so that a new title changes the title and
+           ;; nothing else.
+           (Rows :key "titlebar-title" :panel "Grid"
+                 (TextBlock :key "title"
+                            :Text ,(format-mode-line frame-title-format)
+                            :VerticalAlignment "Center"
+                            :Margin "12,0,0,0"
+                            :FontSize 12
+                            :TextTrimming "CharacterEllipsis"
+                            ,@(when foreground `(:Foreground ,foreground))))
+           (StackPanel :Grid.Column 1 :Orientation "Horizontal"
+                       ,(urusi-screen--caption-button
+                         "urusi-minimize" #xE921
+                         (lambda () (urusi-call "window.state" '(:state "minimized"))))
+                       ,(urusi-screen--caption-button
+                         "urusi-maximize" (if maximized #xE923 #xE922)
+                         #'urusi-screen--toggle-maximized)
+                       ,(urusi-screen--caption-button
+                         "urusi-close" #xE8BB
+                         (lambda () (run-at-time 0 nil #'save-buffers-kill-emacs)))))))
+
 ;;;; The screen
 
-(defcustom urusi-screen-components '(urusi-screen-windows)
+(defcustom urusi-screen-components '(urusi-screen-titlebar urusi-screen-windows)
   "Functions that build the screen.
 Each takes the frame being shown and returns a tree for `urusi-render',
 or nil for nothing at all.  They are passed in this order to
-`urusi-screen-layout-function'."
+`urusi-screen-layout-function'.
+
+The one whose symbol has a non-nil `urusi-screen-frame' property is
+where the Emacs frame goes; see `urusi-screen-layout'."
   :type '(repeat function))
+
+(put 'urusi-screen-windows 'urusi-screen-frame t)
 
 (defcustom urusi-screen-layout-function #'urusi-screen-layout
   "Function that puts the built components together into one tree.
@@ -386,14 +476,38 @@ It takes the list of what the components returned, in order, and the
 frame they were built for."
   :type 'function)
 
+(defun urusi-screen--frame-part-p (part)
+  "Return non-nil if PART is where the Emacs frame goes."
+  (get (car part) 'urusi-screen-frame))
+
+(defun urusi-screen--in-row (tree row)
+  "Return TREE placed in ROW of the grid around it."
+  (cons (car tree) (append (list :Grid.Row row) (cdr tree))))
+
 (defun urusi-screen-layout (parts _frame)
-  "Return PARTS, one over another, on the background of `default'.
+  "Return PARTS from top to bottom, on the background of `default'.
 PARTS is an alist of the component that built each one and what it
-built.  The windows place themselves, so what holds them has nothing to
-decide; a layout that wants to move them can say so here instead."
+built.
+
+The part where the Emacs frame goes takes whatever room the others
+leave, and is put in an element named urusi-frame: the host makes the
+frame as big as that element, so what else is on the screen is room
+the frame does not have, and Emacs lays its text out to fit.  The other
+parts take the room they need."
   (let ((background (urusi-screen-color (face-attribute 'default :background))))
     `(Grid ,@(when background `(:Background ,background))
-           ,@(mapcar #'cdr parts))))
+           (Grid.RowDefinitions
+            ,@(mapcar (lambda (part)
+                        `(RowDefinition :Height ,(if (urusi-screen--frame-part-p part)
+                                                     "*"
+                                                   "Auto")))
+                      parts))
+           ,@(cl-loop for part in parts
+                      for row from 0
+                      collect (if (urusi-screen--frame-part-p part)
+                                  `(Grid :Name "urusi-frame" :Grid.Row ,row
+                                         ,(cdr part))
+                                (urusi-screen--in-row (cdr part) row))))))
 
 (defun urusi-screen-tree (&optional frame)
   "Return the whole screen of FRAME as a tree for `urusi-render'."
@@ -460,6 +574,7 @@ Long enough to see what a keystroke costs, and then quiet."
         (add-hook 'post-command-hook #'urusi-screen--after-command)
         (add-hook 'urusi-stale-hook #'urusi-screen-render)
         (add-hook 'urusi-message-hook #'urusi-screen--message)
+        (add-hook 'urusi-host-event-functions #'urusi-screen--window-changed)
         (urusi-forget)
         ;; Nothing has been displayed yet when this runs during startup,
         ;; so Emacs has no screen to tell about; ask again once it has.
@@ -467,7 +582,8 @@ Long enough to see what a keystroke costs, and then quiet."
         (urusi--log "screen mode on"))
     (remove-hook 'post-command-hook #'urusi-screen--after-command)
     (remove-hook 'urusi-stale-hook #'urusi-screen-render)
-    (remove-hook 'urusi-message-hook #'urusi-screen--message)))
+    (remove-hook 'urusi-message-hook #'urusi-screen--message)
+    (remove-hook 'urusi-host-event-functions #'urusi-screen--window-changed)))
 
 (defun urusi-screen--resize (message)
   "Lay the frame out to the size the host says it has room for.
@@ -482,6 +598,13 @@ window that something else would then tell us about."
       (set-frame-size (selected-frame) (truncate width) (truncate height) t)
       (urusi-forget)
       (urusi-screen-render))))
+
+(defun urusi-screen--window-changed (event _message)
+  "Draw again when EVENT changes the window in a way the screen shows.
+A maximize button that restores once the window is maximized, or colours
+chosen for a light window when Windows has turned dark."
+  (when (memq event '(state theme))
+    (urusi-screen--after-command)))
 
 (defun urusi-screen--message (message)
   "Answer MESSAGE from the host, if it is this file's to answer."
