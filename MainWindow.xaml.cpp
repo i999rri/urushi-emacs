@@ -843,7 +843,7 @@ namespace winrt::urusi_emacs::implementation
         {
             auto group = value.GetObject();
             auto name = group.GetNamedString(L"panel", L"");
-            auto target = named ? named.FindName(name) : nullptr;
+            auto target = named ? FindPanel(named, name) : nullptr;
 
             if (auto panel = target ? target.try_as<Controls::Panel>() : nullptr)
             {
@@ -854,6 +854,43 @@ namespace winrt::urusi_emacs::implementation
                 SendError(L"no panel named " + name);
             }
         }
+    }
+
+    // The panel named NAME under ROOT. The XAML around the rows knows the
+    // names in it, but a row is read on its own and keeps its names to
+    // itself, so a panel inside a row is looked for among the rows.
+    // Rows come before the rows inside them, so it is there by now.
+    Controls::Panel MainWindow::FindPanel(FrameworkElement const& root, hstring const& name)
+    {
+        if (auto found = root.FindName(name))
+        {
+            return found.try_as<Controls::Panel>();
+        }
+
+        std::vector<UIElement> pending{ root };
+        while (!pending.empty())
+        {
+            auto element = pending.back();
+            pending.pop_back();
+
+            auto panel = element.try_as<Controls::Panel>();
+            if (panel && panel.Name() == name)
+            {
+                return panel;
+            }
+            if (panel)
+            {
+                for (auto const& child : panel.Children())
+                {
+                    pending.push_back(child);
+                }
+            }
+            else if (auto border = element.try_as<Controls::Border>(); border && border.Child())
+            {
+                pending.push_back(border.Child());
+            }
+        }
+        return nullptr;
     }
 
     // Put the rows of PANEL in the order ITEMS gives, building the ones

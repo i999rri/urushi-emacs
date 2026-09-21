@@ -47,6 +47,8 @@ namespace winrt::urusi_emacs::implementation
         void OnMessage(std::string const& line);
         void Screen(Windows::Data::Json::JsonObject const& message);
         void Measure(Windows::Data::Json::JsonObject const& message);
+        Microsoft::UI::Xaml::Controls::Panel FindPanel(Microsoft::UI::Xaml::FrameworkElement const& root,
+                                                       winrt::hstring const& name);
         void ReconcileRows(Microsoft::UI::Xaml::Controls::Panel const& panel,
                            Windows::Data::Json::JsonArray const& items);
         void AttachEvents(Microsoft::UI::Xaml::FrameworkElement const& root,

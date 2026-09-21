@@ -312,7 +312,7 @@ last screen only: what a screen does not use is what the next one drops.")
 
 (defun urusi--compile (tree)
   "Turn TREE into XAML.
-Return (XAML EVENTS HANDLERS ROWS).
+Return (XAML EVENTS HANDLERS ROWS NESTED).
 
 EVENTS is the list the host uses to attach events, HANDLERS maps event
 ids to functions.
@@ -326,29 +326,42 @@ becomes an empty panel in the XAML, named after NAME, and its children
 are compiled one by one into ROWS as (NAME . ((KEY . XAML)...)).  Each
 child has to carry a :key of its own, which is what the host reuses it
 by: a child whose XAML has not changed is left alone, wherever it has
-moved to."
+moved to.
+
+A row can hold rows of its own, with a `Rows' node inside it.  ROWS
+lists the outer before the inner, and NESTED says which row each inner
+set is in, as (NAME . (OUTER . KEY)): when that row is built again, what
+was in it goes with it, and the rows inside have to be built again too."
   (let ((next-name 0)
         (next-id 0)
         (events nil)
         (rows nil)
+        (nested nil)
+        (owner nil)
         (was urusi--row-xaml)
         (handlers (make-hash-table :test #'eql)))
     (setq urusi--row-xaml (make-hash-table :test #'eq))
     (cl-labels
-        ((row-xaml (child)
+        ((row-xaml (child group key)
            ;; A row built out of the same thing twice is the same row,
            ;; and whoever built it says so by handing back the very
            ;; object it handed back last time.  Compiling it again
            ;; would only arrive at the string that is already here.
            (or (gethash child was)
-               (let ((before events)
-                     ;; A row is read on its own, so it declares the
-                     ;; namespaces itself.
-                     (xaml (node child t)))
+               (let* ((before events)
+                      (before-nested nested)
+                      ;; A row is read on its own, so it declares the
+                      ;; namespaces itself.
+                      (outer owner)
+                      (xaml (unwind-protect
+                                (progn (setq owner (cons group key))
+                                       (node child t))
+                              (setq owner outer))))
                  ;; A row with a handler in it is compiled every time:
                  ;; the handler is registered as it is compiled, and
-                 ;; skipping that would leave it unreachable.
-                 (if (eq before events)
+                 ;; skipping that would leave it unreachable.  So is one
+                 ;; with rows in it, which are registered the same way.
+                 (if (and (eq before events) (eq before-nested nested))
                      (puthash child xaml urusi--row-xaml)
                    xaml))))
          (node (form root)
@@ -371,12 +384,17 @@ moved to."
                    (push (format " %s=\"%s\"" (car property)
                                  (urusi--escape (urusi--value (cdr property)) t))
                          attributes)))
-               (push (cons name
-                           (mapcar (lambda (child)
-                                     (cons (urusi--row-key child)
-                                           (row-xaml child)))
-                                   rest))
-                     rows)
+               (when owner
+                 (push (cons name owner) nested))
+               ;; On the list before the rows inside its own rows, which
+               ;; the host can only fill once it has built this one.
+               (let ((group (list name)))
+                 (push group rows)
+                 (setcdr group
+                         (mapcar (lambda (child)
+                                   (let ((key (urusi--row-key child)))
+                                     (cons key (row-xaml child name key))))
+                                 rest)))
                ;; :panel says what holds the rows.  A StackPanel puts
                ;; each under the last, which is what a list of things
                ;; wants; a Canvas puts each where it says it goes,
@@ -424,7 +442,7 @@ moved to."
                    (concat open ">" children "</" tag ">")))))
             (t (error "urusi: Cannot render %S" form)))))
       (let ((xaml (node tree t)))
-        (list xaml (nreverse events) handlers (nreverse rows))))))
+        (list xaml (nreverse events) handlers (nreverse rows) nested)))))
 
 (defun urusi--row-key (form)
   "Return the :key of FORM, which a child of `Rows' must have."
@@ -450,9 +468,13 @@ alone, so that what they were doing they go on doing.
 
 Returns what was sent, in words, which is worth having when the screen
 is slower than it should be."
-  (pcase-let* ((`(,xaml ,events ,handlers ,rows) (urusi--compile tree))
+  (pcase-let* ((`(,xaml ,events ,handlers ,rows ,nested) (urusi--compile tree))
                (`(,shown-xaml . ,shown-rows) urusi--shown)
                (same-chrome (equal xaml shown-xaml))
+               ;; Rows sent whole this time, as (GROUP . KEY): the ones
+               ;; inside them are new, empty panels, and are sent whole
+               ;; as well.
+               (built nil)
                (changed 0)
                (total 0))
     (urusi--send
@@ -462,16 +484,22 @@ is slower than it should be."
                   (vconcat
                    (mapcar
                     (lambda (group)
-                      (let ((shown (and same-chrome (cdr (assoc (car group) shown-rows)))))
+                      (let* ((owner (cdr (assoc (car group) nested)))
+                             (fresh (or (not same-chrome)
+                                        (and owner (member owner built))))
+                             (shown (and (not fresh)
+                                         (cdr (assoc (car group) shown-rows)))))
                         (list :panel (car group)
                               :items
                               (vconcat
                                (mapcar
                                 (lambda (row)
                                   (cl-incf total)
-                                  (if (equal (cdr row) (cdr (assoc (car row) shown)))
+                                  (if (and (not fresh)
+                                           (equal (cdr row) (cdr (assoc (car row) shown))))
                                       (list :key (car row))
                                     (cl-incf changed)
+                                    (push (cons (car group) (car row)) built)
                                     (list :key (car row) :xaml (cdr row))))
                                 (cdr group))))))
                     rows)))))

@@ -191,4 +191,48 @@
                                :xaml)))
         (urusi-forget)))))
 
+(defun urusi-test--nested-screen (outer-width inner-text)
+  "A screen with a row of OUTER-WIDTH that has a row saying INNER-TEXT."
+  `(Grid (Rows :key "frames" :panel "Canvas"
+               (Canvas :key "child" :Width ,outer-width
+                       (Rows :key "inside" :panel "Canvas"
+                             (TextBlock :key "a" "same")
+                             (TextBlock :key "b" ,inner-text))))))
+
+(ert-deftest urusi-rows-inside-a-row ()
+  "Rows inside a row go after it, and go whole whenever it does."
+  (let ((posted nil))
+    (cl-letf (((symbol-function 'w32-host-available-p) (lambda () t))
+              ((symbol-function 'w32-host-post)
+               (lambda (message) (push message posted) t)))
+      (unwind-protect
+          (cl-flet ((sent (tree)
+                      (setq posted nil)
+                      (urusi-render tree)
+                      (mapcar (lambda (group)
+                                (cons (plist-get group :panel)
+                                      (mapcar (lambda (item)
+                                                (list (plist-get item :key)
+                                                      (and (plist-get item :xaml) t)))
+                                              (plist-get group :items))))
+                              (plist-get (json-parse-string (car posted)
+                                                            :object-type 'plist
+                                                            :array-type 'list)
+                                         :rows))))
+            (should (equal (nth 4 (urusi--compile (urusi-test--nested-screen 10 "one")))
+                           '(("inside" . ("frames" . "child")))))
+            ;; Everything, the outer first.
+            (should (equal (sent (urusi-test--nested-screen 10 "one"))
+                           '(("frames" ("child" t))
+                             ("inside" ("a" t) ("b" t)))))
+            ;; Only the inner row that changed.
+            (should (equal (sent (urusi-test--nested-screen 10 "two"))
+                           '(("frames" ("child" nil))
+                             ("inside" ("a" nil) ("b" t)))))
+            ;; The outer row is new, so what was inside it is gone.
+            (should (equal (sent (urusi-test--nested-screen 20 "two"))
+                           '(("frames" ("child" t))
+                             ("inside" ("a" t) ("b" t))))))
+        (urusi-forget)))))
+
 ;;; urusi-test.el ends here
