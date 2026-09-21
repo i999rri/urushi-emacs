@@ -18,6 +18,7 @@
 (declare-function urusi--log "urusi" (format &rest arguments))
 (declare-function urusi-start "urusi" ())
 (declare-function urusi-screen-mode "urusi-screen" (&optional arg))
+(declare-function urusi-frame-mode "urusi-frame" (&optional arg))
 (defvar urusi-screen-mode)
 
 (defcustom urusi-site-start-trace
@@ -89,12 +90,14 @@ program that never comes back is the first thing to know about."
                       (or user-init-file "(none)") (emacs-init-time)
                       (length features))
           (urusi-start)
-          (urusi-screen-mode 1))
+          (urusi-screen-mode 1)
+          (urusi-frame-mode 1))
       (error (urusi--log "startup: %S" error)))))
 
 (when (and (fboundp 'w32-host-available-p) (w32-host-available-p))
   (require 'urusi)
   (require 'urusi-screen)
+  (require 'urusi-frame)
 
   ;; How far Emacs got, for when it does not get all the way: the
   ;; screen is not there yet to say anything on, so the only account of
