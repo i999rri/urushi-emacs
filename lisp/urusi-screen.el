@@ -149,8 +149,10 @@ counts the answer in thousandths of the font size."
 
 (defcustom urusi-screen-run-function #'urusi-screen-run
   "Function that draws one stretch of a line.
-It takes the run, as `window-screen-rows' gives it, and how tall the
-line is in the pixels XAML counts in."
+It takes the run, as `window-screen-rows' gives it, how tall the line is
+in the pixels XAML counts in, and how much of that is space between
+lines and how much of the space is above the text, in the same pixels.
+See `urusi-screen-run'."
   :type 'function)
 
 (defcustom urusi-screen-line-function #'urusi-screen-line
@@ -169,8 +171,11 @@ It takes the window and which one it is, counting from zero, which is
 what names the parts of it that the host keeps between screens."
   :type 'function)
 
-(defun urusi-screen-run (run height)
+(defun urusi-screen-run (run height &optional spacing above)
   "Return RUN, one stretch of a line, as XAML, HEIGHT pixels tall.
+SPACING of those pixels are space between lines rather than text, and
+ABOVE of them are over the text; Emacs puts the text in what is left,
+and paints the background over all of it.
 
 A run is put where Emacs put it rather than after the one before it, so
 that every stretch of the line stands where Emacs decided it stands and
@@ -190,9 +195,11 @@ there XAML is laying them out and Emacs is not."
          (background (urusi-screen-color (plist-get run :background))))
     (when text
       (urusi-screen--measure family size))
-    (let ((left (/ (plist-get run :x) scale))
-          (body (and text (urusi-screen--text run text family size
-                                              (/ width (length text)) height))))
+    (let* ((left (/ (plist-get run :x) scale))
+           (top (or above 0))
+           (body (and text (urusi-screen--text
+                            run text family size (/ width (length text))
+                            (- height (or spacing 0))))))
       (cond
        ;; A background needs something to paint it, and a TextBlock
        ;; cannot; without one there is nothing for a Border to do.
@@ -200,8 +207,10 @@ there XAML is laying them out and Emacs is not."
                             :Width ,width
                             :Height ,height
                             :Background ,background
-                            ,@(and body (list body))))
-       (body (append (list (car body) :Canvas.Left left) (cdr body)))
+                            ,@(and body
+                                   (list (append body
+                                                 (list :Margin (format "0,%s,0,0" top)))))))
+       (body (append (list (car body) :Canvas.Left left :Canvas.Top top) (cdr body)))
        (t `(Border :Canvas.Left ,left :Width ,width :Height ,height))))))
 
 (defun urusi-screen--text (run text family size advance height)
@@ -231,11 +240,14 @@ Its key is where it is, which is what tells the host that a line it
 already has is the same line: typing changes the line the point is on
 and leaves every other one alone."
   (let* ((scale (float urusi-scale))
-         (height (/ (plist-get line :height) scale)))
+         (height (/ (plist-get line :height) scale))
+         (spacing (/ (or (plist-get line :line-spacing) 0) scale))
+         (above (/ (or (plist-get line :line-spacing-above) 0) scale)))
     `(Canvas :key ,(format "%s-%s" (plist-get line :kind) (plist-get line :y))
              :Canvas.Top ,(/ (plist-get line :y) scale)
              :Height ,height
-             ,@(mapcar (lambda (run) (funcall urusi-screen-run-function run height))
+             ,@(mapcar (lambda (run)
+                         (funcall urusi-screen-run-function run height spacing above))
                        (plist-get line :runs)))))
 
 (defvar urusi-screen--composing ""
@@ -341,18 +353,26 @@ keeps between one screen and the next.
 
 The lines and the cursor are each a set of rows of their own, so that a
 line that has not changed is not sent again and the cursor can move
-without any line being touched."
+without any line being touched.
+
+What is drawn is cut to the window, as Emacs cuts it: a line can be
+taller than the window has room for, the echo area's when it shows
+text in a taller font for one, and Emacs shows as much of it as fits."
   (let* ((scale (float urusi-scale))
          (rows (window-screen-rows window))
+         (width (/ (window-pixel-width window) scale))
+         (height (/ (window-pixel-height window) scale))
          (background (urusi-screen-color
                       (face-attribute 'default :background nil t))))
     (unless rows
       (urusi-screen--nothing-to-draw window))
     `(Canvas :Canvas.Left ,(/ (window-pixel-left window) scale)
              :Canvas.Top ,(/ (window-pixel-top window) scale)
-             :Width ,(/ (window-pixel-width window) scale)
-             :Height ,(/ (window-pixel-height window) scale)
+             :Width ,width
+             :Height ,height
              ,@(when background `(:Background ,background))
+             (Canvas.Clip
+              (RectangleGeometry :Rect ,(format "0,0,%s,%s" width height)))
              (Rows :key ,(format "window-%d" index)
                    :panel "Canvas"
                    ,@(mapcar #'urusi-screen--line rows))
