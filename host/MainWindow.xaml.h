@@ -68,6 +68,7 @@ namespace winrt::urusi_emacs::implementation
         void SizeFrame(Microsoft::UI::Xaml::FrameworkElement const& site, std::wstring const& id);
         void KeepFocus();
         void ResumeComposition();
+        bool IsForeground() const noexcept;
         void SendHostEvent(winrt::hstring const& name,
                            Windows::Data::Json::JsonObject const& details);
 
@@ -99,6 +100,9 @@ namespace winrt::urusi_emacs::implementation
         std::map<std::wstring, SIZE> m_panelSizes;
         bool m_attached{ false };
         bool m_active{ false };
+
+        // The window itself, to ask Windows whether it is in front.
+        HWND m_window{ nullptr };
 
         // Whether each key and what the input method says are written
         // down: from the start under a debugger, or once urusi-debug-mode

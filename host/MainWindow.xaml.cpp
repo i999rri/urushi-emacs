@@ -130,6 +130,7 @@ namespace winrt::urusi_emacs::implementation
         });
         HWND window = nullptr;
         check_hresult(try_as<::IWindowNative>()->get_WindowHandle(&window));
+        m_window = window;
 
         // Emacs asks for this to know that a host is here, and makes
         // its frame a message-only window when one is. It is not a
@@ -172,14 +173,32 @@ namespace winrt::urusi_emacs::implementation
             }
             else
             {
-                // Said to have gone, so that coming back is news to it:
-                // told only that the focus is here, while it thinks it
-                // never left, it goes on talking to the window it
-                // talked to meanwhile.
-                self->m_composition.Focus(false);
+                // Told to have gone while still in front, as when a
+                // window of the input method comes and goes, and not
+                // told to have come back after. So it is believed only
+                // once Windows agrees, after what XAML is doing about it
+                // has been done.
+                self->m_dispatcher.TryEnqueue(
+                    Microsoft::UI::Dispatching::DispatcherQueuePriority::Low,
+                    [weak] {
+                        auto self = weak.get();
+                        if (!self || self->IsForeground())
+                        {
+                            return;
+                        }
+
+                        // Said to have gone, so that coming back is news
+                        // to it: told only that the focus is here, while
+                        // it thinks it never left, it goes on talking to
+                        // the window it talked to meanwhile.
+                        self->m_composition.Focus(false);
+                        self->TellEmacsFocus(false);
+                        self->SendHostEvent(L"deactivated", JsonObject{});
+                    });
+                return;
             }
-            self->TellEmacsFocus(active);
-            self->SendHostEvent(active ? L"activated" : L"deactivated", JsonObject{});
+            self->TellEmacsFocus(true);
+            self->SendHostEvent(L"activated", JsonObject{});
         });
 
         // Closing the window is Emacs's to decide, the way leaving Emacs
@@ -896,6 +915,13 @@ namespace winrt::urusi_emacs::implementation
         {
             InputSink().Focus(FocusState::Programmatic);
         }
+    }
+
+    // Whether this window is the one in front, as Windows has it: XAML
+    // says the window has gone when it has not, now and then.
+    bool MainWindow::IsForeground() const noexcept
+    {
+        return m_window && GetForegroundWindow() == m_window;
     }
 
     // Tell the input method again that the keys come here, when the
