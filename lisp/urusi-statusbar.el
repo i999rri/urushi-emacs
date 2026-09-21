@@ -11,12 +11,14 @@
 ;; The bar is two lists of segments, one from the left and one from the
 ;; right.  A segment is a function of the window, returning XAML or nil
 ;; for nothing, and any function will do; the ones here are the things
-;; a mode line usually says:
+;; a mode line usually says.  Written as a list, (FUNCTION PROPERTIES...),
+;; it is given PROPERTIES as well, which the ones here put on what they
+;; draw:
 ;;
 ;;   (defun my-statusbar (frame)
 ;;     (urusi-statusbar frame
 ;;                      :left '(urusi-statusbar-vc urusi-statusbar-buffer)
-;;                      :right '(urusi-statusbar-position
+;;                      :right '((urusi-statusbar-position :FontSize 12)
 ;;                               urusi-statusbar-major-mode)
 ;;                      :Height 24))
 ;;   (setq urusi-screen-components '(urusi-screen-windows my-statusbar))
@@ -88,62 +90,73 @@ has.  It does not take the focus, which would take the keys."
 
 ;;;; The segments a mode line usually has
 
-(defun urusi-statusbar-buffer (window)
-  "The name of the buffer in WINDOW, with a dot when it is not saved."
+(defun urusi-statusbar-buffer (window &rest properties)
+  "The name of the buffer in WINDOW, with a dot when it is not saved.
+PROPERTIES are those of `urusi-statusbar-text'."
   (let ((buffer (window-buffer window)))
-    (urusi-statusbar-text
-     (concat (buffer-name buffer)
-             (when (and (buffer-file-name buffer) (buffer-modified-p buffer))
-               " ●")))))
+    (apply #'urusi-statusbar-text
+           (concat (buffer-name buffer)
+                   (when (and (buffer-file-name buffer) (buffer-modified-p buffer))
+                     " ●"))
+           properties)))
 
-(defun urusi-statusbar-position (window)
-  "Where the point of WINDOW is, as its line and column."
+(defun urusi-statusbar-position (window &rest properties)
+  "Where the point of WINDOW is, as its line and column.
+PROPERTIES are those of `urusi-statusbar-text'."
   (with-current-buffer (window-buffer window)
     (let ((point (window-point window)))
-      (urusi-statusbar-text
-       (format "Ln %d, Col %d"
-               (line-number-at-pos point)
-               (1+ (save-excursion (goto-char point) (current-column))))))))
+      (apply #'urusi-statusbar-text
+             (format "Ln %d, Col %d"
+                     (line-number-at-pos point)
+                     (1+ (save-excursion (goto-char point) (current-column))))
+             properties))))
 
-(defun urusi-statusbar-major-mode (window)
+(defun urusi-statusbar-major-mode (window &rest properties)
   "The name of the major mode of the buffer in WINDOW.
+PROPERTIES are those of `urusi-statusbar-text'.
 A mode of CC Mode puts how it is set after its name, \"C#//l\" for C#
 with line comments and electric keys, which is not the language's
 name: it is left out, as CC Mode itself finds the name."
   (let* ((buffer (window-buffer window))
          (name (string-trim (format-mode-line mode-name nil window buffer))))
-    (urusi-statusbar-text
+    (apply
+     #'urusi-statusbar-text
      (if (and (boundp 'c-buffer-is-cc-mode)
               (buffer-local-value 'c-buffer-is-cc-mode buffer)
               (string-match "\\`\\([^/]+\\)/" name))
          (match-string 1 name)
-       name))))
+       name)
+     properties)))
 
-(defun urusi-statusbar-encoding (window)
-  "How the file in WINDOW is encoded, and how its lines end."
+(defun urusi-statusbar-encoding (window &rest properties)
+  "How the file in WINDOW is encoded, and how its lines end.
+PROPERTIES are those of `urusi-statusbar-text'."
   (with-current-buffer (window-buffer window)
     (when buffer-file-name
       (let* ((system buffer-file-coding-system)
              (name (symbol-name (coding-system-base system)))
              (eol (pcase (coding-system-eol-type system)
                     (0 "LF") (1 "CRLF") (2 "CR"))))
-        (urusi-statusbar-text
-         (string-join (delq nil (list (upcase (string-remove-suffix "-with-signature" name))
-                                      eol))
-                      "  "))))))
+        (apply #'urusi-statusbar-text
+               (string-join (delq nil (list (upcase (string-remove-suffix
+                                                     "-with-signature" name))
+                                            eol))
+                            "  ")
+               properties)))))
 
-(defun urusi-statusbar-vc (window)
-  "The branch the file in WINDOW is on, as version control says it."
+(defun urusi-statusbar-vc (window &rest properties)
+  "The branch the file in WINDOW is on, as version control says it.
+PROPERTIES are those of `urusi-statusbar-text'."
   (when-let* ((vc (buffer-local-value 'vc-mode (window-buffer window)))
               (vc (string-trim (substring-no-properties vc)))
               ;; " Git-main", " Git:main": the branch after the backend.
               (branch (and (string-match "\\`[^-:@]+[-:@]\\(.*\\)\\'" vc)
                            (match-string 1 vc))))
-    (urusi-statusbar-text (concat (string #x2387) " " branch))))
+    (apply #'urusi-statusbar-text (concat (string #x2387) " " branch) properties)))
 
-(defun urusi-statusbar-diagnostics (window)
+(defun urusi-statusbar-diagnostics (window &rest properties)
   "How many errors and warnings Flymake has found in WINDOW's buffer.
-Clicking it lists them."
+Clicking it lists them.  PROPERTIES are those of `urusi-statusbar-button'."
   (with-current-buffer (window-buffer window)
     (when (bound-and-true-p flymake-mode)
       (let ((errors 0) (warnings 0))
@@ -152,11 +165,12 @@ Clicking it lists them."
             (cond ((>= severity (warning-numeric-level :error)) (cl-incf errors))
                   ((>= severity (warning-numeric-level :warning)) (cl-incf warnings)))))
         (let ((buffer (current-buffer)))
-          (urusi-statusbar-button
-           (format "%c %d  %c %d" #x2297 errors #x26A0 warnings)
-           (lambda ()
-             (with-current-buffer buffer
-               (flymake-show-buffer-diagnostics)))))))))
+          (apply #'urusi-statusbar-button
+                 (format "%c %d  %c %d" #x2297 errors #x26A0 warnings)
+                 (lambda ()
+                   (with-current-buffer buffer
+                     (flymake-show-buffer-diagnostics)))
+                 properties))))))
 
 ;;;; The bar
 
@@ -164,7 +178,8 @@ Clicking it lists them."
                                  &allow-other-keys)
   "Return a status bar about the window being worked in on FRAME.
 LEFT and RIGHT are the segments that go from its left end and from its
-right end, each a function of the window returning XAML or nil.  The
+right end, each a function of the window returning XAML or nil, or a
+list (FUNCTION PROPERTIES...) that gives it PROPERTIES as well.  The
 rest of PROPERTIES are properties of the Grid it is, its height and
 background for one, and :Foreground, the colour of what it says.
 
@@ -172,7 +187,10 @@ It is a row of its own, so that what it says changing sends the bar and
 nothing else."
   (let* ((window (urusi-statusbar-window frame))
          (build (lambda (segments)
-                  (delq nil (mapcar (lambda (segment) (funcall segment window))
+                  (delq nil (mapcar (lambda (segment)
+                                      (if (functionp segment)
+                                          (funcall segment window)
+                                        (apply (car segment) window (cdr segment))))
                                     segments))))
          (column (plist-get properties :Grid.Column))
          (row (plist-get properties :Grid.Row))

@@ -23,6 +23,7 @@
   </Folder>
   <Folder Name="/lisp/test/">
     <File Path="lisp/test/urusi-layout-test.el" />
+    <File Path="lisp/test/urusi-statusbar-test.el" />
     <File Path="lisp/test/urusi-tabs-test.el" />
     <File Path="lisp/test/urusi-test.el" />
     <File Path="lisp/test/urusi-titlebar-test.el" />
