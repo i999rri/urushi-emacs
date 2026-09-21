@@ -51,7 +51,17 @@ $installed = Get-AppxPackage -Name $name
 if ($installed -and $installed.InstallLocation -ne $layout) {
     Remove-AppxPackage $installed.PackageFullName
 }
-Add-AppxPackage -Register (Join-Path $layout 'AppxManifest.xml') -ForceUpdateFromAnyVersion
+# Windows also refuses one registered from here before with a manifest
+# that has changed since, as Visual Studio's deploy leaves it: that one
+# is taken away as well, and this one registered in its place.
+try {
+    Add-AppxPackage -Register (Join-Path $layout 'AppxManifest.xml') -ForceUpdateFromAnyVersion
+} catch {
+    $installed = Get-AppxPackage -Name $name
+    if (-not $installed) { throw }
+    Remove-AppxPackage $installed.PackageFullName
+    Add-AppxPackage -Register (Join-Path $layout 'AppxManifest.xml')
+}
 
 $package = Get-AppxPackage -Name $name
 "$($files.Count) files laid out in $layout"
