@@ -1,7 +1,6 @@
 #pragma once
 
 #include "MainWindow.g.h"
-#include "Activation.h"
 #include "Composition.h"
 #include "EmacsHost.h"
 #include "HostApi.h"
@@ -70,7 +69,6 @@ namespace winrt::urusi_emacs::implementation
         void KeepFocus();
         void ResumeComposition();
         void CheckDeactivation();
-        void Perform(urusi::Activation::Actions const& actions);
         bool IsForeground() const noexcept;
         void TraceFocus(char const* what);
         void SendHostEvent(winrt::hstring const& name,
@@ -104,10 +102,6 @@ namespace winrt::urusi_emacs::implementation
         std::map<std::wstring, SIZE> m_panelSizes;
         bool m_attached{ false };
 
-        // Whether the window is in front, and what to do as it comes
-        // and goes.
-        urusi::Activation m_activation;
-
         // The window itself, to ask Windows whether it is in front.
         HWND m_window{ nullptr };
 
@@ -132,6 +126,27 @@ namespace winrt::urusi_emacs::implementation
         // How the window takes up the screen, as Lisp was last told.
         std::wstring m_windowState{ L"normal" };
         urusi::Composition m_composition;
+
+        // What the Session asks of this window.
+        struct Effects : urusi::SessionEffects
+        {
+            explicit Effects(MainWindow* owner) : window(owner) {}
+
+            void CheckLater() override;
+            void ResumeLater() override;
+            void TellEmacsFocus(bool focused) override;
+            void NotifyFocusEnter() override;
+            void NotifyFocusLeave() override;
+            void Commit(std::wstring const& text) override;
+            void Composing(std::wstring const& text) override;
+
+            MainWindow* window;
+        };
+
+        // The keyboard's side of the window: which window has it, and
+        // what the input method makes of it.
+        Effects m_effects{ this };
+        urusi::Session m_session{ m_effects };
     };
 }
 

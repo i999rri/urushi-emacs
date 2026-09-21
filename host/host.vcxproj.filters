@@ -87,6 +87,12 @@
     <ClInclude Include="ImeBuffer.h">
       <Filter>Input</Filter>
     </ClInclude>
+    <ClInclude Include="Session.h">
+      <Filter>Input</Filter>
+    </ClInclude>
+    <ClInclude Include="Utf.h">
+      <Filter>Input</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Manifest Include="app.manifest">

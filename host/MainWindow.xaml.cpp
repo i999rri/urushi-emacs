@@ -65,6 +65,46 @@ namespace
         FlushFileBuffers(file);
     }
 
+    // A file beside the log, emptied when the application starts.
+    HANDLE OpenBesideTheApplication(char const* name)
+    {
+        char path[MAX_PATH]{};
+        DWORD length = GetModuleFileNameA(nullptr, path, ARRAYSIZE(path));
+        if (length == 0 || length == ARRAYSIZE(path))
+        {
+            return INVALID_HANDLE_VALUE;
+        }
+
+        std::string full{ path, length };
+        auto slash = full.find_last_of('\\');
+        if (slash == std::string::npos)
+        {
+            return INVALID_HANDLE_VALUE;
+        }
+
+        return CreateFileA((full.substr(0, slash + 1) + name).c_str(),
+                           GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_DELETE, nullptr,
+                           CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    }
+
+    // What the keyboard's side of the window saw, one line of JSON to a
+    // thing, to be played back by the tests (tests/traces). Opened the
+    // first time there is something to write, so that a run without
+    // urusi-debug-mode leaves the last one's alone.
+    void WriteToTraceFile(std::string const& line)
+    {
+        static HANDLE file = OpenBesideTheApplication("urusi-emacs.trace.jsonl");
+
+        if (file == INVALID_HANDLE_VALUE)
+        {
+            return;
+        }
+
+        DWORD written = 0;
+        WriteFile(file, line.data(), static_cast<DWORD>(line.size()), &written, nullptr);
+        FlushFileBuffers(file);
+    }
+
     // Whether KEY is one the input method answers itself, rather than
     // one that means a character.
     //
@@ -162,11 +202,11 @@ namespace winrt::urusi_emacs::implementation
             {
                 self->TakeInputToEmacs();
                 self->KeepFocus();
-                self->Perform(self->m_activation.Activated());
+                self->m_session.Activated();
             }
             else
             {
-                self->Perform(self->m_activation.Deactivated());
+                self->m_session.Deactivated();
             }
         });
 
@@ -286,7 +326,7 @@ namespace winrt::urusi_emacs::implementation
 
         // The window may have come to the front before there was a
         // frame to tell.
-        if (m_activation.Active())
+        if (m_session.Active())
         {
             TellEmacsFocus(true);
         }
@@ -356,29 +396,16 @@ namespace winrt::urusi_emacs::implementation
     {
         auto weak = get_weak();
 
-        m_composition.Trace([weak](std::string what) {
+        // Everything that happens to the keyboard's side of the window,
+        // written down under urusi-debug-mode, to be read, and to be
+        // played back in a test: see tests/traces.
+        m_session.Record([weak](std::string const& line) {
             if (auto self = weak.get(); self && self->m_debug)
             {
-                self->AppendLog("ime", what);
+                WriteToTraceFile(line + "\n");
             }
         });
-        m_composition.Start(
-            InputSink(),
-            [weak](std::wstring text) {
-                if (auto self = weak.get())
-                {
-                    self->TypeIntoEmacs(text);
-                }
-            },
-            [weak](std::wstring text) {
-                if (auto self = weak.get())
-                {
-                    JsonObject message;
-                    message.SetNamedValue(L"type", String(L"composition"));
-                    message.SetNamedValue(L"text", String(hstring{ text }));
-                    self->Send(message);
-                }
-            });
+        m_composition.Start(InputSink(), m_session);
 
         InputSink().Focus(FocusState::Programmatic);
     }
@@ -914,7 +941,7 @@ namespace winrt::urusi_emacs::implementation
 
         char text[256];
         sprintf_s(text, "%s: foreground %s, active %s, win32 focus %p, xaml focus %s\n",
-                  what, IsForeground() ? "yes" : "no", m_activation.Active() ? "yes" : "no",
+                  what, IsForeground() ? "yes" : "no", m_session.Active() ? "yes" : "no",
                   static_cast<void*>(GetFocus()), xaml.c_str());
         AppendLog("host", text);
     }
@@ -957,8 +984,7 @@ namespace winrt::urusi_emacs::implementation
                 self->TraceFocus("resumed");
                 bool keysComeHere =
                     Input::FocusManager::GetFocusedElement(root) == self->InputSink();
-                self->Perform(self->m_activation.ResumeChecked(self->IsForeground(),
-                                                              keysComeHere));
+                self->m_session.ResumeChecked(self->IsForeground(), keysComeHere);
             });
     }
 
@@ -973,36 +999,30 @@ namespace winrt::urusi_emacs::implementation
                 if (auto self = weak.get())
                 {
                     self->TraceFocus("deactivated, checked");
-                    self->Perform(self->m_activation.DeactivationChecked(self->IsForeground()));
+                    self->m_session.DeactivationChecked(self->IsForeground());
                 }
             });
     }
 
-    // Do what urusi::Activation decided.
-    void MainWindow::Perform(urusi::Activation::Actions const& actions)
+    // What the Session asks to have done.
+    void MainWindow::Effects::CheckLater() { window->CheckDeactivation(); }
+    void MainWindow::Effects::ResumeLater() { window->ResumeComposition(); }
+    void MainWindow::Effects::NotifyFocusEnter() { window->m_composition.NotifyFocusEnter(); }
+    void MainWindow::Effects::NotifyFocusLeave() { window->m_composition.NotifyFocusLeave(); }
+    void MainWindow::Effects::Commit(std::wstring const& text) { window->TypeIntoEmacs(text); }
+
+    void MainWindow::Effects::TellEmacsFocus(bool focused)
     {
-        if (actions.checkLater)
-        {
-            CheckDeactivation();
-        }
-        if (actions.resumeLater)
-        {
-            ResumeComposition();
-        }
-        if (actions.leaveInputMethod)
-        {
-            m_composition.Focus(false);
-        }
-        if (actions.enterInputMethod)
-        {
-            m_composition.Focus(true);
-        }
-        if (actions.tellEmacsFocused || actions.tellEmacsUnfocused)
-        {
-            TellEmacsFocus(actions.tellEmacsFocused);
-            SendHostEvent(actions.tellEmacsFocused ? L"activated" : L"deactivated",
-                          JsonObject{});
-        }
+        window->TellEmacsFocus(focused);
+        window->SendHostEvent(focused ? L"activated" : L"deactivated", JsonObject{});
+    }
+
+    void MainWindow::Effects::Composing(std::wstring const& text)
+    {
+        JsonObject message;
+        message.SetNamedValue(L"type", String(L"composition"));
+        message.SetNamedValue(L"text", String(hstring{ text }));
+        window->Send(message);
     }
 
     // Tell Windows which parts of what Lisp drew are the title bar, when
