@@ -83,14 +83,21 @@ if [ ! -f "$build/Makefile" ]; then
     (cd "$build" && "$src/configure" --without-dbus --with-native-compilation=no)
 fi
 
+# Four at a time.  Recompiling everything takes about three and a half
+# minutes on one core and about one on four, and the rest of the
+# machine stays with whoever is using it; every core buys the last few
+# seconds of that and ties the machine up for them.  A change to one
+# file gains nothing from more.
+jobs=4
+
 # emacs.exe first: the Lisp and the data it builds on the way are what
 # the DLL is dumped with, and building it proves the fork still builds
 # the ordinary way.
 echo "=== emacs.exe"
-make -C "$build" -j"$(nproc)"
+make -C "$build" -j"$jobs"
 
 echo "=== libemacs.dll"
-make -C "$build/src" libemacs.dll
+make -C "$build/src" -j"$jobs" libemacs.dll
 
 # The host of the dump has to be the DLL, so that the dump carries its
 # fingerprint.  w32dll-smoke.exe is that host, and is worth keeping: it
