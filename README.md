@@ -38,7 +38,16 @@ After a change to Emacs's C, or to urusi's Lisp, `scripts/refresh-emacs.sh` does
 scripts/refresh-emacs.sh
 ```
 
-The host then builds from `urusi-emacs.slnx`, in Visual Studio with the Windows App SDK workload. It takes `emacs/` into the package, and copies it next to the executable as well, for a run that is not packaged.
+The host then builds from `urusi-emacs.slnx`, in Visual Studio with the Windows App SDK workload. Deploying `package` builds the application in `host` and packages it with `emacs/` beside the executable, and with the Lisp in `lisp/` as it is, so a change to that needs no staging.
+
+| Directory | What is in it |
+| --- | --- |
+| `host/` | The application, in C++ with WinUI 3, and nothing else. |
+| `package/` | The package: its manifest, its images, and what it carries besides the application. |
+| `lisp/` | The Lisp urusi brings, and its tests in `lisp/test/`. |
+| `docs/` | How to make the screen your own, with recipes. |
+| `scripts/` | Building and staging Emacs, and the scripts that check what the application does in `scripts/verify/`. |
+| `external/` | The Emacs fork. |
 
 ## Running
 
@@ -87,7 +96,16 @@ Emacs の C や urusi の Lisp を直したあとは `scripts/refresh-emacs.sh` 
 scripts/refresh-emacs.sh
 ```
 
-ホストはそのあと Visual Studio（Windows App SDK ワークロード）で `urusi-emacs.slnx` からビルドする。`emacs/` はパッケージに入り、パッケージしない実行のために exe の隣にもコピーされる。
+ホストはそのあと Visual Studio（Windows App SDK ワークロード）で `urusi-emacs.slnx` からビルドする。`package` を配置すると、`host` のアプリがビルドされ、exe の隣に `emacs/` を置いた形でパッケージになる。`lisp/` の Lisp はそのまま入るので、直してもステージし直す必要はない。
+
+| ディレクトリ | 中身 |
+| --- | --- |
+| `host/` | アプリ本体 (C++ / WinUI 3)。それ以外は置かない。 |
+| `package/` | パッケージ。マニフェスト、画像、アプリのほかに詰めるもの。 |
+| `lisp/` | urusi が同梱する Lisp。テストは `lisp/test/`。 |
+| `docs/` | 画面を自分のものにする方法とレシピ。 |
+| `scripts/` | Emacs のビルドとステージ。アプリの動作を確かめるスクリプトは `scripts/verify/`。 |
+| `external/` | Emacs の fork。 |
 
 ### 実行
 
