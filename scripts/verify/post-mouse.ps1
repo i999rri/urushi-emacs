@@ -5,12 +5,15 @@
 #
 #   scripts/verify/post-mouse.ps1 -Click -X 200 -Y 150
 #   scripts/verify/post-mouse.ps1 -Wheel -120 -X 200 -Y 150
+#   scripts/verify/post-mouse.ps1 -X 100 -Y 80 -DragToX 400 -DragToY 200
 
 param(
     [int] $X = 0,
     [int] $Y = 0,
     [switch] $Click,
-    [int] $Wheel = 0
+    [int] $Wheel = 0,
+    [int] $DragToX = -1,
+    [int] $DragToY = -1
 )
 
 Add-Type @'
@@ -51,6 +54,21 @@ if ($Click) {
     Start-Sleep -Milliseconds 50
     [PostMouse]::PostMessageW($frame, 0x0202, [IntPtr]0, $where) | Out-Null   # WM_LBUTTONUP
     "clicked at $X,$Y"
+}
+if ($DragToX -ge 0) {
+    # Down, a few moves on the way with the button held, and up where
+    # it ends, as a hand would drag.
+    [PostMouse]::PostMessageW($frame, 0x0201, [IntPtr]1, $where) | Out-Null   # WM_LBUTTONDOWN
+    foreach ($step in 1..8) {
+        Start-Sleep -Milliseconds 40
+        $mx = $X + [int](($DragToX - $X) * $step / 8)
+        $my = $Y + [int](($DragToY - $Y) * $step / 8)
+        [PostMouse]::PostMessageW($frame, 0x0200, [IntPtr]1, [IntPtr](($my -shl 16) -bor ($mx -band 0xffff))) | Out-Null   # WM_MOUSEMOVE
+    }
+    Start-Sleep -Milliseconds 40
+    $end = [IntPtr](($DragToY -shl 16) -bor ($DragToX -band 0xffff))
+    [PostMouse]::PostMessageW($frame, 0x0202, [IntPtr]0, $end) | Out-Null     # WM_LBUTTONUP
+    "dragged from $X,$Y to $DragToX,$DragToY"
 }
 if ($Wheel -ne 0) {
     $w = [IntPtr](([int]$Wheel -shl 16) -band 0xffff0000)
