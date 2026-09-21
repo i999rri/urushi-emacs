@@ -30,6 +30,7 @@
     <File Path="lisp/test/urusi-test.el" />
     <File Path="lisp/test/urusi-titlebar-test.el" />
   </Folder>
+  <Project Path="core/core.vcxitems" />
   <Project Path="platforms/windows/package/Package.wapproj" Type="c7167f0d-bc9f-4e6e-afe1-012c56b48db5">
     <Deploy />
   </Project>

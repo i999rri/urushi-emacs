@@ -89,6 +89,9 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
+  <ImportGroup Label="Shared">
+    <Import Project="..\..\..\core\core.vcxitems" Label="Shared" />
+  </ImportGroup>
   <ImportGroup Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
@@ -101,8 +104,8 @@
     <ClCompile>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <!-- Includes are from here and from core: Input/Keyboard.h, Window/FrameView.h. -->
-      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)..\..\..\core;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <!-- Included from here, and from core: Input/Keyboard.h, Window/FrameView.h. -->
+      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeaderOutputFile>$(IntDir)pch.pch</PrecompiledHeaderOutputFile>
       <WarningLevel>Level4</WarningLevel>
       <LanguageStandard Condition="'$(VisualStudioVersion)' &gt;= '18.0'">stdcpp20</LanguageStandard>
@@ -136,23 +139,11 @@
       <DependentUpon>MainWindow.xaml</DependentUpon>
     </ClInclude>
     <ClInclude Include="Input\Composition.h" />
-    <ClInclude Include="..\..\..\core\Input\Activation.h" />
-    <ClInclude Include="..\..\..\core\Window\CaptionRegions.h" />
-    <ClInclude Include="..\..\..\core\Input\Engagement.h" />
-    <ClInclude Include="..\..\..\core\Window\FrameSizes.h" />
-    <ClInclude Include="..\..\..\core\Window\FrameView.h" />
-    <ClInclude Include="..\..\..\core\Input\ImeBuffer.h" />
     <ClInclude Include="Input\KeyTranslation.h" />
     <ClInclude Include="Input\MouseTranslation.h" />
-    <ClInclude Include="..\..\..\core\Window\Rows.h" />
-    <ClInclude Include="..\..\..\core\Input\KeyInput.h" />
-    <ClInclude Include="..\..\..\core\Input\Keyboard.h" />
-    <ClInclude Include="..\..\..\core\Input\Pointer.h" />
-    <ClInclude Include="..\..\..\core\Window\Splitter.h" />
     <ClInclude Include="Window\XamlCaptionRegions.h" />
     <ClInclude Include="Window\XamlFrameView.h" />
     <ClInclude Include="Window\XamlSplitter.h" />
-    <ClInclude Include="..\..\..\core\Text\Utf.h" />
     <ClInclude Include="Emacs\HostCalls.h" />
     <ClInclude Include="Emacs\EmacsHost.h" />
     <ClInclude Include="Emacs\HostApi.h" />

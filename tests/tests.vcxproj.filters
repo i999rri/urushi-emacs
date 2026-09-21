@@ -1,0 +1,72 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="core">
+      <UniqueIdentifier>{b3bc078b-011b-5636-a68f-55c4e7d3d4a0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="core\Input">
+      <UniqueIdentifier>{60439502-5c2a-5095-b6e4-485986df9eb2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="core\Window">
+      <UniqueIdentifier>{934c2e58-a65b-514d-984c-8cc5aac225b0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="traces">
+      <UniqueIdentifier>{f071f478-c607-5b99-a37d-c3d5b538be2c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="windows">
+      <UniqueIdentifier>{79b3e094-856b-5144-bd4d-0260ef2ee00e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="windows\Input">
+      <UniqueIdentifier>{1f5b62b7-31e2-5f2b-af4f-96c25fbfab10}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="windows\host">
+      <UniqueIdentifier>{b4ce6fba-4d08-562d-afdf-670a272ed5ad}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="core\Input\test_activation.cpp">
+      <Filter>core\Input</Filter>
+    </ClCompile>
+    <ClCompile Include="core\Window\test_caption_regions.cpp">
+      <Filter>core\Window</Filter>
+    </ClCompile>
+    <ClCompile Include="core\Input\test_engagement.cpp">
+      <Filter>core\Input</Filter>
+    </ClCompile>
+    <ClCompile Include="core\Window\test_frame_sizes.cpp">
+      <Filter>core\Window</Filter>
+    </ClCompile>
+    <ClCompile Include="core\Window\test_frame_view.cpp">
+      <Filter>core\Window</Filter>
+    </ClCompile>
+    <ClCompile Include="core\Input\test_ime_buffer.cpp">
+      <Filter>core\Input</Filter>
+    </ClCompile>
+    <ClCompile Include="windows\Input\test_key_translation.cpp">
+      <Filter>windows\Input</Filter>
+    </ClCompile>
+    <ClCompile Include="windows\Input\test_mouse_translation.cpp">
+      <Filter>windows\Input</Filter>
+    </ClCompile>
+    <ClCompile Include="core\Window\test_rows.cpp">
+      <Filter>core\Window</Filter>
+    </ClCompile>
+    <ClCompile Include="core\Window\test_splitter.cpp">
+      <Filter>core\Window</Filter>
+    </ClCompile>
+    <ClCompile Include="core\Input\test_traces.cpp">
+      <Filter>core\Input</Filter>
+    </ClCompile>
+    <ClInclude Include="..\platforms\windows\host\Input\KeyTranslation.h">
+      <Filter>windows\host</Filter>
+    </ClInclude>
+    <ClInclude Include="..\platforms\windows\host\Input\MouseTranslation.h">
+      <Filter>windows\host</Filter>
+    </ClInclude>
+    <ClInclude Include="TraceReader.h" />
+    <None Include="packages.config" />
+    <None Include="traces\*.jsonl">
+      <Filter>traces</Filter>
+    </None>
+  </ItemGroup>
+</Project>

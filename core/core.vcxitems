@@ -1,0 +1,36 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!--
+    The code of the host that no platform has a part in, taken in by the
+    application of each platform, and by the tests. Only headers: each
+    project that takes it in compiles what it uses.
+  -->
+  <PropertyGroup Label="Globals">
+    <MSBuildAllProjects Condition="'$(MSBuildVersion)' == '' Or '$(MSBuildVersion)' &lt; '16.0'">$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    <HasSharedItems>true</HasSharedItems>
+    <ItemsProjectGuid>{c9cbd260-ae52-5351-83af-1092905ae43f}</ItemsProjectGuid>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <!-- Included from here: Input/Keyboard.h, Window/FrameView.h. -->
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(MSBuildThisFileDirectory)</AdditionalIncludeDirectories>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ProjectCapability Include="SourceItemsFromImports" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="$(MSBuildThisFileDirectory)Input\Activation.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)Input\Engagement.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)Input\ImeBuffer.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)Input\KeyInput.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)Input\Keyboard.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)Input\Pointer.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)Text\Utf.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)Window\CaptionRegions.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)Window\FrameSizes.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)Window\FrameView.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)Window\Rows.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)Window\Splitter.h" />
+  </ItemGroup>
+</Project>

@@ -21,6 +21,9 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="Shared">
+    <Import Project="..\core\core.vcxitems" Label="Shared" />
+  </ImportGroup>
   <PropertyGroup>
     <!-- Beside the host's, not in it: the two are built side by side. -->
     <IntDir>$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
@@ -35,7 +38,7 @@
       <WarningLevel>Level4</WarningLevel>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>/utf-8 /Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\core;$(ProjectDir)..\platforms\windows\host;$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\platforms\windows\host;$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -69,20 +72,8 @@
     <ClCompile Include="core\Input\test_traces.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\core\Input\Activation.h" />
-    <ClInclude Include="..\core\Window\CaptionRegions.h" />
-    <ClInclude Include="..\core\Input\Engagement.h" />
-    <ClInclude Include="..\core\Window\FrameSizes.h" />
-    <ClInclude Include="..\core\Window\FrameView.h" />
-    <ClInclude Include="..\core\Input\ImeBuffer.h" />
-    <ClInclude Include="..\core\Input\KeyInput.h" />
-    <ClInclude Include="..\core\Input\Keyboard.h" />
     <ClInclude Include="..\platforms\windows\host\Input\KeyTranslation.h" />
     <ClInclude Include="..\platforms\windows\host\Input\MouseTranslation.h" />
-    <ClInclude Include="..\core\Input\Pointer.h" />
-    <ClInclude Include="..\core\Window\Rows.h" />
-    <ClInclude Include="..\core\Window\Splitter.h" />
-    <ClInclude Include="..\core\Text\Utf.h" />
     <ClInclude Include="TraceReader.h" />
   </ItemGroup>
   <ItemGroup>

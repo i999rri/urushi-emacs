@@ -1,99 +1,24 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="App">
-      <UniqueIdentifier>{6f5e1f43-3f7a-4c52-9a1b-0b6a4f3c2e11}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Window">
-      <UniqueIdentifier>{2d8a7c1e-5b44-4e0f-8c3d-7a9e1b2c4d22}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Emacs">
-      <UniqueIdentifier>{9c3b5e2a-1d6f-4a87-b2e4-3f8c6d1a5e33}</UniqueIdentifier>
+      <UniqueIdentifier>{cabd1df6-f2e1-5c40-a60b-31801a2ee2dd}</UniqueIdentifier>
     </Filter>
     <Filter Include="Input">
-      <UniqueIdentifier>{4e7d2a9b-8c1f-4b35-a6d2-5c9e3f7b1a44}</UniqueIdentifier>
+      <UniqueIdentifier>{e8febcd6-e07b-520e-8c17-4893e657fbb4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Window">
+      <UniqueIdentifier>{fe38a130-43d8-5131-b6e1-646d4224dcb6}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ApplicationDefinition Include="App.xaml">
-      <Filter>App</Filter>
-    </ApplicationDefinition>
+    <Manifest Include="app.manifest" />
   </ItemGroup>
   <ItemGroup>
-    <Page Include="MainWindow.xaml">
-      <Filter>Window</Filter>
-    </Page>
-  </ItemGroup>
-  <ItemGroup>
-    <Midl Include="MainWindow.idl">
-      <Filter>Window</Filter>
-    </Midl>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="pch.cpp">
-      <Filter>App</Filter>
-    </ClCompile>
-    <ClCompile Include="App.xaml.cpp">
-      <Filter>App</Filter>
-    </ClCompile>
-    <ClCompile Include="MainWindow.xaml.cpp">
-      <Filter>Window</Filter>
-    </ClCompile>
-    <ClCompile Include="Emacs\EmacsHost.cpp">
-      <Filter>Emacs</Filter>
-    </ClCompile>
-    <ClCompile Include="Emacs\HostApi.cpp">
-      <Filter>Emacs</Filter>
-    </ClCompile>
-    <ClCompile Include="Emacs\HostCalls.cpp">
-      <Filter>Emacs</Filter>
-    </ClCompile>
-    <ClCompile Include="Input\Composition.cpp">
-      <Filter>Input</Filter>
-    </ClCompile>
-    <ClCompile Include="Window\XamlSplitter.cpp">
-      <Filter>Window</Filter>
-    </ClCompile>
-    <ClCompile Include="Window\XamlFrameView.cpp">
-      <Filter>Window</Filter>
-    </ClCompile>
-    <ClCompile Include="Window\XamlCaptionRegions.cpp">
-      <Filter>Window</Filter>
-    </ClCompile>
-    <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="pch.h">
-      <Filter>App</Filter>
-    </ClInclude>
-    <ClInclude Include="App.xaml.h">
-      <Filter>App</Filter>
-    </ClInclude>
-    <ClInclude Include="MainWindow.xaml.h">
-      <Filter>Window</Filter>
-    </ClInclude>
-    <ClInclude Include="Emacs\EmacsHost.h">
-      <Filter>Emacs</Filter>
-    </ClInclude>
-    <ClInclude Include="Emacs\HostApi.h">
-      <Filter>Emacs</Filter>
-    </ClInclude>
-    <ClInclude Include="Emacs\HostCalls.h">
-      <Filter>Emacs</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\external\emacs\src\w32host.h">
-      <Filter>Emacs</Filter>
-    </ClInclude>
+    <ClInclude Include="pch.h" />
+    <ClInclude Include="App.xaml.h" />
+    <ClInclude Include="MainWindow.xaml.h" />
     <ClInclude Include="Input\Composition.h">
-      <Filter>Input</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\core\Input\Activation.h">
-      <Filter>Window</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\core\Input\Engagement.h">
-      <Filter>Input</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\core\Input\ImeBuffer.h">
       <Filter>Input</Filter>
     </ClInclude>
     <ClInclude Include="Input\KeyTranslation.h">
@@ -102,51 +27,65 @@
     <ClInclude Include="Input\MouseTranslation.h">
       <Filter>Input</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\core\Window\Rows.h">
-      <Filter>Window</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\core\Window\FrameSizes.h">
-      <Filter>Window</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\core\Window\FrameView.h">
-      <Filter>Window</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\core\Window\CaptionRegions.h">
-      <Filter>Window</Filter>
-    </ClInclude>
     <ClInclude Include="Window\XamlCaptionRegions.h">
       <Filter>Window</Filter>
     </ClInclude>
     <ClInclude Include="Window\XamlFrameView.h">
       <Filter>Window</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\core\Window\Splitter.h">
-      <Filter>Window</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\core\Input\Pointer.h">
-      <Filter>Input</Filter>
-    </ClInclude>
     <ClInclude Include="Window\XamlSplitter.h">
       <Filter>Window</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\core\Input\Keyboard.h">
-      <Filter>Input</Filter>
+    <ClInclude Include="Emacs\HostCalls.h">
+      <Filter>Emacs</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\core\Input\KeyInput.h">
-      <Filter>Input</Filter>
+    <ClInclude Include="Emacs\EmacsHost.h">
+      <Filter>Emacs</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\core\Text\Utf.h">
-      <Filter>Input</Filter>
+    <ClInclude Include="Emacs\HostApi.h">
+      <Filter>Emacs</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\external\emacs\src\w32host.h">
+      <Filter>Emacs</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <Manifest Include="app.manifest">
-      <Filter>App</Filter>
-    </Manifest>
+    <ApplicationDefinition Include="App.xaml" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="packages.config">
-      <Filter>App</Filter>
-    </None>
+    <Page Include="MainWindow.xaml" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="pch.cpp" />
+    <ClCompile Include="App.xaml.cpp" />
+    <ClCompile Include="MainWindow.xaml.cpp" />
+    <ClCompile Include="Input\Composition.cpp">
+      <Filter>Input</Filter>
+    </ClCompile>
+    <ClCompile Include="Window\XamlCaptionRegions.cpp">
+      <Filter>Window</Filter>
+    </ClCompile>
+    <ClCompile Include="Window\XamlFrameView.cpp">
+      <Filter>Window</Filter>
+    </ClCompile>
+    <ClCompile Include="Window\XamlSplitter.cpp">
+      <Filter>Window</Filter>
+    </ClCompile>
+    <ClCompile Include="Emacs\HostCalls.cpp">
+      <Filter>Emacs</Filter>
+    </ClCompile>
+    <ClCompile Include="Emacs\EmacsHost.cpp">
+      <Filter>Emacs</Filter>
+    </ClCompile>
+    <ClCompile Include="Emacs\HostApi.cpp">
+      <Filter>Emacs</Filter>
+    </ClCompile>
+    <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Midl Include="MainWindow.idl" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
 </Project>
