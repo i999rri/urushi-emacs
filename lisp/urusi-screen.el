@@ -172,6 +172,14 @@ It takes the window and which one it is, counting from zero, which is
 what names the parts of it that the host keeps between screens."
   :type 'function)
 
+(defcustom urusi-screen-tab-line-function nil
+  "Function that draws the tab line of a window, or nil to draw it as text.
+It takes the window and its tab line, a line as `window-screen-rows'
+reads it, and returns XAML to fill the room Emacs kept for it:
+`urusi-tabs-tab-line' draws the tabs of `tab-line-mode' there.  How much
+room that is stays Emacs's to say, by the face `tab-line'."
+  :type '(choice (const :tag "As text" nil) function))
+
 (defun urusi-screen-run (run height &optional spacing above)
   "Return RUN, one stretch of a line, as XAML, HEIGHT pixels tall.
 SPACING of those pixels are space between lines rather than text, and
@@ -458,12 +466,29 @@ text in a taller font for one, and Emacs shows as much of it as fits."
               (RectangleGeometry :Rect ,(format "0,0,%s,%s" width height)))
              (Rows :key ,(format "window-%d" index)
                    :panel "Canvas"
-                   ,@(mapcar #'urusi-screen--line rows))
+                   ,@(mapcar (lambda (row)
+                               (if (and urusi-screen-tab-line-function
+                                        (eq (plist-get row :kind) 'tab-line))
+                                   (urusi-screen--tab-line window row width)
+                                 (urusi-screen--line row)))
+                             rows))
              (Rows :key ,(format "cursor-%d" index)
                    :panel "Canvas"
                    ,@(when-let* ((cursor (funcall urusi-screen-cursor-function
                                                   window)))
                        (list cursor))))))
+
+(defun urusi-screen--tab-line (window line width)
+  "Return LINE, the tab line of WINDOW, WIDTH wide.
+It is drawn by `urusi-screen-tab-line-function', and not kept from
+one screen to the next as a line of text is: what it draws depends on
+the window, and two windows can have the same line."
+  (let ((scale (float urusi-scale)))
+    `(Grid :key ,(format "tab-line-%s" (plist-get line :y))
+           :Canvas.Top ,(/ (plist-get line :y) scale)
+           :Width ,width
+           :Height ,(/ (plist-get line :height) scale)
+           ,(funcall urusi-screen-tab-line-function window line))))
 
 (defvar urusi-screen--windows-drawn 0
   "How many windows this screen has drawn so far.

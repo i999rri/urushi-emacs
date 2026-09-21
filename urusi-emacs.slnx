@@ -16,11 +16,13 @@
     <File Path="lisp/urusi-frame.el" />
     <File Path="lisp/urusi-layout.el" />
     <File Path="lisp/urusi-screen.el" />
+    <File Path="lisp/urusi-tabs.el" />
     <File Path="lisp/urusi-site-start.el" />
     <File Path="lisp/urusi-titlebar.el" />
   </Folder>
   <Folder Name="/lisp/test/">
     <File Path="lisp/test/urusi-layout-test.el" />
+    <File Path="lisp/test/urusi-tabs-test.el" />
     <File Path="lisp/test/urusi-test.el" />
     <File Path="lisp/test/urusi-titlebar-test.el" />
   </Folder>
