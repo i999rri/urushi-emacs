@@ -1,0 +1,25 @@
+{"note":"Alt+Tab away while composing. The input method finishes the composition by replacing it with itself, at positions it counts on from before the window went and came back: the text is to arrive once, not twice (\"あいあい\")."}
+{"e":"context-created"}
+{"e":"focus-gained"}
+{"e":"activated"}
+{"e":"resume-checked","foreground":true,"keys":true}
+{"e":"composition-started"}
+{"e":"text-updating","start":0,"end":0,"text":"か"}
+{"e":"text-updating","start":1,"end":1,"text":"ん"}
+{"e":"composition-completed"}
+{"e":"deactivated"}
+{"e":"deactivation-checked","foreground":false}
+{"expect":"entered","value":false}
+{"e":"activated"}
+{"e":"resume-checked","foreground":true,"keys":true}
+{"expect":"entered","value":true}
+{"e":"composition-started"}
+{"e":"text-updating","start":2,"end":2,"text":"あ"}
+{"e":"text-updating","start":3,"end":3,"text":"い"}
+{"e":"deactivated"}
+{"e":"text-updating","start":2,"end":4,"text":"あい"}
+{"e":"composition-completed"}
+{"e":"deactivation-checked","foreground":false}
+{"expect":"commits","texts":["かん","あい"]}
+{"expect":"composing","value":false}
+{"expect":"active","value":false}

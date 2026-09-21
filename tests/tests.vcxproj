@@ -35,8 +35,7 @@
       <WarningLevel>Level4</WarningLevel>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>/utf-8 /Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\host;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-    </ClCompile>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\host;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>    </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
@@ -59,14 +58,19 @@
     <ClCompile Include="test_activation.cpp" />
     <ClCompile Include="test_engagement.cpp" />
     <ClCompile Include="test_ime_buffer.cpp" />
+    <ClCompile Include="test_traces.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\host\Activation.h" />
     <ClInclude Include="..\host\Engagement.h" />
     <ClInclude Include="..\host\ImeBuffer.h" />
+    <ClInclude Include="..\host\Session.h" />
+    <ClInclude Include="..\host\Utf.h" />
+    <ClInclude Include="TraceReader.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <None Include="traces\*.jsonl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
