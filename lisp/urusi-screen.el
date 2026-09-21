@@ -396,105 +396,22 @@ draws what it has to say there like anything else."
                       collect (funcall urusi-screen-window-function
                                        window index))))
 
-;;;; The title bar
-
-(defface urusi-screen-titlebar
-  '((t :inherit default))
-  "Face of the title bar the screen draws in place of the window's own.
-Its background is the bar's, and its foreground the title's and the
-buttons'."
-  :group 'urusi-screen)
-
-(defcustom urusi-screen-titlebar-height 32
-  "How tall the title bar is, in the pixels XAML counts in.
-It is the height Windows draws its own at."
-  :type 'number)
-
-(defconst urusi-screen--caption-font "Segoe Fluent Icons, Segoe MDL2 Assets"
-  "Font the buttons of the title bar draw their symbols in.
-Windows draws the buttons of its own title bars in the first, and the
-second is the one Windows 10 has, with the same symbols in the same
-places.")
-
-(defun urusi-screen--caption-button (name symbol action)
-  "Return a title bar button NAME showing SYMBOL, doing ACTION when clicked.
-SYMBOL is a character of `urusi-screen--caption-font'."
-  (let ((foreground (urusi-screen-color
-                     (face-attribute 'urusi-screen-titlebar :foreground nil t))))
-    `(Button :Name ,name
-             :Content ,(string symbol)
-             :FontFamily ,urusi-screen--caption-font
-             :FontSize 10
-             :Width 46
-             :Height ,urusi-screen-titlebar-height
-             :Padding 0
-             :CornerRadius 0
-             :BorderThickness 0
-             :Background "Transparent"
-             ;; Clicked, not focused: a button that took the focus would
-             ;; take the keys with it, and the space bar would press it.
-             :IsTabStop nil
-             :AllowFocusOnInteraction nil
-             ,@(when foreground `(:Foreground ,foreground))
-             :on-Click ,action)))
-
-(defun urusi-screen--toggle-maximized ()
-  "Maximize the window, or restore it if it is maximized already."
-  (urusi-call "window.state"
-              (list :state (if (member urusi-window-state '("maximized" "fullscreen"))
-                               "normal"
-                             "maximized"))))
-
-(defun urusi-screen-titlebar (_frame)
-  "Return the title bar the screen draws in place of the window's own.
-It is named urusi-titlebar, and that name is what tells the host to take
-the window's own title bar away and to let this one move the window;
-the buttons on it are left to be clicked.
-
-Closing leaves Emacs the way `save-buffers-kill-emacs' does, asking
-about the buffers that are not saved first."
-  (let ((background (urusi-screen-color
-                     (face-attribute 'urusi-screen-titlebar :background nil t)))
-        (foreground (urusi-screen-color
-                     (face-attribute 'urusi-screen-titlebar :foreground nil t)))
-        (maximized (member urusi-window-state '("maximized" "fullscreen"))))
-    `(Grid :Name "urusi-titlebar"
-           :Height ,urusi-screen-titlebar-height
-           ,@(when background `(:Background ,background))
-           (Grid.ColumnDefinitions
-            (ColumnDefinition :Width "*")
-            (ColumnDefinition :Width "Auto"))
-           ;; A row of its own, so that a new title changes the title and
-           ;; nothing else.
-           (Rows :key "titlebar-title" :panel "Grid"
-                 (TextBlock :key "title"
-                            :Text ,(format-mode-line frame-title-format)
-                            :VerticalAlignment "Center"
-                            :Margin "12,0,0,0"
-                            :FontSize 12
-                            :TextTrimming "CharacterEllipsis"
-                            ,@(when foreground `(:Foreground ,foreground))))
-           (StackPanel :Grid.Column 1 :Orientation "Horizontal"
-                       ,(urusi-screen--caption-button
-                         "urusi-minimize" #xE921
-                         (lambda () (urusi-call "window.state" '(:state "minimized"))))
-                       ,(urusi-screen--caption-button
-                         "urusi-maximize" (if maximized #xE923 #xE922)
-                         #'urusi-screen--toggle-maximized)
-                       ,(urusi-screen--caption-button
-                         "urusi-close" #xE8BB
-                         (lambda () (run-at-time 0 nil #'save-buffers-kill-emacs)))))))
-
 ;;;; The screen
 
-(defcustom urusi-screen-components '(urusi-screen-titlebar urusi-screen-windows)
+(defcustom urusi-screen-components '(urusi-screen-windows)
   "Functions that build the screen.
 Each takes the frame being shown and returns a tree for `urusi-render',
 or nil for nothing at all.  They are passed in this order to
 `urusi-screen-layout-function'.
 
 The one whose symbol has a non-nil `urusi-screen-frame' property is
-where the Emacs frame goes; see `urusi-screen-layout'."
+where the Emacs frame goes; see `urusi-screen-layout'.
+
+A component can draw the window's title bar.  An element named
+urusi-titlebar is what tells the host to take the window's own title
+bar away and to let that element move the window, as a title bar does;
+the controls on it are left to be clicked.  Without one, the window
+keeps the title bar Windows gives it."
   :type '(repeat function))
 
 (put 'urusi-screen-windows 'urusi-screen-frame t)
