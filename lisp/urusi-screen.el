@@ -921,7 +921,23 @@ chosen for a light window when Windows has turned dark."
     ("resize" (urusi-screen--resize message))
     ("composition"
      (setq urusi-screen--composing (or (plist-get message :text) ""))
-     (urusi-screen-render))))
+     (if (string-empty-p urusi-screen--composing)
+         ;; Gone because it was settled on, as often as not, and what
+         ;; it settled on is still to be put in: drawn now, the text
+         ;; would vanish and come back.  Drawn once that is done.
+         (urusi-screen--after-command)
+       (urusi-screen-render)))
+    ("commit"
+     (urusi-screen--commit (or (plist-get message :text) "")))))
+
+(defun urusi-screen--commit (text)
+  "Take TEXT, what the input method settled on, as typed.
+The characters go in as events, as keys would, so that whatever reads
+the keys reads them: a minibuffer, isearch, a key bound to a character.
+They go in together, ahead of any other input, and so are all in
+before the screen is drawn again."
+  (setq unread-command-events
+        (append unread-command-events (string-to-list text))))
 
 (provide 'urusi-screen)
 ;;; urusi-screen.el ends here

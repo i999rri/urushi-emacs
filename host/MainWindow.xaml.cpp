@@ -434,10 +434,14 @@ namespace winrt::urusi_emacs::implementation
 
         AppendLog("host", "type \"" + to_string(hstring{ text }) + "\"\n");
 
-        for (wchar_t character : text)
-        {
-            PostMessageW(m_emacsWindow, WM_CHAR, static_cast<WPARAM>(character), 1);
-        }
+        // All at once, not a character at a time: each character sent
+        // as a key is a command of its own, drawn after, and the text
+        // appears as though it were being typed again. Lisp puts the
+        // whole of it before any other input.
+        JsonObject message;
+        message.SetNamedValue(L"type", String(L"commit"));
+        message.SetNamedValue(L"text", String(hstring{ text }));
+        Send(message);
     }
 
     // Where Emacs says the caret is, in the pixels of the screen, so
