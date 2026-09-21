@@ -7,6 +7,7 @@
 #include "HostCalls.h"
 #include "KeyTranslation.h"
 #include "MouseTranslation.h"
+#include "FrameSizes.h"
 #include "Rows.h"
 #include "Splitter.h"
 
@@ -98,13 +99,10 @@ namespace winrt::urusi_emacs::implementation
         std::string m_log;
         std::set<std::wstring> m_seen;
         HWND m_emacsWindow{ nullptr };
-        // How big Emacs was last told its frame is, so that it is only
-        // told once.
-        SIZE m_emacsSize{ 0, 0 };
 
-        // How big each frame of a panel was last told it is, by the id
-        // of its panel.
-        std::map<std::wstring, SIZE> m_panelSizes;
+        // How big each frame was last told it is, so that it is only
+        // told when that changes.
+        urusi::FrameSizes m_frameSizes;
         bool m_attached{ false };
 
         // The window itself, to ask Windows whether it is in front.

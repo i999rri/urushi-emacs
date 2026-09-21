@@ -978,11 +978,9 @@ namespace winrt::urusi_emacs::implementation
         double scale = titlebar.XamlRoot().RasterizationScale();
         auto rect = [scale](FrameworkElement const& element) {
             auto corner = element.TransformToVisual(nullptr).TransformPoint({ 0, 0 });
-            return Windows::Graphics::RectInt32{
-                static_cast<int32_t>(std::lround(corner.X * scale)),
-                static_cast<int32_t>(std::lround(corner.Y * scale)),
-                static_cast<int32_t>(std::lround(element.ActualWidth() * scale)),
-                static_cast<int32_t>(std::lround(element.ActualHeight() * scale)) };
+            auto pixels = urusi::ToPixels(corner.X, corner.Y, element.ActualWidth(),
+                                          element.ActualHeight(), scale);
+            return Windows::Graphics::RectInt32{ pixels.x, pixels.y, pixels.width, pixels.height };
         };
 
         // Every control on the title bar, and not what is inside one: a
@@ -1018,29 +1016,24 @@ namespace winrt::urusi_emacs::implementation
             return;
         }
 
-        // XAML works in device-independent pixels and Emacs in the ones
-        // of the screen.
-        double scale = site.XamlRoot().RasterizationScale();
-        auto pixels = [scale](double value) { return static_cast<int>(std::lround(value * scale)); };
-
-        SIZE size{ pixels(site.ActualWidth()), pixels(site.ActualHeight()) };
-
         for (auto const& panel : PanelSites())
         {
             SizeFrame(panel, std::wstring{ panel.Name() }.substr(12));
         }
 
-        if (size.cx <= 0 || size.cy <= 0
-            || (size.cx == m_emacsSize.cx && size.cy == m_emacsSize.cy))
+        // XAML works in device-independent pixels and Emacs in the ones
+        // of the screen.
+        auto size = m_frameSizes.Resized(L"", site.ActualWidth(), site.ActualHeight(),
+                                         site.XamlRoot().RasterizationScale());
+        if (!size)
         {
             return;
         }
-        m_emacsSize = size;
 
         JsonObject message;
         message.SetNamedValue(L"type", String(L"resize"));
-        message.SetNamedValue(L"width", JsonValue::CreateNumberValue(size.cx));
-        message.SetNamedValue(L"height", JsonValue::CreateNumberValue(size.cy));
+        message.SetNamedValue(L"width", JsonValue::CreateNumberValue(size->width));
+        message.SetNamedValue(L"height", JsonValue::CreateNumberValue(size->height));
         Send(message);
     }
 
@@ -1091,21 +1084,18 @@ namespace winrt::urusi_emacs::implementation
             return;
         }
 
-        double scale = site.XamlRoot().RasterizationScale();
-        SIZE size{ static_cast<int>(std::lround(site.ActualWidth() * scale)),
-                   static_cast<int>(std::lround(site.ActualHeight() * scale)) };
-        auto& told = m_panelSizes[id];
-        if (size.cx <= 0 || size.cy <= 0 || (size.cx == told.cx && size.cy == told.cy))
+        auto size = m_frameSizes.Resized(id, site.ActualWidth(), site.ActualHeight(),
+                                         site.XamlRoot().RasterizationScale());
+        if (!size)
         {
             return;
         }
-        told = size;
 
         JsonObject message;
         message.SetNamedValue(L"type", String(L"resize"));
         message.SetNamedValue(L"frame", String(hstring{ id }));
-        message.SetNamedValue(L"width", JsonValue::CreateNumberValue(size.cx));
-        message.SetNamedValue(L"height", JsonValue::CreateNumberValue(size.cy));
+        message.SetNamedValue(L"width", JsonValue::CreateNumberValue(size->width));
+        message.SetNamedValue(L"height", JsonValue::CreateNumberValue(size->height));
         Send(message);
     }
 

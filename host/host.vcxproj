@@ -136,6 +136,7 @@
     <ClInclude Include="Composition.h" />
     <ClInclude Include="Activation.h" />
     <ClInclude Include="Engagement.h" />
+    <ClInclude Include="FrameSizes.h" />
     <ClInclude Include="ImeBuffer.h" />
     <ClInclude Include="KeyTranslation.h" />
     <ClInclude Include="MouseTranslation.h" />
