@@ -447,25 +447,36 @@ which one of your own can wrap in whatever it likes: a shadow under
 it, rounded corners, only for some frames and not others."
   :type 'function)
 
-(defun urusi-screen-child-frame-body (frame)
+(cl-defun urusi-screen-child-frame-body (frame &key (border t) corner-radius)
   "Return FRAME, a child frame, as XAML, the way Emacs draws one.
 That is its own background, the border around it, and its windows, with
-its own children over those."
+its own children over those.
+
+BORDER nil leaves the border out, for a frame that has something else
+to set it off, a shadow for one; the room Emacs keeps for it is then
+the frame's background.  CORNER-RADIUS rounds the corners of the frame,
+the border with them, and cuts off what is drawn in them."
   (let* ((scale (float urusi-scale))
          (width (/ (frame-native-width frame) scale))
          (height (/ (frame-native-height frame) scale))
-         (border (frame-internal-border-width frame))
-         (border-color (urusi-screen--border-color frame))
+         (thickness (frame-internal-border-width frame))
+         (border-color (and border (urusi-screen--border-color frame)))
          (background (urusi-screen-color
                       (face-attribute 'default :background frame t))))
-    `(Canvas :Width ,width
+    ;; The border is laid over the windows rather than drawn by the Border
+    ;; around them, which would move them in by its thickness: where Emacs
+    ;; put a window counts from the corner of the frame, border and all.
+    `(Border :Width ,width
              :Height ,height
+             ,@(when corner-radius `(:CornerRadius ,corner-radius))
              ,@(when background `(:Background ,background))
-             ,@(when (and border-color (< 0 border))
-                 `((Border :Width ,width :Height ,height
-                           :BorderThickness ,(/ border scale)
-                           :BorderBrush ,border-color)))
-             ,(urusi-screen-windows frame))))
+             (Grid
+              ,(urusi-screen-windows frame)
+              ,@(when (and border-color (< 0 thickness))
+                  `((Border :BorderThickness ,(/ thickness scale)
+                            :BorderBrush ,border-color
+                            ,@(when corner-radius `(:CornerRadius ,corner-radius))
+                            :IsHitTestVisible nil)))))))
 
 (defun urusi-screen-child-frame (frame)
   "Return FRAME, a child frame, as a row of XAML, where it sits on its parent.
