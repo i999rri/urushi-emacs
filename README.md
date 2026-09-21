@@ -38,12 +38,14 @@ After a change to Emacs's C, or to urusi's Lisp, `scripts/refresh-emacs.sh` does
 scripts/refresh-emacs.sh
 ```
 
-The host then builds from `urusi-emacs.slnx`, in Visual Studio with the Windows App SDK workload. Deploying `package` builds the application in `host` and packages it with `emacs/` beside the executable, and with the Lisp in `lisp/` as it is, so a change to that needs no staging.
+The host then builds from `urusi-emacs.slnx`, in Visual Studio with the Windows App SDK workload. Deploying `package` in `platforms/windows/` builds the application in `platforms/windows/host/` and packages it with `emacs/` beside the executable, and with the Lisp in `lisp/` as it is, so a change to that needs no staging.
 
 | Directory | What is in it |
 | --- | --- |
-| `host/` | The application, in C++ with WinUI 3, and nothing else. |
-| `package/` | The package: its manifest, its images, and what it carries besides the application. |
+| `core/` | The code of the host that no platform has a part in: what becomes of keys, the input method, the pointer, frames on the screen, splitters. Each directory is a namespace, `urusi::core::input` for `core/Input/`. |
+| `platforms/windows/host/` | The Windows application, in C++ with WinUI 3: what Windows and XAML have a part in. `urusi::windows::input` for `Input/`, and so on. |
+| `platforms/windows/package/` | Its package: the manifest, the images, and what it carries besides the application. |
+| `tests/` | The host's tests, `core/` and `windows/` as the code, and the traces they play back in `tests/traces/`. |
 | `lisp/` | The Lisp urusi brings, and its tests in `lisp/test/`. |
 | `docs/` | How to make the screen your own, with recipes. |
 | `scripts/` | Building and staging Emacs, and the scripts that check what the application does in `scripts/verify/`. |
@@ -96,12 +98,14 @@ Emacs の C や urusi の Lisp を直したあとは `scripts/refresh-emacs.sh` 
 scripts/refresh-emacs.sh
 ```
 
-ホストはそのあと Visual Studio（Windows App SDK ワークロード）で `urusi-emacs.slnx` からビルドする。`package` を配置すると、`host` のアプリがビルドされ、exe の隣に `emacs/` を置いた形でパッケージになる。`lisp/` の Lisp はそのまま入るので、直してもステージし直す必要はない。
+ホストはそのあと Visual Studio（Windows App SDK ワークロード）で `urusi-emacs.slnx` からビルドする。`platforms/windows/` の `package` を配置すると、`platforms/windows/host/` のアプリがビルドされ、exe の隣に `emacs/` を置いた形でパッケージになる。`lisp/` の Lisp はそのまま入るので、直してもステージし直す必要はない。
 
 | ディレクトリ | 中身 |
 | --- | --- |
-| `host/` | アプリ本体 (C++ / WinUI 3)。それ以外は置かない。 |
-| `package/` | パッケージ。マニフェスト、画像、アプリのほかに詰めるもの。 |
+| `core/` | ホストのうち、どのプラットフォームにも依存しないコード。キーの扱い、IME、ポインタ、画面上のフレーム、分割バーなど。ディレクトリがそのまま namespace になる (`core/Input/` は `urusi::core::input`)。 |
+| `platforms/windows/host/` | Windows のアプリ (C++ / WinUI 3)。Windows と XAML に依存する部分。`Input/` は `urusi::windows::input` のように対応する。 |
+| `platforms/windows/package/` | そのパッケージ。マニフェスト、画像、アプリのほかに詰めるもの。 |
+| `tests/` | ホストのテスト。コードと同じく `core/` と `windows/` に分け、再生する記録は `tests/traces/`。 |
 | `lisp/` | urusi が同梱する Lisp。テストは `lisp/test/`。 |
 | `docs/` | 画面を自分のものにする方法とレシピ。 |
 | `scripts/` | Emacs のビルドとステージ。アプリの動作を確かめるスクリプトは `scripts/verify/`。 |
