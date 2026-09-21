@@ -106,9 +106,18 @@ has.  It does not take the focus, which would take the keys."
                (1+ (save-excursion (goto-char point) (current-column))))))))
 
 (defun urusi-statusbar-major-mode (window)
-  "The name of the major mode of the buffer in WINDOW."
-  (urusi-statusbar-text
-   (string-trim (format-mode-line mode-name nil window (window-buffer window)))))
+  "The name of the major mode of the buffer in WINDOW.
+A mode of CC Mode puts how it is set after its name, \"C#//l\" for C#
+with line comments and electric keys, which is not the language's
+name: it is left out, as CC Mode itself finds the name."
+  (let* ((buffer (window-buffer window))
+         (name (string-trim (format-mode-line mode-name nil window buffer))))
+    (urusi-statusbar-text
+     (if (and (boundp 'c-buffer-is-cc-mode)
+              (buffer-local-value 'c-buffer-is-cc-mode buffer)
+              (string-match "\\`\\([^/]+\\)/" name))
+         (match-string 1 name)
+       name))))
 
 (defun urusi-statusbar-encoding (window)
   "How the file in WINDOW is encoded, and how its lines end."
