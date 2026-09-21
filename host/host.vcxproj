@@ -101,6 +101,8 @@
     <ClCompile>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <!-- Includes are from here: Input/Keyboard.h, Window/FrameView.h. -->
+      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeaderOutputFile>$(IntDir)pch.pch</PrecompiledHeaderOutputFile>
       <WarningLevel>Level4</WarningLevel>
       <LanguageStandard Condition="'$(VisualStudioVersion)' &gt;= '18.0'">stdcpp20</LanguageStandard>
@@ -133,27 +135,27 @@
     <ClInclude Include="MainWindow.xaml.h">
       <DependentUpon>MainWindow.xaml</DependentUpon>
     </ClInclude>
-    <ClInclude Include="Composition.h" />
-    <ClInclude Include="Activation.h" />
-    <ClInclude Include="CaptionRegions.h" />
-    <ClInclude Include="Engagement.h" />
-    <ClInclude Include="FrameSizes.h" />
-    <ClInclude Include="FrameView.h" />
-    <ClInclude Include="ImeBuffer.h" />
-    <ClInclude Include="KeyTranslation.h" />
-    <ClInclude Include="MouseTranslation.h" />
-    <ClInclude Include="Rows.h" />
-    <ClInclude Include="KeyInput.h" />
-    <ClInclude Include="Keyboard.h" />
-    <ClInclude Include="Pointer.h" />
-    <ClInclude Include="Splitter.h" />
-    <ClInclude Include="XamlCaptionRegions.h" />
-    <ClInclude Include="XamlFrameView.h" />
-    <ClInclude Include="XamlSplitter.h" />
-    <ClInclude Include="Utf.h" />
-    <ClInclude Include="HostCalls.h" />
-    <ClInclude Include="EmacsHost.h" />
-    <ClInclude Include="HostApi.h" />
+    <ClInclude Include="Input\Composition.h" />
+    <ClInclude Include="Input\Activation.h" />
+    <ClInclude Include="Window\CaptionRegions.h" />
+    <ClInclude Include="Input\Engagement.h" />
+    <ClInclude Include="Window\FrameSizes.h" />
+    <ClInclude Include="Window\FrameView.h" />
+    <ClInclude Include="Input\ImeBuffer.h" />
+    <ClInclude Include="Input\KeyTranslation.h" />
+    <ClInclude Include="Input\MouseTranslation.h" />
+    <ClInclude Include="Window\Rows.h" />
+    <ClInclude Include="Input\KeyInput.h" />
+    <ClInclude Include="Input\Keyboard.h" />
+    <ClInclude Include="Input\Pointer.h" />
+    <ClInclude Include="Window\Splitter.h" />
+    <ClInclude Include="Window\XamlCaptionRegions.h" />
+    <ClInclude Include="Window\XamlFrameView.h" />
+    <ClInclude Include="Window\XamlSplitter.h" />
+    <ClInclude Include="Text\Utf.h" />
+    <ClInclude Include="Emacs\HostCalls.h" />
+    <ClInclude Include="Emacs\EmacsHost.h" />
+    <ClInclude Include="Emacs\HostApi.h" />
     <ClInclude Include="..\external\emacs\src\w32host.h" />
   </ItemGroup>
   <ItemGroup>
@@ -170,13 +172,13 @@
     <ClCompile Include="MainWindow.xaml.cpp">
       <DependentUpon>MainWindow.xaml</DependentUpon>
     </ClCompile>
-    <ClCompile Include="Composition.cpp" />
-    <ClCompile Include="XamlCaptionRegions.cpp" />
-    <ClCompile Include="XamlFrameView.cpp" />
-    <ClCompile Include="XamlSplitter.cpp" />
-    <ClCompile Include="HostCalls.cpp" />
-    <ClCompile Include="EmacsHost.cpp" />
-    <ClCompile Include="HostApi.cpp" />
+    <ClCompile Include="Input\Composition.cpp" />
+    <ClCompile Include="Window\XamlCaptionRegions.cpp" />
+    <ClCompile Include="Window\XamlFrameView.cpp" />
+    <ClCompile Include="Window\XamlSplitter.cpp" />
+    <ClCompile Include="Emacs\HostCalls.cpp" />
+    <ClCompile Include="Emacs\EmacsHost.cpp" />
+    <ClCompile Include="Emacs\HostApi.cpp" />
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
   </ItemGroup>
   <ItemGroup>

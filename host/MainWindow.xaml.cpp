@@ -128,7 +128,7 @@ namespace winrt::urusi_emacs::implementation
 
         // Emacs posts from its own thread, and the window may only be
         // touched from this one.
-        urusi::HostApi::Instance().OnMessage([weak, dispatcher](std::string message) {
+        urusi::emacs::HostApi::Instance().OnMessage([weak, dispatcher](std::string message) {
             dispatcher.TryEnqueue([weak, message = std::move(message)] {
                 if (auto self = weak.get())
                 {
@@ -143,7 +143,7 @@ namespace winrt::urusi_emacs::implementation
         // Emacs asks for this to know that a host is here, and makes
         // its frame a message-only window when one is. It is not a
         // parent: nothing of Emacs is ever on this window.
-        urusi::HostApi::Instance().SetWindow(window);
+        urusi::emacs::HostApi::Instance().SetWindow(window);
 
         // Emacs lays its text out to the size of its frame, and the
         // frame is as big as the area the screen is drawn in.
@@ -533,12 +533,12 @@ namespace winrt::urusi_emacs::implementation
         // named urusi-frame:ID, whose Tag is the number of the frame's
         // window.
         m_frameViews.clear();
-        urusi::XamlFrameView::Frame root{
+        urusi::window::XamlFrameView::Frame root{
             .window = [weak]() -> HWND {
                 auto self = weak.get();
                 return self ? self->m_emacsWindow : nullptr;
             },
-            .tellSize = [weak](std::wstring const& id, urusi::PixelSize size) {
+            .tellSize = [weak](std::wstring const& id, urusi::window::PixelSize size) {
                 if (auto self = weak.get())
                 {
                     self->TellFrameSize(id, size);
@@ -549,7 +549,7 @@ namespace winrt::urusi_emacs::implementation
         if (auto site = Named(L"urusi-frame"))
         {
             site.SizeChanged(changed);
-            m_frameViews.push_back(urusi::XamlFrameView::Attach(site, L"", root, m_frameSizes));
+            m_frameViews.push_back(urusi::window::XamlFrameView::Attach(site, L"", root, m_frameSizes));
         }
 
         for (auto const& panel : PanelSites())
@@ -564,7 +564,7 @@ namespace winrt::urusi_emacs::implementation
             auto frame = root;
             frame.window = [window] { return window; };
             panel.SizeChanged(changed);
-            m_frameViews.push_back(urusi::XamlFrameView::Attach(
+            m_frameViews.push_back(urusi::window::XamlFrameView::Attach(
                 panel, std::wstring{ panel.Name() }.substr(12), frame, m_frameSizes));
         }
         if (titlebar)
@@ -580,7 +580,7 @@ namespace winrt::urusi_emacs::implementation
     }
 
     // Let the splitters Lisp put between the parts of a layout be
-    // dragged: each element named as one becomes a urusi::Splitter.
+    // dragged: each element named as one becomes a urusi::window::Splitter.
     // Where one is let go is Lisp's to remember, and it is told.
     void MainWindow::AttachSplitters(UIElement const& root)
     {
@@ -611,7 +611,7 @@ namespace winrt::urusi_emacs::implementation
             }
 
             hstring name = named.Name();
-            urusi::XamlSplitter::Attach(named, {
+            urusi::window::XamlSplitter::Attach(named, {
                 .started = [weak] {
                     if (auto self = weak.get())
                     {
@@ -853,7 +853,7 @@ namespace winrt::urusi_emacs::implementation
 
     // Tell Emacs how big the frame ID is: the panel's, or the empty one
     // for the frame the window shows.
-    void MainWindow::TellFrameSize(std::wstring const& id, urusi::PixelSize size)
+    void MainWindow::TellFrameSize(std::wstring const& id, urusi::window::PixelSize size)
     {
         JsonObject message;
         message.SetNamedValue(L"type", String(L"resize"));
@@ -908,8 +908,8 @@ namespace winrt::urusi_emacs::implementation
                   + ", runtime table " + std::to_string(startup.cbReserved2) + " bytes\n");
 
         std::string error;
-        bool started = urusi::EmacsHost::Instance().Start(
-            urusi::EmacsHost::DefaultDll(),
+        bool started = urusi::emacs::EmacsHost::Instance().Start(
+            urusi::emacs::EmacsHost::DefaultDll(),
             args,
             [weak, dispatcher](std::string text) {
                 dispatcher.TryEnqueue([weak, text = std::move(text)] {
@@ -1138,7 +1138,7 @@ namespace winrt::urusi_emacs::implementation
             existing.emplace_back(element ? unbox_value_or<hstring>(element.Tag(), L"") : L"");
         }
 
-        std::vector<urusi::RowItem> rows;
+        std::vector<urusi::window::RowItem> rows;
         rows.reserve(items.Size());
         for (auto const& value : items)
         {
@@ -1147,7 +1147,7 @@ namespace winrt::urusi_emacs::implementation
                              item.HasKey(L"xaml") });
         }
 
-        auto plan = urusi::PlanRows(existing, rows);
+        auto plan = urusi::window::PlanRows(existing, rows);
         if (plan.stale)
         {
             // Emacs thinks this window shows something it does not. Ask
@@ -1190,7 +1190,7 @@ namespace winrt::urusi_emacs::implementation
             wanted.push_back(row);
         }
 
-        // The panel's children, in the few calls urusi::Arrange makes.
+        // The panel's children, in the few calls urusi::window::Arrange makes.
         struct Children
         {
             Controls::UIElementCollection list;
@@ -1202,7 +1202,7 @@ namespace winrt::urusi_emacs::implementation
             void InsertAt(uint32_t i, UIElement const& x) { list.InsertAt(i, x); }
             void RemoveAtEnd() { list.RemoveAtEnd(); }
         } list{ children };
-        urusi::Arrange(list, wanted);
+        urusi::window::Arrange(list, wanted);
     }
 
     void MainWindow::AttachEvents(FrameworkElement const& root, JsonArray const& events)
@@ -1321,7 +1321,7 @@ namespace winrt::urusi_emacs::implementation
             : JsonObject{};
         auto weak = get_weak();
 
-        urusi::HostCalls::Call(
+        urusi::emacs::HostCalls::Call(
             get_strong().as<Window>(), method, args,
             [weak, id](IJsonValue const& value, std::wstring const& error) {
                 auto self = weak.get();
@@ -1356,7 +1356,7 @@ namespace winrt::urusi_emacs::implementation
 
     void MainWindow::Send(JsonObject const& message)
     {
-        urusi::HostApi::Instance().Send(to_string(message.Stringify()));
+        urusi::emacs::HostApi::Instance().Send(to_string(message.Stringify()));
     }
 
     void MainWindow::ShowStatus(hstring const& text)

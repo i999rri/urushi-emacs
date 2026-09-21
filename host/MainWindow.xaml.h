@@ -1,17 +1,17 @@
 #pragma once
 
 #include "MainWindow.g.h"
-#include "Composition.h"
-#include "EmacsHost.h"
-#include "HostApi.h"
-#include "HostCalls.h"
-#include "KeyTranslation.h"
-#include "MouseTranslation.h"
-#include "FrameSizes.h"
-#include "Rows.h"
-#include "XamlCaptionRegions.h"
-#include "XamlFrameView.h"
-#include "XamlSplitter.h"
+#include "Input/Composition.h"
+#include "Emacs/EmacsHost.h"
+#include "Emacs/HostApi.h"
+#include "Emacs/HostCalls.h"
+#include "Input/KeyTranslation.h"
+#include "Input/MouseTranslation.h"
+#include "Window/FrameSizes.h"
+#include "Window/Rows.h"
+#include "Window/XamlCaptionRegions.h"
+#include "Window/XamlFrameView.h"
+#include "Window/XamlSplitter.h"
 
 #include <chrono>
 #include <map>
@@ -73,7 +73,7 @@ namespace winrt::urusi_emacs::implementation
         void UpdateTitleBarRegions();
         void AttachSplitters(Microsoft::UI::Xaml::UIElement const& root);
         std::vector<Microsoft::UI::Xaml::FrameworkElement> PanelSites();
-        void TellFrameSize(std::wstring const& id, urusi::PixelSize size);
+        void TellFrameSize(std::wstring const& id, urusi::window::PixelSize size);
         void KeepFocus();
         void ResumeComposition();
         void CheckDeactivation();
@@ -104,15 +104,15 @@ namespace winrt::urusi_emacs::implementation
 
         // How big each frame was last told it is, so that it is only
         // told when that changes.
-        urusi::FrameSizes m_frameSizes;
+        urusi::window::FrameSizes m_frameSizes;
 
         // A view of each frame on the screen, made again with what Lisp
         // built around them.
-        std::vector<std::shared_ptr<urusi::XamlFrameView>> m_frameViews;
+        std::vector<std::shared_ptr<urusi::window::XamlFrameView>> m_frameViews;
 
         // The part of the window that moves it, where Lisp drew a title
         // bar: made once the window has an AppWindow to tell.
-        std::optional<urusi::XamlCaptionRegions> m_captionRegions;
+        std::optional<urusi::window::XamlCaptionRegions> m_captionRegions;
         bool m_attached{ false };
 
         // The window itself, to ask Windows whether it is in front.
@@ -138,10 +138,10 @@ namespace winrt::urusi_emacs::implementation
 
         // How the window takes up the screen, as Lisp was last told.
         std::wstring m_windowState{ L"normal" };
-        urusi::Composition m_composition;
+        urusi::input::Composition m_composition;
 
         // What the Keyboard tells this window.
-        struct Effects : urusi::KeyboardEvents
+        struct Effects : urusi::input::KeyboardEvents
         {
             explicit Effects(MainWindow* owner) : window(owner) {}
 
@@ -157,7 +157,7 @@ namespace winrt::urusi_emacs::implementation
         // The keyboard's side of the window: which window has it, what
         // becomes of each key, and what the input method makes of them.
         Effects m_effects{ this };
-        urusi::Keyboard m_keyboard{ m_composition, m_effects };
+        urusi::input::Keyboard m_keyboard{ m_composition, m_effects };
     };
 }
 

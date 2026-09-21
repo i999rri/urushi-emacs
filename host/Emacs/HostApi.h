@@ -1,0 +1,54 @@
+#pragma once
+
+// The interface itself, from the Emacs this application loads.
+#include "../../external/emacs/src/w32host.h"
+
+#include <functional>
+#include <mutex>
+#include <string>
+
+namespace urusi::emacs
+{
+    // This application's side of w32host.h.
+    //
+    // Emacs asks for the interface as it starts, which is before the
+    // window has anything to show, so the two sides find each other
+    // here rather than through each other. Emacs calls in on its own
+    // thread and the window answers on the UI thread, so both ends are
+    // behind a lock.
+    class HostApi
+    {
+    public:
+        using MessageFn = std::function<void(std::string)>;
+
+        // One per process, as the exported entry point has nowhere to
+        // take an instance from.
+        static HostApi& Instance();
+
+        // Where the messages from Emacs go. Called on Emacs's thread.
+        void OnMessage(MessageFn fn);
+
+        // Send one message to Emacs. Safe from any thread, and quietly
+        // dropped until Emacs asks for its messages.
+        void Send(std::string const& message);
+
+        // The window Emacs is to put its frames in. Set before Emacs
+        // starts, because Emacs asks for it from a thread of its own
+        // and nothing of XAML may be touched there.
+        void SetWindow(HWND window);
+        HWND Window() const;
+
+        // For w32_host_get_api, which is C and cannot reach the rest.
+        void Deliver(char const* message);
+        void SetSink(w32_host_event_fn fn, void* data);
+
+    private:
+        HostApi() = default;
+
+        std::mutex m_lock;
+        MessageFn m_onMessage;
+        w32_host_event_fn m_sink{ nullptr };
+        void* m_sinkData{ nullptr };
+        HWND m_window{ nullptr };
+    };
+}

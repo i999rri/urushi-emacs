@@ -39,25 +39,25 @@
     <ClCompile Include="MainWindow.xaml.cpp">
       <Filter>Window</Filter>
     </ClCompile>
-    <ClCompile Include="EmacsHost.cpp">
+    <ClCompile Include="Emacs\EmacsHost.cpp">
       <Filter>Emacs</Filter>
     </ClCompile>
-    <ClCompile Include="HostApi.cpp">
+    <ClCompile Include="Emacs\HostApi.cpp">
       <Filter>Emacs</Filter>
     </ClCompile>
-    <ClCompile Include="HostCalls.cpp">
+    <ClCompile Include="Emacs\HostCalls.cpp">
       <Filter>Emacs</Filter>
     </ClCompile>
-    <ClCompile Include="Composition.cpp">
+    <ClCompile Include="Input\Composition.cpp">
       <Filter>Input</Filter>
     </ClCompile>
-    <ClCompile Include="XamlSplitter.cpp">
+    <ClCompile Include="Window\XamlSplitter.cpp">
       <Filter>Window</Filter>
     </ClCompile>
-    <ClCompile Include="XamlFrameView.cpp">
+    <ClCompile Include="Window\XamlFrameView.cpp">
       <Filter>Window</Filter>
     </ClCompile>
-    <ClCompile Include="XamlCaptionRegions.cpp">
+    <ClCompile Include="Window\XamlCaptionRegions.cpp">
       <Filter>Window</Filter>
     </ClCompile>
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
@@ -72,70 +72,70 @@
     <ClInclude Include="MainWindow.xaml.h">
       <Filter>Window</Filter>
     </ClInclude>
-    <ClInclude Include="EmacsHost.h">
+    <ClInclude Include="Emacs\EmacsHost.h">
       <Filter>Emacs</Filter>
     </ClInclude>
-    <ClInclude Include="HostApi.h">
+    <ClInclude Include="Emacs\HostApi.h">
       <Filter>Emacs</Filter>
     </ClInclude>
-    <ClInclude Include="HostCalls.h">
+    <ClInclude Include="Emacs\HostCalls.h">
       <Filter>Emacs</Filter>
     </ClInclude>
     <ClInclude Include="..\external\emacs\src\w32host.h">
       <Filter>Emacs</Filter>
     </ClInclude>
-    <ClInclude Include="Composition.h">
+    <ClInclude Include="Input\Composition.h">
       <Filter>Input</Filter>
     </ClInclude>
-    <ClInclude Include="Activation.h">
+    <ClInclude Include="Input\Activation.h">
       <Filter>Window</Filter>
     </ClInclude>
-    <ClInclude Include="Engagement.h">
+    <ClInclude Include="Input\Engagement.h">
       <Filter>Input</Filter>
     </ClInclude>
-    <ClInclude Include="ImeBuffer.h">
+    <ClInclude Include="Input\ImeBuffer.h">
       <Filter>Input</Filter>
     </ClInclude>
-    <ClInclude Include="KeyTranslation.h">
+    <ClInclude Include="Input\KeyTranslation.h">
       <Filter>Input</Filter>
     </ClInclude>
-    <ClInclude Include="MouseTranslation.h">
+    <ClInclude Include="Input\MouseTranslation.h">
       <Filter>Input</Filter>
     </ClInclude>
-    <ClInclude Include="Rows.h">
+    <ClInclude Include="Window\Rows.h">
       <Filter>Window</Filter>
     </ClInclude>
-    <ClInclude Include="FrameSizes.h">
+    <ClInclude Include="Window\FrameSizes.h">
       <Filter>Window</Filter>
     </ClInclude>
-    <ClInclude Include="FrameView.h">
+    <ClInclude Include="Window\FrameView.h">
       <Filter>Window</Filter>
     </ClInclude>
-    <ClInclude Include="CaptionRegions.h">
+    <ClInclude Include="Window\CaptionRegions.h">
       <Filter>Window</Filter>
     </ClInclude>
-    <ClInclude Include="XamlCaptionRegions.h">
+    <ClInclude Include="Window\XamlCaptionRegions.h">
       <Filter>Window</Filter>
     </ClInclude>
-    <ClInclude Include="XamlFrameView.h">
+    <ClInclude Include="Window\XamlFrameView.h">
       <Filter>Window</Filter>
     </ClInclude>
-    <ClInclude Include="Splitter.h">
+    <ClInclude Include="Window\Splitter.h">
       <Filter>Window</Filter>
     </ClInclude>
-    <ClInclude Include="Pointer.h">
+    <ClInclude Include="Input\Pointer.h">
       <Filter>Input</Filter>
     </ClInclude>
-    <ClInclude Include="XamlSplitter.h">
+    <ClInclude Include="Window\XamlSplitter.h">
       <Filter>Window</Filter>
     </ClInclude>
-    <ClInclude Include="Keyboard.h">
+    <ClInclude Include="Input\Keyboard.h">
       <Filter>Input</Filter>
     </ClInclude>
-    <ClInclude Include="KeyInput.h">
+    <ClInclude Include="Input\KeyInput.h">
       <Filter>Input</Filter>
     </ClInclude>
-    <ClInclude Include="Utf.h">
+    <ClInclude Include="Text\Utf.h">
       <Filter>Input</Filter>
     </ClInclude>
   </ItemGroup>
