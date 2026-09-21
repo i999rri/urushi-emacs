@@ -1,7 +1,7 @@
 ;;; urusi-titlebar-test.el --- Tests for urusi-titlebar.el  -*- lexical-binding: t; -*-
 
 ;; Run with:
-;;   emacs -Q --batch -L lisp -l test/urusi-titlebar-test.el -f ert-run-tests-batch-and-exit
+;;   emacs -Q --batch -L lisp -l lisp/test/urusi-titlebar-test.el -f ert-run-tests-batch-and-exit
 
 ;;; Code:
 

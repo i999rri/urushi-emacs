@@ -1,7 +1,7 @@
 ;;; urusi-layout-test.el --- Tests for urusi-layout.el  -*- lexical-binding: t; -*-
 
 ;; Run with:
-;;   emacs -Q --batch -L lisp -l test/urusi-layout-test.el -f ert-run-tests-batch-and-exit
+;;   emacs -Q --batch -L lisp -l lisp/test/urusi-layout-test.el -f ert-run-tests-batch-and-exit
 
 ;;; Code:
 
