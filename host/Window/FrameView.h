@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Window/FrameSizes.h"
-#include "Input/MouseTranslation.h"
 #include "Input/Pointer.h"
 
 #include <string>
@@ -13,9 +12,10 @@ namespace urusi::window
     {
         virtual ~IFrameWindow() = default;
 
-        // Post the frame's window what Windows would have sent it for
-        // the mouse.
-        virtual void PostMouse(input::MouseMessage const& message) = 0;
+        // Give the frame what the pointer did, as its mouse: where, in
+        // XAML's units from the frame's corner, SCALE pixels of the
+        // screen to one of them.
+        virtual void PostPointer(input::PointerEvent const& event, double scale) = 0;
 
         // Tell the frame how big it is: Emacs lays its text out again.
         virtual void TellSize(PixelSize size) = 0;
@@ -47,24 +47,32 @@ namespace urusi::window
         // it.
         bool Pointer(input::PointerEvent const& event, double scale)
         {
-            auto message = input::TranslatePointer(event, scale);
-            if (!message)
+            using input::PointerButton;
+            using input::PointerKind;
+
+            // A press or a release is of a button, or it is nothing the
+            // mouse does; a pointer taken away is nothing to the frame.
+            bool press = event.kind == PointerKind::Pressed && event.button != PointerButton::None;
+            bool release = event.kind == PointerKind::Released && event.button != PointerButton::None;
+            bool other = event.kind == PointerKind::Moved || event.kind == PointerKind::Wheel;
+            if (!press && !release && !other)
             {
                 return false;
             }
 
             // Taken while a button is down, so that a drag that leaves
-            // the frame is followed to where it ends.
-            if (message->capture)
+            // the frame is followed to where it ends, and let go once
+            // none is.
+            if (press)
             {
                 m_pointer.Capture();
             }
-            m_frame.PostMouse(*message);
-            if (message->release)
+            m_frame.PostPointer(event, scale);
+            if (release && !event.AnyButton())
             {
                 m_pointer.Release();
             }
-            return event.kind != input::PointerKind::Moved;
+            return event.kind != PointerKind::Moved;
         }
 
         // The element is WIDTH by HEIGHT in XAML's units: tell the frame,

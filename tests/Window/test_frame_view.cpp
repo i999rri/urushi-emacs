@@ -6,7 +6,6 @@
 
 using urusi::window::FrameSizes;
 using urusi::window::FrameView;
-using urusi::input::MouseMessage;
 using urusi::window::PixelSize;
 using urusi::input::PointerButton;
 using urusi::input::PointerKind;
@@ -22,10 +21,13 @@ namespace
 
     struct Frame : urusi::window::IFrameWindow
     {
-        void PostMouse(MouseMessage const& message) override { posted.push_back(message.message); }
+        void PostPointer(urusi::input::PointerEvent const& event, double) override
+        {
+            posted.push_back(event.kind);
+        }
         void TellSize(PixelSize size) override { sizes.push_back(size); }
 
-        std::vector<UINT> posted;
+        std::vector<PointerKind> posted;
         std::vector<PixelSize> sizes;
     };
 
@@ -55,7 +57,8 @@ TEST(FrameViewTest, ADragIsFollowedToWhereItEnds)
                                     .button = PointerButton::Left }, 1));
     EXPECT_FALSE(view.pointer.captured);
     EXPECT_EQ(view.frame.posted,
-              (std::vector<UINT>{ WM_LBUTTONDOWN, WM_MOUSEMOVE, WM_LBUTTONUP }));
+              (std::vector<PointerKind>{ PointerKind::Pressed, PointerKind::Moved,
+                                         PointerKind::Released }));
 }
 
 TEST(FrameViewTest, WhatIsNotTheMousesIsNotPassedOn)

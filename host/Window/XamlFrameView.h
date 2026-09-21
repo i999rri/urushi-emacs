@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Window/FrameView.h"
+#include "Input/MouseTranslation.h"
 
 #include <winrt/Microsoft.UI.Xaml.h>
 #include <winrt/Microsoft.UI.Xaml.Input.h>
@@ -49,7 +50,7 @@ namespace urusi::window
         void Release() override;
 
         // IFrameWindow
-        void PostMouse(input::MouseMessage const& message) override;
+        void PostPointer(input::PointerEvent const& event, double scale) override;
         void TellSize(PixelSize size) override;
 
     private:

@@ -129,11 +129,15 @@ namespace urusi::window
         }
     }
 
-    void XamlFrameView::PostMouse(input::MouseMessage const& message)
+    // The frame's window is posted the message Windows would have sent it
+    // for the mouse.
+    void XamlFrameView::PostPointer(input::PointerEvent const& event, double scale)
     {
-        if (HWND window = m_frame.window ? m_frame.window() : nullptr)
+        HWND window = m_frame.window ? m_frame.window() : nullptr;
+        auto message = input::TranslatePointer(event, scale);
+        if (window && message)
         {
-            PostMessageW(window, message.message, message.wParam, message.lParam);
+            PostMessageW(window, message->message, message->wParam, message->lParam);
         }
     }
 

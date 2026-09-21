@@ -447,7 +447,7 @@ namespace winrt::urusi_emacs::implementation
         }
 
         auto status = args.KeyStatus();
-        auto message = m_keyboard.Key({
+        urusi::input::KeyEvent key{
             .key = static_cast<int>(args.Key()),
             .repeat = status.RepeatCount,
             .scanCode = status.ScanCode,
@@ -455,7 +455,9 @@ namespace winrt::urusi_emacs::implementation
             .menuDown = status.IsMenuKeyDown,
             .wasDown = status.WasKeyDown,
             .down = down,
-        });
+        };
+        m_keyboard.Key(key);
+        auto message = urusi::input::TranslateKey(key);
         if (!message)
         {
             return;

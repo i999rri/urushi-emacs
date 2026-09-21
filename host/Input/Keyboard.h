@@ -3,7 +3,7 @@
 #include "Input/Activation.h"
 #include "Input/Engagement.h"
 #include "Input/ImeBuffer.h"
-#include "Input/KeyTranslation.h"
+#include "Input/KeyInput.h"
 #include "Text/Utf.h"
 
 #include <cstdint>
@@ -94,15 +94,16 @@ namespace urusi::input
 
         // ----- The keys -----
 
-        // What to post Emacs for KEY, or nothing: see TranslateKey.
-        std::optional<KeyMessage> Key(KeyEvent const& key)
+        // A key was pressed or let go. What it becomes for Emacs is the
+        // platform's to say; it is written down here, beside what the
+        // input method made of it.
+        void Key(KeyEvent const& key)
         {
             Say([&] {
                 return std::string{ R"({"e":"key","key":)" } + std::to_string(key.key)
                        + R"(,"down":)" + Bool(key.down) + R"(,"alt":)" + Bool(key.menuDown)
                        + "}";
             });
-            return TranslateKey(key);
         }
 
         // ----- The element the keys go to -----
