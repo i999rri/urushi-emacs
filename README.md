@@ -32,6 +32,12 @@ scripts/stage-emacs.sh
 
 That is 134 MB, of which 110 MB is Emacs's own Lisp. The DLL is stripped down to 4 MB on the way; pass `--debug` to keep its debug information.
 
+After a change to Emacs's C, or to urusi's Lisp, `scripts/refresh-emacs.sh` does only what that needs: it recompiles what changed, links and dumps the DLL, and copies it and the Lisp into `emacs/` and into the application's build output. That takes seconds on one core, where building and staging everything again takes minutes on several. A change to a header most of `src/` includes, to Emacs's own Lisp or to `configure.ac` still wants the two scripts above.
+
+```sh
+scripts/refresh-emacs.sh
+```
+
 The host then builds from `urusi-emacs.slnx`, in Visual Studio with the Windows App SDK workload. It takes `emacs/` into the package, and copies it next to the executable as well, for a run that is not packaged.
 
 ## Running
@@ -74,6 +80,12 @@ scripts/stage-emacs.sh
 ```
 
 これで 134 MB。うち 110 MB は Emacs の Lisp。DLL は途中で strip して 4 MB にする。デバッグ情報を残すなら `--debug`。
+
+Emacs の C や urusi の Lisp を直したあとは `scripts/refresh-emacs.sh` で足りる。変わったところだけコンパイルして DLL をリンク・dump し、DLL と Lisp を `emacs/` とアプリのビルド出力にコピーする。1コアで数秒で終わる。全部ビルドしてステージし直すと複数コアで数分かかる。`src/` の大半が include するヘッダや Emacs 本体の Lisp、`configure.ac` を変えたときは、上の2つのスクリプトが要る。
+
+```sh
+scripts/refresh-emacs.sh
+```
 
 ホストはそのあと Visual Studio（Windows App SDK ワークロード）で `urusi-emacs.slnx` からビルドする。`emacs/` はパッケージに入り、パッケージしない実行のために exe の隣にもコピーされる。
 

@@ -46,21 +46,7 @@ rm -f "$stage"/libexec/emacs/*/*/*.pdmp
 rm -rf "$stage/share/applications" "$stage/share/icons" \
    "$stage/share/info" "$stage/share/man" "$stage/share/metainfo"
 
-# urusi's own Lisp goes where Emacs keeps the Lisp that came with the
-# installation, so that it is on the load path from the moment Emacs
-# starts.  An init file can then require it and say what the screen
-# should look like, which is the whole point of building the screen in
-# Lisp.
-urusi=$stage/share/emacs/site-lisp/urusi
-mkdir -p "$urusi"
-for file in "$here"/lisp/*.el; do
-    [ "$(basename "$file")" = urusi-site-start.el ] && continue
-    cp "$file" "$urusi/"
-done
-
-# And the one file Emacs looks for by name before it reads the init
-# file, which is where urusi is brought up around it.
-cp "$here/lisp/urusi-site-start.el" "$stage/share/emacs/site-lisp/site-start.el"
+"$here/scripts/install-urusi-lisp.sh" "$stage"
 
 mkdir -p "$stage/bin"
 cp "$build/src/libemacs.dll" "$stage/bin/"
