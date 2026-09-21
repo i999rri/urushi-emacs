@@ -6,7 +6,8 @@
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
   xmlns:systemai="http://schemas.microsoft.com/appx/manifest/systemai/windows10"
-  IgnorableNamespaces="uap rescap systemai">
+  xmlns:desktop6="http://schemas.microsoft.com/appx/manifest/desktop/windows10/6"
+  IgnorableNamespaces="uap rescap systemai desktop6">
 
   <Identity
     Name="e68619db-8ffd-40dc-8861-4e709cc5e01f"
@@ -19,6 +20,12 @@
     <DisplayName>urusi-emacs</DisplayName>
     <PublisherDisplayName>i999rri</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
+    <!-- Emacs edits the person's own files, AppData included, where its
+         configuration lives. A packaged application's new files there
+         would otherwise go to a copy only it can see, and Emacs's lock
+         files, created in one place and renamed to the other, would
+         never be found. -->
+    <desktop6:FileSystemWriteVirtualization>disabled</desktop6:FileSystemWriteVirtualization>
   </Properties>
 
   <Dependencies>
@@ -48,6 +55,7 @@
 
   <Capabilities>
     <rescap:Capability Name="runFullTrust" />
+    <rescap:Capability Name="unvirtualizedResources" />
     <systemai:Capability Name="systemAIModels"/>
   </Capabilities>
 </Package>
