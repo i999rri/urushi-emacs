@@ -26,7 +26,7 @@ if [ "${1-}" = --full ]; then
     # Only sources that are there: some objects are built from a source
     # of another name, and touching one that is not there makes it.
     for object in $objects; do
-        [ -f "$src/${object%.o}.c" ] && touch "$src/${object%.o}.c"
+        if [ -f "$src/${object%.o}.c" ]; then touch "$src/${object%.o}.c"; fi
     done
     make -j1 $objects >/dev/null 2>&1
     echo "compile $(echo "$objects" | wc -w) objects: $(seconds $(( $(now) - start )))s"
