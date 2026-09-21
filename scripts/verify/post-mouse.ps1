@@ -6,6 +6,9 @@
 #   scripts/verify/post-mouse.ps1 -Click -X 200 -Y 150
 #   scripts/verify/post-mouse.ps1 -Wheel -120 -X 200 -Y 150
 #   scripts/verify/post-mouse.ps1 -X 100 -Y 80 -DragToX 400 -DragToY 200
+#
+# -Child N sends it to the Nth child frame of the root frame instead,
+# counting from 1, as the host does for the frame of a panel.
 
 param(
     [int] $X = 0,
@@ -13,7 +16,8 @@ param(
     [switch] $Click,
     [int] $Wheel = 0,
     [int] $DragToX = -1,
-    [int] $DragToY = -1
+    [int] $DragToY = -1,
+    [int] $Child = 0
 )
 
 Add-Type @'
@@ -27,6 +31,14 @@ public static class PostMouse {
     public static extern uint GetWindowThreadProcessId(IntPtr window, out uint process);
     [DllImport("user32.dll")]
     public static extern bool PostMessageW(IntPtr window, uint message, IntPtr w, IntPtr l);
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetWindow(IntPtr window, uint command);
+
+    public static IntPtr ChildOf(IntPtr parent, int n) {
+        IntPtr child = GetWindow(parent, 5);   // GW_CHILD
+        for (int i = 1; i < n && child != IntPtr.Zero; i++) child = GetWindow(child, 2);   // GW_HWNDNEXT
+        return child;
+    }
 
     public static readonly IntPtr MessageOnly = new IntPtr(-3);
 
@@ -46,6 +58,12 @@ $process = Get-Process urusi_emacs -ErrorAction Stop | Select-Object -First 1
 $frame = [PostMouse]::FrameOf([uint32]$process.Id)
 if ($frame -eq [IntPtr]::Zero) {
     throw 'no Emacs frame window'
+}
+if ($Child -gt 0) {
+    $frame = [PostMouse]::ChildOf($frame, $Child)
+    if ($frame -eq [IntPtr]::Zero) {
+        throw "no child frame $Child"
+    }
 }
 
 $where = [IntPtr](($Y -shl 16) -bor ($X -band 0xffff))
