@@ -93,6 +93,58 @@ namespace
     }
 }
 
+// What a session writes down is what a playback reads: a trace taken
+// from the application plays back to what happened there.
+TEST(TraceTest, WhatIsWrittenPlaysBackTheSame)
+{
+    Recorded original;
+    urusi::Session session{ original };
+    std::vector<std::string> lines;
+    session.Record([&](std::string const& line) { lines.push_back(line); });
+
+    session.ContextCreated();
+    session.FocusGained();
+    session.Activated();
+    session.CompositionStarted();
+    session.TextUpdating(0, 0, L"\"か\"\\");
+    session.CompositionCompleted();
+    session.TextUpdating(3, 3, L"\U0001F600");
+    session.Deactivated();
+    session.DeactivationChecked(false);
+
+    Recorded played;
+    urusi::Session playback{ played };
+    for (auto const& text : lines)
+    {
+        trace::Line line;
+        trace::Reader reader{ text };
+        ASSERT_TRUE(reader.Object(line)) << text;
+        if (line.count("e"))
+        {
+            EXPECT_EQ(Play(line, playback), "") << text;
+        }
+    }
+
+    EXPECT_EQ(played.commits, original.commits);
+    EXPECT_EQ(played.commits, (std::vector<std::string>{ ToUtf8(L"\"か\"\\"),
+                                                         ToUtf8(L"\U0001F600") }));
+    EXPECT_EQ(playback.Active(), session.Active());
+}
+
+// Nobody listening, nothing is written.
+TEST(TraceTest, NothingIsMadeWithoutARecorder)
+{
+    Recorded effects;
+    urusi::Session session{ effects };
+    std::vector<std::string> lines;
+    session.Record([&](std::string const& line) { lines.push_back(line); });
+    session.Record({});
+
+    session.Activated();
+    session.TextUpdating(0, 0, L"a");
+    EXPECT_TRUE(lines.empty());
+}
+
 TEST(TraceTest, EveryTracePlaysBackToWhatItExpects)
 {
     ASSERT_TRUE(fs::is_directory(Traces())) << Traces();

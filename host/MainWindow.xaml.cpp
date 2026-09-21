@@ -394,20 +394,25 @@ namespace winrt::urusi_emacs::implementation
     // before.
     void MainWindow::StartComposition()
     {
-        auto weak = get_weak();
-
-        // Everything that happens to the keyboard's side of the window,
-        // written down under urusi-debug-mode, to be read, and to be
-        // played back in a test: see tests/traces.
-        m_session.Record([weak](std::string const& line) {
-            if (auto self = weak.get(); self && self->m_debug)
-            {
-                WriteToTraceFile(line + "\n");
-            }
-        });
+        RecordSession();
         m_composition.Start(InputSink(), m_session);
 
         InputSink().Focus(FocusState::Programmatic);
+    }
+
+    // Everything that happens to the keyboard's side of the window,
+    // written down while debugging, to be read, and to be played back
+    // in a test: see tests/traces. Not debugging, the session is given
+    // nothing to write to, and makes nothing to write.
+    void MainWindow::RecordSession()
+    {
+        if (!m_debug)
+        {
+            m_session.Record({});
+            return;
+        }
+
+        m_session.Record([](std::string const& line) { WriteToTraceFile(line + "\n"); });
     }
 
     // Put TEXT into Emacs as the characters it is. Emacs reads them
@@ -1293,6 +1298,7 @@ namespace winrt::urusi_emacs::implementation
         else if (type == L"debug")
         {
             m_debug = message.GetNamedBoolean(L"on", false);
+            RecordSession();
             AppendLog("host", std::string{ "debug " } + (m_debug ? "on" : "off") + "\n");
         }
         else if (type == L"frame")

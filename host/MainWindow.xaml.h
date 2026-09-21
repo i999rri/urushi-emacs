@@ -38,6 +38,7 @@ namespace winrt::urusi_emacs::implementation
         void TakeInputToEmacs();
         void TellEmacsFocus(bool focused);
         void StartComposition();
+        void RecordSession();
         void TypeIntoEmacs(std::wstring const& text);
         void Caret(Windows::Data::Json::JsonObject const& message);
         void ForwardKey(Microsoft::UI::Xaml::Input::KeyRoutedEventArgs const& args,

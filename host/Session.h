@@ -74,15 +74,19 @@ namespace urusi
 
         void DeactivationChecked(bool foreground)
         {
-            Say(std::string{ R"({"e":"deactivation-checked","foreground":)" }
-                + Bool(foreground) + "}");
+            Say([&] {
+                return std::string{ R"({"e":"deactivation-checked","foreground":)" }
+                       + Bool(foreground) + "}";
+            });
             Perform(m_activation.DeactivationChecked(foreground));
         }
 
         void ResumeChecked(bool foreground, bool keysComeHere)
         {
-            Say(std::string{ R"({"e":"resume-checked","foreground":)" } + Bool(foreground)
-                + R"(,"keys":)" + Bool(keysComeHere) + "}");
+            Say([&] {
+                return std::string{ R"({"e":"resume-checked","foreground":)" }
+                       + Bool(foreground) + R"(,"keys":)" + Bool(keysComeHere) + "}";
+            });
             Perform(m_activation.ResumeChecked(foreground, keysComeHere));
         }
 
@@ -111,8 +115,10 @@ namespace urusi
 
         void TextUpdating(int32_t start, int32_t end, std::wstring const& text)
         {
-            Say(std::string{ R"({"e":"text-updating","start":)" } + std::to_string(start)
-                + R"(,"end":)" + std::to_string(end) + R"(,"text":)" + Quote(text) + "}");
+            Say([&] {
+                return std::string{ R"({"e":"text-updating","start":)" } + std::to_string(start)
+                       + R"(,"end":)" + std::to_string(end) + R"(,"text":)" + Quote(text) + "}";
+            });
             m_buffer.Update(start, end, text);
 
             // Outside a composition there is nothing to turn over: what
@@ -120,7 +126,9 @@ namespace urusi
             // input method open but idle.
             if (m_buffer.Composing())
             {
-                Out(R"({"out":"composing","text":)" + Quote(m_buffer.Composed()) + "}");
+                Say([&] {
+                    return R"({"out":"composing","text":)" + Quote(m_buffer.Composed()) + "}";
+                });
                 m_effects.Composing(m_buffer.Composed());
             }
             else
@@ -184,8 +192,10 @@ namespace urusi
             }
             if (actions.tellEmacsFocused || actions.tellEmacsUnfocused)
             {
-                Out(std::string{ R"({"out":"emacs-focus","focused":)" }
-                    + Bool(actions.tellEmacsFocused) + "}");
+                Say([&] {
+                    return std::string{ R"({"out":"emacs-focus","focused":)" }
+                           + Bool(actions.tellEmacsFocused) + "}";
+                });
                 m_effects.TellEmacsFocus(actions.tellEmacsFocused);
             }
         }
@@ -199,11 +209,11 @@ namespace urusi
             case Engagement::Action::Enter:
                 // The input method counts from nothing again once told.
                 Forget();
-                Out(R"({"out":"enter"})");
+                Say(R"({"out":"enter"})");
                 m_effects.NotifyFocusEnter();
                 break;
             case Engagement::Action::Leave:
-                Out(R"({"out":"leave"})");
+                Say(R"({"out":"leave"})");
                 m_effects.NotifyFocusLeave();
                 break;
             case Engagement::Action::None:
@@ -220,7 +230,7 @@ namespace urusi
 
             if (!settled.empty())
             {
-                Out(R"({"out":"commit","text":)" + Quote(settled) + "}");
+                Say([&] { return R"({"out":"commit","text":)" + Quote(settled) + "}"; });
                 m_effects.Commit(settled);
             }
             m_effects.Composing(std::wstring{});
@@ -237,8 +247,11 @@ namespace urusi
             }
         }
 
-        // What happened, as it came in.
-        void Say(std::string const& line)
+        // Write down what happened ("e"), or what was done about it
+        // ("out", there to be read and not played back). Only while
+        // something is listening: a line that is not written is not
+        // made either, so that a session nobody records costs nothing.
+        void Say(char const* line)
         {
             if (m_recorder)
             {
@@ -246,9 +259,14 @@ namespace urusi
             }
         }
 
-        // What was done about it, written beside it to read, and not
-        // played back.
-        void Out(std::string const& line) { Say(line); }
+        template <typename Make>
+        void Say(Make&& make)
+        {
+            if (m_recorder)
+            {
+                m_recorder(make());
+            }
+        }
 
         static char const* Bool(bool value) noexcept { return value ? "true" : "false"; }
 
