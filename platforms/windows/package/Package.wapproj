@@ -70,17 +70,17 @@
     them is shown in Solution Explorer.
   -->
   <ItemGroup>
-    <Content Include="..\emacs\**\*"
-             Exclude="..\emacs\share\emacs\site-lisp\urusi\**;..\emacs\share\emacs\site-lisp\site-start.el">
+    <Content Include="..\..\..\emacs\**\*"
+             Exclude="..\..\..\emacs\share\emacs\site-lisp\urusi\**;..\..\..\emacs\share\emacs\site-lisp\site-start.el">
       <Link>emacs\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <Visible>false</Visible>
     </Content>
-    <Content Include="..\lisp\*.el" Exclude="..\lisp\urusi-site-start.el">
+    <Content Include="..\..\..\lisp\*.el" Exclude="..\..\..\lisp\urusi-site-start.el">
       <Link>emacs\share\emacs\site-lisp\urusi\%(Filename)%(Extension)</Link>
       <Visible>false</Visible>
     </Content>
     <!-- The one Emacs looks for by name, before it reads the init file. -->
-    <Content Include="..\lisp\urusi-site-start.el">
+    <Content Include="..\..\..\lisp\urusi-site-start.el">
       <Link>emacs\share\emacs\site-lisp\site-start.el</Link>
       <Visible>false</Visible>
     </Content>

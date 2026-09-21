@@ -47,7 +47,7 @@ echo "=== libemacs.pdmp"
 # which is what running the application without building it again
 # finds.
 for emacs in "$here/emacs" \
-             "$here"/package/bin/*/*/AppX/emacs; do
+             "$here"/platforms/windows/package/bin/*/*/AppX/emacs; do
     [ -d "$emacs/bin" ] || continue
 
     cp -f "$build/libemacs.dll" "$build/libemacs.pdmp" "$emacs/bin/"

@@ -1,9 +1,9 @@
 # Lays the package out as Visual Studio does on F5, and registers it, so
 # that the application can be run without Visual Studio: every file the
-# build of package\Package.wapproj put in the package, copied to where
-# the package has it, under package\bin\<Platform>\<Configuration>\AppX.
+# build of platforms\windows\package\Package.wapproj put in the package, copied to where
+# the package has it, under platforms\windows\package\bin\<Platform>\<Configuration>\AppX.
 #
-#   msbuild package\Package.wapproj /restore /p:Configuration=Debug /p:Platform=x64
+#   msbuild platforms\windows\package\Package.wapproj /restore /p:Configuration=Debug /p:Platform=x64
 #   scripts\deploy-package.ps1 [-Configuration Debug] [-Platform x64]
 #
 # A package registered from somewhere else under the same name is taken
@@ -20,11 +20,11 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $here = Split-Path -Parent $PSScriptRoot
-$bin = Join-Path $here "package\bin\$Platform\$Configuration"
+$bin = Join-Path $here "platforms\windows\package\bin\$Platform\$Configuration"
 $recipe = Join-Path $bin 'package.build.appxrecipe'
 $layout = Join-Path $bin 'AppX'
 if (-not (Test-Path $recipe)) {
-    throw "no build to lay out: $recipe (build package\Package.wapproj first)"
+    throw "no build to lay out: $recipe (build platforms\windows\package\Package.wapproj first)"
 }
 
 # What the build decided goes in the package, and where.

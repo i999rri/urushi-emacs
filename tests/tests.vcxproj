@@ -35,7 +35,7 @@
       <WarningLevel>Level4</WarningLevel>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>/utf-8 /Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\host;$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\core;$(ProjectDir)..\platforms\windows\host;$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -56,33 +56,33 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Input\test_activation.cpp" />
-    <ClCompile Include="Window\test_caption_regions.cpp" />
-    <ClCompile Include="Input\test_engagement.cpp" />
-    <ClCompile Include="Window\test_frame_sizes.cpp" />
-    <ClCompile Include="Window\test_frame_view.cpp" />
-    <ClCompile Include="Input\test_ime_buffer.cpp" />
-    <ClCompile Include="Input\test_key_translation.cpp" />
-    <ClCompile Include="Input\test_mouse_translation.cpp" />
-    <ClCompile Include="Window\test_rows.cpp" />
-    <ClCompile Include="Window\test_splitter.cpp" />
-    <ClCompile Include="Input\test_traces.cpp" />
+    <ClCompile Include="core\Input\test_activation.cpp" />
+    <ClCompile Include="core\Window\test_caption_regions.cpp" />
+    <ClCompile Include="core\Input\test_engagement.cpp" />
+    <ClCompile Include="core\Window\test_frame_sizes.cpp" />
+    <ClCompile Include="core\Window\test_frame_view.cpp" />
+    <ClCompile Include="core\Input\test_ime_buffer.cpp" />
+    <ClCompile Include="windows\Input\test_key_translation.cpp" />
+    <ClCompile Include="windows\Input\test_mouse_translation.cpp" />
+    <ClCompile Include="core\Window\test_rows.cpp" />
+    <ClCompile Include="core\Window\test_splitter.cpp" />
+    <ClCompile Include="core\Input\test_traces.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\host\Input\Activation.h" />
-    <ClInclude Include="..\host\Window\CaptionRegions.h" />
-    <ClInclude Include="..\host\Input\Engagement.h" />
-    <ClInclude Include="..\host\Window\FrameSizes.h" />
-    <ClInclude Include="..\host\Window\FrameView.h" />
-    <ClInclude Include="..\host\Input\ImeBuffer.h" />
-    <ClInclude Include="..\host\Input\KeyInput.h" />
-    <ClInclude Include="..\host\Input\Keyboard.h" />
-    <ClInclude Include="..\host\Input\KeyTranslation.h" />
-    <ClInclude Include="..\host\Input\MouseTranslation.h" />
-    <ClInclude Include="..\host\Input\Pointer.h" />
-    <ClInclude Include="..\host\Window\Rows.h" />
-    <ClInclude Include="..\host\Window\Splitter.h" />
-    <ClInclude Include="..\host\Text\Utf.h" />
+    <ClInclude Include="..\core\Input\Activation.h" />
+    <ClInclude Include="..\core\Window\CaptionRegions.h" />
+    <ClInclude Include="..\core\Input\Engagement.h" />
+    <ClInclude Include="..\core\Window\FrameSizes.h" />
+    <ClInclude Include="..\core\Window\FrameView.h" />
+    <ClInclude Include="..\core\Input\ImeBuffer.h" />
+    <ClInclude Include="..\core\Input\KeyInput.h" />
+    <ClInclude Include="..\core\Input\Keyboard.h" />
+    <ClInclude Include="..\platforms\windows\host\Input\KeyTranslation.h" />
+    <ClInclude Include="..\platforms\windows\host\Input\MouseTranslation.h" />
+    <ClInclude Include="..\core\Input\Pointer.h" />
+    <ClInclude Include="..\core\Window\Rows.h" />
+    <ClInclude Include="..\core\Window\Splitter.h" />
+    <ClInclude Include="..\core\Text\Utf.h" />
     <ClInclude Include="TraceReader.h" />
   </ItemGroup>
   <ItemGroup>

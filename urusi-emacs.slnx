@@ -30,10 +30,10 @@
     <File Path="lisp/test/urusi-test.el" />
     <File Path="lisp/test/urusi-titlebar-test.el" />
   </Folder>
-  <Project Path="package/Package.wapproj" Type="c7167f0d-bc9f-4e6e-afe1-012c56b48db5">
+  <Project Path="platforms/windows/package/Package.wapproj" Type="c7167f0d-bc9f-4e6e-afe1-012c56b48db5">
     <Deploy />
   </Project>
-  <Project Path="host/host.vcxproj" Id="3220ffce-015c-48f0-8f85-c40af85ba8c5">
+  <Project Path="platforms/windows/host/host.vcxproj" Id="3220ffce-015c-48f0-8f85-c40af85ba8c5">
     <Platform Solution="*|x86" Project="Win32" />
   </Project>
   <Project Path="tests/tests.vcxproj" Id="4d8e2a91-6c3f-4b57-9e0d-1a7c5f2b8e36">

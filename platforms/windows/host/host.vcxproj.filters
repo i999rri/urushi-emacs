@@ -81,19 +81,19 @@
     <ClInclude Include="Emacs\HostCalls.h">
       <Filter>Emacs</Filter>
     </ClInclude>
-    <ClInclude Include="..\external\emacs\src\w32host.h">
+    <ClInclude Include="..\..\..\external\emacs\src\w32host.h">
       <Filter>Emacs</Filter>
     </ClInclude>
     <ClInclude Include="Input\Composition.h">
       <Filter>Input</Filter>
     </ClInclude>
-    <ClInclude Include="Input\Activation.h">
+    <ClInclude Include="..\..\..\core\Input\Activation.h">
       <Filter>Window</Filter>
     </ClInclude>
-    <ClInclude Include="Input\Engagement.h">
+    <ClInclude Include="..\..\..\core\Input\Engagement.h">
       <Filter>Input</Filter>
     </ClInclude>
-    <ClInclude Include="Input\ImeBuffer.h">
+    <ClInclude Include="..\..\..\core\Input\ImeBuffer.h">
       <Filter>Input</Filter>
     </ClInclude>
     <ClInclude Include="Input\KeyTranslation.h">
@@ -102,16 +102,16 @@
     <ClInclude Include="Input\MouseTranslation.h">
       <Filter>Input</Filter>
     </ClInclude>
-    <ClInclude Include="Window\Rows.h">
+    <ClInclude Include="..\..\..\core\Window\Rows.h">
       <Filter>Window</Filter>
     </ClInclude>
-    <ClInclude Include="Window\FrameSizes.h">
+    <ClInclude Include="..\..\..\core\Window\FrameSizes.h">
       <Filter>Window</Filter>
     </ClInclude>
-    <ClInclude Include="Window\FrameView.h">
+    <ClInclude Include="..\..\..\core\Window\FrameView.h">
       <Filter>Window</Filter>
     </ClInclude>
-    <ClInclude Include="Window\CaptionRegions.h">
+    <ClInclude Include="..\..\..\core\Window\CaptionRegions.h">
       <Filter>Window</Filter>
     </ClInclude>
     <ClInclude Include="Window\XamlCaptionRegions.h">
@@ -120,22 +120,22 @@
     <ClInclude Include="Window\XamlFrameView.h">
       <Filter>Window</Filter>
     </ClInclude>
-    <ClInclude Include="Window\Splitter.h">
+    <ClInclude Include="..\..\..\core\Window\Splitter.h">
       <Filter>Window</Filter>
     </ClInclude>
-    <ClInclude Include="Input\Pointer.h">
+    <ClInclude Include="..\..\..\core\Input\Pointer.h">
       <Filter>Input</Filter>
     </ClInclude>
     <ClInclude Include="Window\XamlSplitter.h">
       <Filter>Window</Filter>
     </ClInclude>
-    <ClInclude Include="Input\Keyboard.h">
+    <ClInclude Include="..\..\..\core\Input\Keyboard.h">
       <Filter>Input</Filter>
     </ClInclude>
-    <ClInclude Include="Input\KeyInput.h">
+    <ClInclude Include="..\..\..\core\Input\KeyInput.h">
       <Filter>Input</Filter>
     </ClInclude>
-    <ClInclude Include="Text\Utf.h">
+    <ClInclude Include="..\..\..\core\Text\Utf.h">
       <Filter>Input</Filter>
     </ClInclude>
   </ItemGroup>

@@ -92,7 +92,7 @@ namespace
     // whole path, which is what __FILE__ then is.
     fs::path Traces()
     {
-        return fs::path{ __FILE__ }.parent_path().parent_path() / "traces";
+        return fs::path{ __FILE__ }.parent_path().parent_path().parent_path() / "traces";
     }
 }
 
