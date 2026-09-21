@@ -196,6 +196,14 @@ there XAML is laying them out and Emacs is not."
          (background (urusi-screen-color (plist-get run :background))))
     (when text
       (urusi-screen--measure family size))
+    (if (plist-get run :image)
+        (urusi-screen--image run (or above 0))
+      (urusi-screen--run run text family size width height spacing above background))))
+
+(defun urusi-screen--run (run text family size width height spacing above background)
+  "Return RUN, TEXT drawn in FAMILY at SIZE, as `urusi-screen-run' does.
+WIDTH, HEIGHT, SPACING, ABOVE and BACKGROUND are as it worked them out."
+  (let ((scale (float urusi-scale)))
     (let* ((left (/ (plist-get run :x) scale))
            (top (or above 0))
            (body (and text (urusi-screen--text
@@ -213,6 +221,60 @@ there XAML is laying them out and Emacs is not."
                                                  (list :Margin (format "0,%s,0,0" top)))))))
        (body (append (list (car body) :Canvas.Left left :Canvas.Top top) (cdr body)))
        (t `(Border :Canvas.Left ,left :Width ,width :Height ,height))))))
+
+(defvar urusi-screen--image-files (make-hash-table :test #'equal)
+  "The files images given as data were written to, keyed by the data.")
+
+(defun urusi-screen--image-file (spec)
+  "Return the file SPEC, an image spec, shows, or nil if there is none.
+An image made from a file is that file.  One made from data in Lisp is
+written to a file of its own the first time it is shown, since what
+the host draws images with reads them from files."
+  (let ((file (plist-get (cdr spec) :file))
+        (data (plist-get (cdr spec) :data)))
+    (cond
+     (file (let ((found (image-search-load-path file)))
+             (and found (file-readable-p found) (expand-file-name found))))
+     ((stringp data)
+      (or (gethash data urusi-screen--image-files)
+          (let* ((type (or (plist-get (cdr spec) :type)
+                           (image-type-from-data data)
+                           'png))
+                 (directory (expand-file-name "urusi-images" temporary-file-directory))
+                 (file (expand-file-name (format "%s.%s" (secure-hash 'sha1 data) type)
+                                         directory)))
+            (unless (file-exists-p file)
+              (make-directory directory t)
+              (let ((coding-system-for-write 'no-conversion))
+                (write-region data nil file nil 'silent)))
+            (puthash data file urusi-screen--image-files)))))))
+
+(defun urusi-screen--image (run above)
+  "Return RUN, an image, as a XAML Image where Emacs put it.
+ABOVE is how much space between lines there is over the line's text.
+It stands on the line's baseline, as Emacs puts it, and is as big as
+Emacs made it.  An image that has no file to read is left blank."
+  (let* ((scale (float urusi-scale))
+         (spec (plist-get run :image))
+         (file (urusi-screen--image-file spec))
+         (left (/ (plist-get run :x) scale))
+         (width (/ (plist-get run :width) scale))
+         (height (/ (or (plist-get run :height) 0) scale))
+         (top (+ above (/ (max 0 (- (or (plist-get run :line-ascent) 0)
+                                    (or (plist-get run :ascent) 0)))
+                          scale))))
+    (if (not file)
+        `(Border :Canvas.Left ,left :Width ,width :Height ,height)
+      (let ((uri (concat "file:///" (replace-regexp-in-string
+                                     " " "%20" (subst-char-in-string ?\\ ?/ file)))))
+        `(Image :Canvas.Left ,left
+                :Canvas.Top ,top
+                :Width ,width
+                :Height ,height
+                :Stretch "Fill"
+                ,@(if (string-suffix-p ".svg" file t)
+                      `((Image.Source (SvgImageSource :UriSource ,uri)))
+                    `(:Source ,uri)))))))
 
 (defun urusi-screen--text (run text family size advance height)
   "Return TEXT of RUN as a XAML TextBlock.
@@ -248,6 +310,11 @@ and leaves every other one alone."
              :Canvas.Top ,(/ (plist-get line :y) scale)
              :Height ,height
              ,@(mapcar (lambda (run)
+                         ;; An image goes on the line by its baseline,
+                         ;; which is the line's to say.
+                         (when (plist-get run :image)
+                           (setq run (append run (list :line-ascent
+                                                       (plist-get line :ascent)))))
                          (funcall urusi-screen-run-function run height spacing above))
                        (plist-get line :runs)))))
 
