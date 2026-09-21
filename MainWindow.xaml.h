@@ -6,6 +6,7 @@
 #include "HostApi.h"
 #include "HostCalls.h"
 
+#include <chrono>
 #include <memory>
 #include <set>
 #include <string>
@@ -78,6 +79,16 @@ namespace winrt::urusi_emacs::implementation
         SIZE m_emacsSize{ 0, 0 };
         bool m_attached{ false };
         bool m_shown{ false };
+
+        // Whether Emacs can be asked yet, when it was last heard from,
+        // and when it was last asked to close: closing the window is
+        // Emacs's to decide only while it can decide.
+        bool m_emacsReady{ false };
+        std::chrono::steady_clock::time_point m_lastHeard{};
+        std::chrono::steady_clock::time_point m_closeAsked{};
+
+        // How the window takes up the screen, as Lisp was last told.
+        std::wstring m_windowState{ L"normal" };
         urusi::Composition m_composition;
     };
 }

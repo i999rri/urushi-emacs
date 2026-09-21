@@ -50,6 +50,16 @@
         (urusi-call "window.state" (list :state state)))
       (setq urusi-frame--state state))))
 
+(defun urusi-frame--close (event _message)
+  "Leave Emacs when the host window is asked to close, as EVENT says.
+The window does not close by itself: leaving is Emacs's to decide, the
+way it always has been, so the buffers that are not saved are asked
+about first and the answer may be not to leave at all."
+  (when (eq event 'close)
+    ;; Not from here: this runs while the host's messages are being
+    ;; read, and what it asks waits for more of them.
+    (run-at-time 0 nil #'save-buffers-kill-emacs)))
+
 (defvar urusi-frame--pending nil
   "Timer that will pass the frame on, when one is waiting to run.")
 
@@ -73,8 +83,10 @@
         (setq urusi-frame--title nil
               urusi-frame--state nil)
         (add-hook 'post-command-hook #'urusi-frame--after-command)
+        (add-hook 'urusi-host-event-functions #'urusi-frame--close)
         (urusi-frame--after-command))
-    (remove-hook 'post-command-hook #'urusi-frame--after-command)))
+    (remove-hook 'post-command-hook #'urusi-frame--after-command)
+    (remove-hook 'urusi-host-event-functions #'urusi-frame--close)))
 
 (provide 'urusi-frame)
 ;;; urusi-frame.el ends here

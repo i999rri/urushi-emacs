@@ -158,6 +158,71 @@ namespace winrt::urusi_emacs::implementation
             self->SendHostEvent(active ? L"activated" : L"deactivated", JsonObject{});
         });
 
+        // Closing the window is Emacs's to decide, the way leaving Emacs
+        // always has been: it asks about the buffers that are not saved
+        // first, and may be told not to. Until Emacs can answer, or once
+        // it has gone quiet since it was asked, the window closes as any
+        // other window would, since one that cannot be closed is worse.
+        AppWindow().Closing([weak](Microsoft::UI::Windowing::AppWindow const&,
+                                   Microsoft::UI::Windowing::AppWindowClosingEventArgs const& args) {
+            constexpr std::chrono::seconds kPatience{ 5 };
+
+            auto self = weak.get();
+            if (!self || !self->m_emacsReady)
+            {
+                return;
+            }
+
+            auto now = std::chrono::steady_clock::now();
+            bool asked = self->m_closeAsked != std::chrono::steady_clock::time_point{};
+            bool silent = asked && self->m_lastHeard < self->m_closeAsked
+                && now - self->m_closeAsked > kPatience;
+            if (silent)
+            {
+                return;
+            }
+
+            args.Cancel(true);
+            self->m_closeAsked = now;
+            self->SendHostEvent(L"close", JsonObject{});
+        });
+
+        // How the window takes up the screen can change without Lisp
+        // asking, from its title bar or from Windows, and what Lisp draws
+        // on it may depend on it: a maximize button that restores once
+        // the window is maximized.
+        AppWindow().Changed([weak](Microsoft::UI::Windowing::AppWindow const& sender,
+                                   Microsoft::UI::Windowing::AppWindowChangedEventArgs const& args) {
+            auto self = weak.get();
+            if (!self || !(args.DidPresenterChange() || args.DidSizeChange()))
+            {
+                return;
+            }
+
+            std::wstring state = L"normal";
+            if (sender.Presenter().Kind() == Microsoft::UI::Windowing::AppWindowPresenterKind::FullScreen)
+            {
+                state = L"fullscreen";
+            }
+            else if (auto overlapped = sender.Presenter().try_as<Microsoft::UI::Windowing::OverlappedPresenter>())
+            {
+                switch (overlapped.State())
+                {
+                case Microsoft::UI::Windowing::OverlappedPresenterState::Maximized: state = L"maximized"; break;
+                case Microsoft::UI::Windowing::OverlappedPresenterState::Minimized: state = L"minimized"; break;
+                default: break;
+                }
+            }
+
+            if (state != self->m_windowState)
+            {
+                self->m_windowState = state;
+                JsonObject details;
+                details.SetNamedValue(L"state", String(hstring{ state }));
+                self->SendHostEvent(L"state", details);
+            }
+        });
+
         // Windows can be switched between light and dark while the
         // application runs, and what Lisp draws was chosen for one of
         // them.
@@ -484,6 +549,7 @@ namespace winrt::urusi_emacs::implementation
         }
 
         auto type = message.GetNamedString(L"type", L"");
+        m_lastHeard = std::chrono::steady_clock::now();
 
         // The first of each kind, so that a message that never comes is
         // as plain to see as one that fails.
@@ -495,6 +561,7 @@ namespace winrt::urusi_emacs::implementation
 
         if (type == L"hello")
         {
+            m_emacsReady = true;
             ShowStatus(L"");
             JsonObject reply;
             reply.SetNamedValue(L"type", String(L"hello"));

@@ -146,12 +146,26 @@ Whatever is drawing has to draw the whole of it again.")
 
 ;;;; Asking the host
 
-(defvar urusi-host-event-functions nil
+(defvar urusi-host-event-functions '(urusi--note-window-state)
   "Functions to run when something happens to the host window.
 Each is called with the event, a symbol, and the message it came in,
 a plist.  The events are `activated' and `deactivated', when the window
-gains and loses the focus, and `theme', with :dark, when Windows
-switches between light and dark.")
+gains and loses the focus; `theme', with :dark, when Windows switches
+between light and dark; `state', with :state, when the window is
+maximized, minimized, restored or made full screen by anyone; and
+`close', when someone asks for the window to be closed, which it is
+only if something here decides it should be.")
+
+(defvar urusi-window-state "normal"
+  "How the host window takes up the screen, as the host last said.
+One of \"normal\", \"maximized\", \"minimized\" and \"fullscreen\".  It
+changes whenever the window does, whoever changed it: from Lisp, from
+its title bar, or from Windows.")
+
+(defun urusi--note-window-state (event message)
+  "Keep `urusi-window-state' up to date with the state EVENT brings in MESSAGE."
+  (when (eq event 'state)
+    (setq urusi-window-state (plist-get message :state))))
 
 (defvar urusi--calls (make-hash-table :test #'eql)
   "What to do with the answer to each call still waiting for one.
