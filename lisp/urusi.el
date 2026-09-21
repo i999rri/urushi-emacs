@@ -139,6 +139,18 @@ waits for one unless it is told here.")
 (autoload 'urusi-debug-mode "urusi-debug"
   "Write down what happens, in the log the host keeps beside it." t)
 
+(defvar urusi--last-host-error nil
+  "The error the host last reported, which has been shown once already.")
+
+(defun urusi--host-error (text)
+  "Show TEXT, an error the host reported, unless it was the last one too.
+Showing a message changes the echo area, which draws the screen again,
+and a screen with the same mistake in it has the host report the same
+error: shown every time, it would be what keeps it coming."
+  (unless (equal text urusi--last-host-error)
+    (setq urusi--last-host-error text)
+    (message "urusi: %s" text)))
+
 (defun urusi--dispatch (message)
   "Handle MESSAGE, a plist parsed from the host."
   (let ((type (plist-get message :type)))
@@ -159,7 +171,7 @@ waits for one unless it is told here.")
      (run-hook-with-args 'urusi-host-event-functions
                          (intern (plist-get message :event)) message))
     ("stale" (urusi-forget) (run-hooks 'urusi-stale-hook))
-    ("error" (message "urusi: %s" (plist-get message :message)))
+    ("error" (urusi--host-error (plist-get message :message)))
     (_ (run-hook-with-args 'urusi-message-hook message))))
 
 (defun urusi-when-idle (function)
