@@ -69,6 +69,7 @@ namespace winrt::urusi_emacs::implementation
         void KeepFocus();
         void ResumeComposition();
         bool IsForeground() const noexcept;
+        void TraceFocus(char const* what);
         void SendHostEvent(winrt::hstring const& name,
                            Windows::Data::Json::JsonObject const& details);
 

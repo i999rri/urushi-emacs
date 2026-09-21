@@ -157,6 +157,7 @@ namespace winrt::urusi_emacs::implementation
             }
 
             bool active = args.WindowActivationState() != WindowActivationState::Deactivated;
+            self->TraceFocus(active ? "activated" : "deactivated");
             if (active)
             {
                 self->TakeInputToEmacs();
@@ -182,7 +183,13 @@ namespace winrt::urusi_emacs::implementation
                     Microsoft::UI::Dispatching::DispatcherQueuePriority::Low,
                     [weak] {
                         auto self = weak.get();
-                        if (!self || self->IsForeground())
+                        if (!self)
+                        {
+                            return;
+                        }
+
+                        self->TraceFocus("deactivated, checked");
+                        if (self->IsForeground())
                         {
                             return;
                         }
@@ -917,6 +924,36 @@ namespace winrt::urusi_emacs::implementation
         }
     }
 
+    // Write down, under urusi-debug-mode, what WHAT found: whether the
+    // window is in front, and where the focus is, of Windows and of XAML.
+    void MainWindow::TraceFocus(char const* what)
+    {
+        if (!m_debug)
+        {
+            return;
+        }
+
+        std::string xaml = "none";
+        if (auto root = Content() ? Content().XamlRoot() : nullptr)
+        {
+            if (auto focused = Input::FocusManager::GetFocusedElement(root))
+            {
+                auto element = focused.try_as<FrameworkElement>();
+                xaml = to_string(get_class_name(focused));
+                if (element && !element.Name().empty())
+                {
+                    xaml += " " + to_string(element.Name());
+                }
+            }
+        }
+
+        char text[256];
+        sprintf_s(text, "%s: foreground %s, active %s, win32 focus %p, xaml focus %s\n",
+                  what, IsForeground() ? "yes" : "no", m_active ? "yes" : "no",
+                  static_cast<void*>(GetFocus()), xaml.c_str());
+        AppendLog("host", text);
+    }
+
     // Whether this window is the one in front, as Windows has it: XAML
     // says the window has gone when it has not, now and then.
     bool MainWindow::IsForeground() const noexcept
@@ -952,6 +989,7 @@ namespace winrt::urusi_emacs::implementation
                 }
 
                 self->KeepFocus();
+                self->TraceFocus("resumed");
                 if (Input::FocusManager::GetFocusedElement(root) == self->InputSink())
                 {
                     self->m_composition.Focus(true);
