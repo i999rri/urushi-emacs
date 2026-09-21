@@ -349,7 +349,7 @@ namespace winrt::urusi_emacs::implementation
         auto weak = get_weak();
 
         m_composition.Trace([weak](std::string what) {
-            if (auto self = weak.get())
+            if (auto self = weak.get(); self && self->m_debug)
             {
                 self->AppendLog("ime", what);
             }
@@ -460,7 +460,7 @@ namespace winrt::urusi_emacs::implementation
             ? (down ? WM_SYSKEYDOWN : WM_SYSKEYUP)
             : (down ? WM_KEYDOWN : WM_KEYUP);
 
-        if (down)
+        if (down && m_debug)
         {
             AppendLog("host", "key " + std::to_string(static_cast<int>(args.Key())) + "\n");
         }
@@ -1158,6 +1158,11 @@ namespace winrt::urusi_emacs::implementation
         else if (type == L"log")
         {
             AppendLog("emacs", to_string(message.GetNamedString(L"text", L"")) + "\n");
+        }
+        else if (type == L"debug")
+        {
+            m_debug = message.GetNamedBoolean(L"on", false);
+            AppendLog("host", std::string{ "debug " } + (m_debug ? "on" : "off") + "\n");
         }
         else if (type == L"frame")
         {

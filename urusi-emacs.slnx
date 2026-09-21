@@ -12,6 +12,7 @@
   </Folder>
   <Folder Name="/lisp/">
     <File Path="lisp/urusi.el" />
+    <File Path="lisp/urusi-debug.el" />
     <File Path="lisp/urusi-frame.el" />
     <File Path="lisp/urusi-layout.el" />
     <File Path="lisp/urusi-screen.el" />
