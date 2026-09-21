@@ -144,12 +144,35 @@ namespace winrt::urusi_emacs::implementation
         // thread its frame belongs to, so this thread's queue has to be
         // joined to it again whenever the window comes back.
         Activated([weak](IInspectable const&, WindowActivatedEventArgs const& args) {
-            if (auto self = weak.get();
-                self && args.WindowActivationState() != WindowActivationState::Deactivated)
+            auto self = weak.get();
+            if (!self)
+            {
+                return;
+            }
+
+            bool active = args.WindowActivationState() != WindowActivationState::Deactivated;
+            if (active)
             {
                 self->TakeInputToEmacs();
             }
+            self->SendHostEvent(active ? L"activated" : L"deactivated", JsonObject{});
         });
+
+        // Windows can be switched between light and dark while the
+        // application runs, and what Lisp draws was chosen for one of
+        // them.
+        if (auto root = Content().try_as<FrameworkElement>())
+        {
+            root.ActualThemeChanged([weak](FrameworkElement const& sender, IInspectable const&) {
+                if (auto self = weak.get())
+                {
+                    JsonObject details;
+                    details.SetNamedValue(L"dark", JsonValue::CreateBooleanValue(
+                        sender.ActualTheme() == ElementTheme::Dark));
+                    self->SendHostEvent(L"theme", details);
+                }
+            });
+        }
 
         if (auto content = Content().try_as<UIElement>())
         {
@@ -504,6 +527,10 @@ namespace winrt::urusi_emacs::implementation
             TakeEmacsWindow(reinterpret_cast<HWND>(
                 static_cast<INT_PTR>(message.GetNamedNumber(L"window", 0))));
         }
+        else if (type == L"call")
+        {
+            Call(message);
+        }
         else
         {
             SendError(L"unknown message type: " + type);
@@ -775,6 +802,51 @@ namespace winrt::urusi_emacs::implementation
         message.SetNamedValue(L"type", String(L"error"));
         message.SetNamedValue(L"message", String(text));
         Send(message);
+    }
+
+    // Do what Lisp asked the host to do, and answer it: now, or when the
+    // person using the application has, for what waits on them.
+    void MainWindow::Call(JsonObject const& message)
+    {
+        auto id = message.GetNamedNumber(L"id", 0);
+        auto method = std::wstring{ message.GetNamedString(L"method", L"") };
+        auto args = message.HasKey(L"args")
+                && message.GetNamedValue(L"args").ValueType() == JsonValueType::Object
+            ? message.GetNamedObject(L"args")
+            : JsonObject{};
+        auto weak = get_weak();
+
+        urusi::HostCalls::Call(
+            get_strong().as<Window>(), method, args,
+            [weak, id](IJsonValue const& value, std::wstring const& error) {
+                auto self = weak.get();
+                if (!self)
+                {
+                    return;
+                }
+
+                JsonObject reply;
+                reply.SetNamedValue(L"type", String(L"reply"));
+                reply.SetNamedValue(L"id", JsonValue::CreateNumberValue(id));
+                if (error.empty())
+                {
+                    reply.SetNamedValue(L"value", value);
+                }
+                else
+                {
+                    reply.SetNamedValue(L"error", String(hstring{ error }));
+                }
+                self->Send(reply);
+            });
+    }
+
+    // Tell Lisp that something happened to the window that it did not
+    // ask for, with what there is to know about it in DETAILS.
+    void MainWindow::SendHostEvent(hstring const& name, JsonObject const& details)
+    {
+        details.SetNamedValue(L"type", String(L"host-event"));
+        details.SetNamedValue(L"event", String(name));
+        Send(details);
     }
 
     void MainWindow::Send(JsonObject const& message)

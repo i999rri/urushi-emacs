@@ -131,6 +131,7 @@
       <DependentUpon>MainWindow.xaml</DependentUpon>
     </ClInclude>
     <ClInclude Include="Composition.h" />
+    <ClInclude Include="HostCalls.h" />
     <ClInclude Include="EmacsHost.h" />
     <ClInclude Include="HostApi.h" />
     <ClInclude Include="external\emacs\src\w32host.h" />
@@ -150,6 +151,7 @@
       <DependentUpon>MainWindow.xaml</DependentUpon>
     </ClCompile>
     <ClCompile Include="Composition.cpp" />
+    <ClCompile Include="HostCalls.cpp" />
     <ClCompile Include="EmacsHost.cpp" />
     <ClCompile Include="HostApi.cpp" />
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />

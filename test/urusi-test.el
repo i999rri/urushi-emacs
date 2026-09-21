@@ -75,6 +75,56 @@
             (should clicked))
         (urusi-stop)))))
 
+(ert-deftest urusi-call-gets-its-answer ()
+  "A call reaches the host, and the answer reaches whoever asked."
+  (let ((posted nil)
+        (from-host nil)
+        (answer 'none))
+    (cl-letf (((symbol-function 'w32-host-available-p) (lambda () t))
+              ((symbol-function 'w32-host-post)
+               (lambda (message) (push message posted) t))
+              ((symbol-function 'w32-host-take-events)
+               (lambda () (prog1 (nreverse from-host) (setq from-host nil)))))
+      (let* ((id (urusi-call "window.size" nil (lambda (value) (setq answer value))))
+             (call (json-parse-string (car posted) :object-type 'plist)))
+        (should (equal (plist-get call :type) "call"))
+        (should (equal (plist-get call :method) "window.size"))
+        ;; No arguments still goes as an object, which is what the host
+        ;; reads them as; read back as a plist, that is nothing at all.
+        (should (string-match-p "\"args\":{}" (car posted)))
+        (push (format "{\"type\":\"reply\",\"id\":%d,\"value\":{\"width\":800,\"height\":600}}" id)
+              from-host)
+        (urusi--take)
+        (should (equal answer '(:width 800 :height 600)))))))
+
+(ert-deftest urusi-call-wait-signals-the-host-error ()
+  "An error the host answers with is signalled where the call was made."
+  (let ((from-host nil))
+    (cl-letf (((symbol-function 'w32-host-available-p) (lambda () t))
+              ((symbol-function 'w32-host-post)
+               (lambda (message)
+                 (let ((id (plist-get (json-parse-string message :object-type 'plist) :id)))
+                   (push (format "{\"type\":\"reply\",\"id\":%d,\"error\":\"no such method\"}" id)
+                         from-host))
+                 t))
+              ((symbol-function 'w32-host-take-events)
+               (lambda () (prog1 (nreverse from-host) (setq from-host nil)))))
+      (should-error (urusi-call-wait "window.nothing" nil 1)))))
+
+(ert-deftest urusi-host-events-reach-the-hook ()
+  "Something that happens to the window reaches the functions waiting for it."
+  (let ((from-host (list "{\"type\":\"host-event\",\"event\":\"theme\",\"dark\":true}"))
+        (seen nil))
+    (cl-letf (((symbol-function 'w32-host-available-p) (lambda () t))
+              ((symbol-function 'w32-host-post) (lambda (_) t))
+              ((symbol-function 'w32-host-take-events)
+               (lambda () (prog1 (nreverse from-host) (setq from-host nil)))))
+      (let ((urusi-host-event-functions
+             (list (lambda (event message)
+                     (setq seen (list event (plist-get message :dark)))))))
+        (urusi--take)
+        (should (equal seen '(theme t)))))))
+
 (ert-deftest urusi-sends-only-what-changed ()
   "Send a row again when it changes, and its name alone when it does not."
   (let ((posted nil))

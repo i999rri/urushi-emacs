@@ -136,9 +136,98 @@ Whatever is drawing has to draw the whole of it again.")
      (setq urusi-scale (or (plist-get message :scale) 1.0))
      (message "urusi: Talking to %s" (plist-get message :host)))
     ("event" (urusi--call-handler (plist-get message :id) (plist-get message :args)))
+    ("reply" (urusi--reply message))
+    ("host-event"
+     (run-hook-with-args 'urusi-host-event-functions
+                         (intern (plist-get message :event)) message))
     ("stale" (urusi-forget) (run-hooks 'urusi-stale-hook))
     ("error" (message "urusi: %s" (plist-get message :message)))
     (_ (run-hook-with-args 'urusi-message-hook message))))
+
+;;;; Asking the host
+
+(defvar urusi-host-event-functions nil
+  "Functions to run when something happens to the host window.
+Each is called with the event, a symbol, and the message it came in,
+a plist.  The events are `activated' and `deactivated', when the window
+gains and loses the focus, and `theme', with :dark, when Windows
+switches between light and dark.")
+
+(defvar urusi--calls (make-hash-table :test #'eql)
+  "What to do with the answer to each call still waiting for one.
+The value is a function of the value and the error, one of which is
+nil.")
+
+(defvar urusi--next-call 0
+  "The number of the last call made.")
+
+(defun urusi-call (method &optional args callback)
+  "Ask the host to do METHOD with ARGS, a plist, and return at once.
+CALLBACK, if given, is called with the value the host answers with once
+it has; an error is logged.  Return the number of the call.
+
+Some methods wait on the person using the application, as
+\"dialog.open-file\" does, and answer when they have: Emacs goes on in
+the meantime, which is why the answer comes to a callback.
+
+The methods:
+
+  window.title     :title        what the window is called
+  window.state     :state        \"normal\", \"maximized\", \"minimized\",
+                                 or \"fullscreen\"
+  window.topmost   :on           whether it stays above other windows
+  window.size                    its size in the pixels of the screen,
+                                 as (:width W :height H)
+  window.resize    :width :height
+  window.theme                   whether it is drawn dark, as (:dark B)
+  dialog.open-file               the file the person chose, or nil"
+  (let ((id (cl-incf urusi--next-call)))
+    (puthash id
+             (lambda (value error)
+               (if error
+                   (urusi--log "%s: %s" method error)
+                 (when callback
+                   (funcall callback value))))
+             urusi--calls)
+    (urusi--send (list :type "call" :id id :method method
+                       ;; An empty plist is not an object to JSON.
+                       :args (or args (make-hash-table))))
+    id))
+
+(defun urusi-call-wait (method &optional args timeout)
+  "Ask the host to do METHOD with ARGS, a plist, and return its answer.
+Wait no more than TIMEOUT seconds, 5 by default, and signal an error if
+the host answers with one or does not answer.  Use `urusi-call' for a
+method that waits on the person using the application."
+  (let* ((done nil)
+         (answer nil)
+         (failure nil)
+         (id (cl-incf urusi--next-call))
+         (deadline (+ (float-time) (or timeout 5))))
+    (puthash id
+             (lambda (value error)
+               (setq done t answer value failure error))
+             urusi--calls)
+    (urusi--send (list :type "call" :id id :method method
+                       :args (or args (make-hash-table))))
+    ;; The answer comes the way everything from the host does, so look
+    ;; for it here rather than wait for the timer to.
+    (while (and (not done) (< (float-time) deadline))
+      (sleep-for 0.01)
+      (urusi--take))
+    (remhash id urusi--calls)
+    (cond (failure (error "urusi: %s: %s" method failure))
+          ((not done) (error "urusi: %s: no answer from the host" method))
+          (t answer))))
+
+(defun urusi--reply (message)
+  "Pass the answer in MESSAGE to whatever is waiting for it."
+  ;; The host sends numbers as JSON numbers, which may come back as floats.
+  (let* ((id (truncate (plist-get message :id)))
+         (waiting (gethash id urusi--calls)))
+    (when waiting
+      (remhash id urusi--calls)
+      (funcall waiting (plist-get message :value) (plist-get message :error)))))
 
 (defun urusi--call-handler (id args)
   "Call the handler registered for event ID with ARGS."

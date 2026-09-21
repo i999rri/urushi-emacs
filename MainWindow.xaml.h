@@ -4,6 +4,7 @@
 #include "Composition.h"
 #include "EmacsHost.h"
 #include "HostApi.h"
+#include "HostCalls.h"
 
 #include <memory>
 #include <set>
@@ -48,6 +49,10 @@ namespace winrt::urusi_emacs::implementation
                            Windows::Data::Json::JsonArray const& items);
         void AttachEvents(Microsoft::UI::Xaml::FrameworkElement const& root,
                           Windows::Data::Json::JsonArray const& events);
+
+        void Call(Windows::Data::Json::JsonObject const& message);
+        void SendHostEvent(winrt::hstring const& name,
+                           Windows::Data::Json::JsonObject const& details);
 
         // Safe from any thread.
         void SendEvent(int64_t id, Windows::Data::Json::JsonObject const& args);
