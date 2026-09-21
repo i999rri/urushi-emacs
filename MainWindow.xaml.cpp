@@ -154,7 +154,9 @@ namespace winrt::urusi_emacs::implementation
             if (active)
             {
                 self->TakeInputToEmacs();
+                self->KeepFocus();
             }
+            self->TellEmacsFocus(active);
             self->SendHostEvent(active ? L"activated" : L"deactivated", JsonObject{});
         });
 
@@ -271,6 +273,29 @@ namespace winrt::urusi_emacs::implementation
         ShowStatus(L"");
         SizeEmacsFrame();
         TakeInputToEmacs();
+
+        // The window may have come to the front before there was a
+        // frame to tell.
+        if (m_active)
+        {
+            TellEmacsFocus(true);
+        }
+    }
+
+    // Tell Emacs that its frame has the focus, or has lost it, when
+    // this window does. Emacs learns it from the frame's window being
+    // given the focus and having it taken away, and the frame's window
+    // is one that is never shown, so it is never given anything: the
+    // same messages are sent to it instead, and Emacs does with them
+    // what it does for any frame, from how the cursor is drawn to
+    // running the hooks that wait for the focus to change.
+    void MainWindow::TellEmacsFocus(bool focused)
+    {
+        m_active = focused;
+        if (m_emacsWindow)
+        {
+            PostMessageW(m_emacsWindow, focused ? WM_SETFOCUS : WM_KILLFOCUS, 0, 0);
+        }
     }
 
     void MainWindow::TakeInputToEmacs()
@@ -511,6 +536,27 @@ namespace winrt::urusi_emacs::implementation
             titlebar.SizeChanged(changed);
         }
         UpdateTitleBarRegions();
+    }
+
+    // Give the focus back to the element the keys go to Emacs from,
+    // when nothing that is still on the screen has it. Anything Lisp
+    // built may take the focus while it is there, a box to type in for
+    // one, but the XAML around the rows is thrown away whenever it
+    // changes, and a focus left on what was thrown away is a focus on
+    // nothing: the keys would go nowhere until something was clicked.
+    void MainWindow::KeepFocus()
+    {
+        auto root = Content().XamlRoot();
+        if (!root)
+        {
+            return;
+        }
+
+        auto focused = Input::FocusManager::GetFocusedElement(root).try_as<UIElement>();
+        if (!focused || !focused.XamlRoot())
+        {
+            InputSink().Focus(FocusState::Programmatic);
+        }
     }
 
     // Tell Windows which parts of what Lisp drew are the title bar, when
@@ -787,6 +833,7 @@ namespace winrt::urusi_emacs::implementation
             // Where Lisp put the frame and the title bar goes with the
             // XAML around the rows, and they are new elements now.
             FollowLayout();
+            KeepFocus();
         }
 
         auto root = Surface().Children().Size() ? Surface().Children().GetAt(0) : nullptr;

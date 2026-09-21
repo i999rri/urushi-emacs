@@ -35,6 +35,7 @@ namespace winrt::urusi_emacs::implementation
         // how big the frame is is this window's business from then on.
         void TakeEmacsWindow(HWND window);
         void TakeInputToEmacs();
+        void TellEmacsFocus(bool focused);
         void StartComposition();
         void TypeIntoEmacs(std::wstring const& text);
         void Caret(Windows::Data::Json::JsonObject const& message);
@@ -58,6 +59,7 @@ namespace winrt::urusi_emacs::implementation
         Microsoft::UI::Xaml::FrameworkElement FrameSite();
         void FollowLayout();
         void UpdateTitleBarRegions();
+        void KeepFocus();
         void SendHostEvent(winrt::hstring const& name,
                            Windows::Data::Json::JsonObject const& details);
 
@@ -84,6 +86,7 @@ namespace winrt::urusi_emacs::implementation
         // told once.
         SIZE m_emacsSize{ 0, 0 };
         bool m_attached{ false };
+        bool m_active{ false };
         bool m_shown{ false };
 
         // Whether Emacs can be asked yet, when it was last heard from,

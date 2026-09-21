@@ -406,6 +406,10 @@ SYMBOL is a character of `urusi-screen--caption-font'."
              :CornerRadius 0
              :BorderThickness 0
              :Background "Transparent"
+             ;; Clicked, not focused: a button that took the focus would
+             ;; take the keys with it, and the space bar would press it.
+             :IsTabStop nil
+             :AllowFocusOnInteraction nil
              ,@(when foreground `(:Foreground ,foreground))
              :on-Click ,action)))
 
