@@ -419,11 +419,14 @@ It is where its edges are, which are inside the frame's border:
           (+ (cdr frame) (nth 1 edges)))))
 
 (defun urusi-screen--child-frames (frame)
-  "Return the child frames of FRAME that can be seen."
+  "Return the child frames of FRAME that can be seen, the lowest first.
+That is the order to draw them in, each over the ones before it, as Emacs
+stacks them: the one shown last, or raised, on top, and the shadow of
+one under it falling behind it rather than on it."
   (cl-remove-if-not (lambda (child)
                       (and (eq (frame-parent child) frame)
                            (eq (frame-visible-p child) t)))
-                    (frame-list)))
+                    (reverse (frame-list-z-order frame))))
 
 (defun urusi-screen--border-color (frame)
   "Return the colour of the border around FRAME, or nil for none.
