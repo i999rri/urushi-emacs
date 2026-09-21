@@ -6,6 +6,7 @@
 x64/
 /package/bin/
 /package/obj/
+/package/*.assets.cache
 ARM64/
 Win32/
 Debug/
