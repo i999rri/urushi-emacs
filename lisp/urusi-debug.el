@@ -18,7 +18,8 @@
 ;;
 ;; It is off unless asked for, because a day of it is a large file.  It
 ;; has to be on before things go wrong, since once they have, the keys
-;; to turn it on may not arrive.
+;; to turn it on may not arrive: so the host turns it on from the start
+;; when it is run under a debugger, as it is from Visual Studio.
 
 ;;; Code:
 

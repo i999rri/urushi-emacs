@@ -100,8 +100,9 @@ namespace winrt::urusi_emacs::implementation
         bool m_attached{ false };
         bool m_active{ false };
 
-        // Whether urusi-debug-mode asked for each key and what the input
-        // method says to be written down. A day of it is a large file.
+        // Whether each key and what the input method says are written
+        // down: from the start under a debugger, or once urusi-debug-mode
+        // asks. A day of it is a large file.
         bool m_debug{ false };
 
         // Whether a splitter is being dragged. The frame is not resized

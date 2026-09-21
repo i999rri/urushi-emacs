@@ -131,6 +131,11 @@ waits for one unless it is told here.")
 (defvar urusi--seen nil
   "Kinds of message the host has sent, so each is only remarked on once.")
 
+;; Within reach of M-x and of the init file, and of the host's hello,
+;; without any of them having to know which file it is in.
+(autoload 'urusi-debug-mode "urusi-debug"
+  "Write down what happens, in the log the host keeps beside it." t)
+
 (defun urusi--dispatch (message)
   "Handle MESSAGE, a plist parsed from the host."
   (let ((type (plist-get message :type)))
@@ -140,6 +145,10 @@ waits for one unless it is told here.")
   (pcase (plist-get message :type)
     ("hello"
      (setq urusi-scale (or (plist-get message :scale) 1.0))
+     ;; Run under a debugger, the host wants an account of what
+     ;; happens from the start, before anything has gone wrong.
+     (when (plist-get message :debug)
+       (urusi-debug-mode 1))
      (message "urusi: Talking to %s" (plist-get message :host)))
     ("event" (urusi--call-handler (plist-get message :id) (plist-get message :args)))
     ("reply" (urusi--reply message))

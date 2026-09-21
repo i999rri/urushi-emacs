@@ -111,6 +111,11 @@ namespace winrt::urusi_emacs::implementation
     {
         m_dispatcher = Microsoft::UI::Dispatching::DispatcherQueue::GetForCurrentThread();
         auto weak = get_weak();
+
+        // Started under a debugger, as from Visual Studio, everything is
+        // written down from the first key: whatever is being chased may
+        // happen before there is a chance to ask for it.
+        m_debug = IsDebuggerPresent() != FALSE;
         auto dispatcher = m_dispatcher;
 
         // Emacs posts from its own thread, and the window may only be
@@ -1137,6 +1142,7 @@ namespace winrt::urusi_emacs::implementation
             reply.SetNamedValue(L"type", String(L"hello"));
             reply.SetNamedValue(L"host", String(L"urusi-emacs"));
             reply.SetNamedValue(L"version", JsonValue::CreateNumberValue(1));
+            reply.SetNamedValue(L"debug", JsonValue::CreateBooleanValue(m_debug));
             // Emacs measures in the pixels of the screen and XAML in
             // 96ths of an inch, and this is what lies between them.
             reply.SetNamedValue(L"scale", JsonValue::CreateNumberValue(

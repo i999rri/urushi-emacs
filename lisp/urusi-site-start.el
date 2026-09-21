@@ -112,11 +112,6 @@ program that never comes back is the first thing to know about."
   ;; a startup is the one it sends.
   (urusi--log "site-start")
 
-  ;; Within reach of M-x, and of the init file, without either
-  ;; having to know which file it is in.
-  (autoload 'urusi-debug-mode "urusi-debug"
-    "Write down what happens, in the log the host keeps beside it." t)
-
   (when urusi-site-start-trace
     (urusi-site-start--trace t))
 
