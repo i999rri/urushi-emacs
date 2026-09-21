@@ -277,8 +277,9 @@ It is not drawn while Emacs has it hidden, which is half the time while
 it blinks; what is being composed is drawn all the same."
   (when-let* (((eq window (selected-window)))
               (cursor (window-screen-cursor window))
-              (color (or (urusi-screen-color (face-attribute 'cursor :background))
-                         (urusi-screen-color (face-attribute 'default :foreground)))))
+              (frame (window-frame window))
+              (color (or (urusi-screen-color (face-attribute 'cursor :background frame t))
+                         (urusi-screen-color (face-attribute 'default :foreground frame t)))))
     (let* ((scale (float urusi-scale))
            (left (/ (plist-get cursor :x) scale))
            (top (/ (plist-get cursor :y) scale))
@@ -304,7 +305,7 @@ it blinks; what is being composed is drawn all the same."
                    `((Border :Canvas.Left ,left
                              :Canvas.Top ,top
                              :Background ,(urusi-screen-color
-                                           (face-attribute 'default :background))
+                                           (face-attribute 'default :background frame t))
                              (TextBlock :Text ,urusi-screen--composing
                                         :FontFamily ,(urusi-screen-font-family)
                                         :FontSize ,(urusi-screen-font-size)
@@ -432,10 +433,19 @@ and any frame's otherwise is the face `internal-border'."
                         (urusi-screen-color
                          (face-attribute face :background frame t)))))
 
+(defun urusi-screen--frame-name (frame)
+  "Return a name for FRAME that no other frame has while it lives."
+  (format "%x" (sxhash-eq frame)))
+
 (defun urusi-screen-child-frame (frame)
-  "Return FRAME, a child frame, as XAML, where it sits on its parent.
+  "Return FRAME, a child frame, as a row of XAML, where it sits on its parent.
 It is drawn as Emacs draws one: its own background, the border around
-it, and its windows, with its own children over those."
+it, and its windows, with its own children over those.
+
+It is a row of its own, and its windows are rows inside it, so that a
+child frame that comes, goes or changes size is sent by itself: the
+frame it is over stays as it was, and so do its own lines when only
+where it is has changed."
   (let* ((scale (float urusi-scale))
          (position (frame-position frame))
          (width (/ (frame-native-width frame) scale))
@@ -444,7 +454,8 @@ it, and its windows, with its own children over those."
          (border-color (urusi-screen--border-color frame))
          (background (urusi-screen-color
                       (face-attribute 'default :background frame t))))
-    `(Canvas :Canvas.Left ,(/ (car position) scale)
+    `(Canvas :key ,(urusi-screen--frame-name frame)
+             :Canvas.Left ,(/ (car position) scale)
              :Canvas.Top ,(/ (cdr position) scale)
              :Width ,width
              :Height ,height
@@ -467,8 +478,12 @@ minibuffer that floats in the middle of the frame."
                       collect (funcall urusi-screen-window-function
                                        window
                                        (1- (cl-incf urusi-screen--windows-drawn))))
-           ,@(mapcar #'urusi-screen-child-frame
-                     (urusi-screen--child-frames frame))))
+           ;; There whether or not there are any, so that one coming or
+           ;; going changes what is in it and nothing around it.
+           (Rows :key ,(concat "frames-" (urusi-screen--frame-name frame))
+                 :panel "Canvas"
+                 ,@(mapcar #'urusi-screen-child-frame
+                           (urusi-screen--child-frames frame)))))
 
 ;;;; The screen
 
@@ -504,7 +519,7 @@ frame they were built for."
   "Return TREE placed in ROW of the grid around it."
   (cons (car tree) (append (list :Grid.Row row) (cdr tree))))
 
-(defun urusi-screen-layout (parts _frame)
+(defun urusi-screen-layout (parts frame)
   "Return PARTS from top to bottom, on the background of `default'.
 PARTS is an alist of the component that built each one and what it
 built.
@@ -514,7 +529,7 @@ leave, and is put in an element named urusi-frame: the host makes the
 frame as big as that element, so what else is on the screen is room
 the frame does not have, and Emacs lays its text out to fit.  The other
 parts take the room they need."
-  (let ((background (urusi-screen-color (face-attribute 'default :background))))
+  (let ((background (urusi-screen-color (face-attribute 'default :background frame t))))
     `(Grid ,@(when background `(:Background ,background))
            (Grid.RowDefinitions
             ,@(mapcar (lambda (part)
