@@ -8,6 +8,8 @@
     <File Path="README.md" />
     <File Path="docs/child-frames.md" />
     <File Path="docs/layout.md" />
+    <File Path="docs/statusbar.md" />
+    <File Path="docs/tabs.md" />
     <File Path="docs/titlebar.md" />
   </Folder>
   <Folder Name="/lisp/">
