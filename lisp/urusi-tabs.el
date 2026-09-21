@@ -14,6 +14,7 @@
 ;;   :current  non-nil for the tab that is shown
 ;;   :face     the face Emacs would draw it in, for a look that follows
 ;;             the theme
+;;   :hover-face  the face Emacs puts over it under the pointer
 ;;   :select   function of no arguments that shows it
 ;;   :close    function of no arguments that closes it, or nil
 ;;   :tab      the tab as its list has it
@@ -71,6 +72,7 @@
                (list :name (substring-no-properties (alist-get 'name tab))
                      :current current
                      :face (if current 'tab-bar-tab 'tab-bar-tab-inactive)
+                     :hover-face 'tab-bar-tab-highlight
                      :select (lambda ()
                                (with-selected-frame frame
                                  (tab-bar-select-tab number)))
@@ -99,6 +101,7 @@ They are what `tab-line-tabs-function' says, named as
                             (alist-get 'name tab)))
                    :current current
                    :face (if current 'tab-line-tab-current 'tab-line-tab-inactive)
+                   :hover-face 'tab-line-highlight
                    :select (lambda () (urusi-tabs--select-in window tab buffer))
                    :close (lambda () (urusi-tabs--close-in window tab buffer))
                    :tab tab)))
@@ -148,13 +151,45 @@ XAML.  Clicking what it returns does nothing by itself: the tab's
   (and face (facep face)
        (urusi-screen-color (face-attribute face attribute nil t))))
 
+(defconst urusi-tabs-close-hover "#28808080"
+  "Colour laid over a close button under the pointer.
+Grey and mostly clear, so that it shows on a tab of any colour.")
+
+(defun urusi-tabs-button-colors (background foreground &optional
+                                            hover-background hover-foreground)
+  "Return the colours of a button, to go in its Resources.
+A button draws itself in BACKGROUND and FOREGROUND, and under the pointer
+and pressed in HOVER-BACKGROUND and HOVER-FOREGROUND, which default to
+the first two: the colours of its own that WinUI would otherwise give
+it there are the theme's, and not the tab's.  Any of them nil is left
+as WinUI has it."
+  (let ((hover-background (or hover-background background))
+        (hover-foreground (or hover-foreground foreground)))
+    `(Button.Resources
+      ,@(cl-loop for (key color) on
+                 (list "ButtonBackgroundPointerOver" hover-background
+                       "ButtonBackgroundPressed" hover-background
+                       "ButtonForegroundPointerOver" hover-foreground
+                       "ButtonForegroundPressed" hover-foreground
+                       "ButtonBorderBrushPointerOver" "Transparent"
+                       "ButtonBorderBrushPressed" "Transparent")
+                 by #'cddr
+                 when color
+                 collect `(SolidColorBrush :x:Key ,key :Color ,color)))))
+
 (defun urusi-tabs-tab (tab)
   "Return TAB as a tab drawn in the colours of its face.
 The tab is a button, with its name and a button that closes it, when it
-can be closed.  Neither takes the focus, which would take the keys."
-  (let ((background (urusi-tabs--face-color (plist-get tab :face) :background))
-        (foreground (urusi-tabs--face-color (plist-get tab :face) :foreground))
-        (close (plist-get tab :close)))
+can be closed.  Neither takes the focus, which would take the keys.
+
+Under the pointer, a tab that is not the current one takes the colours
+of its :hover-face over those of its face, as Emacs draws it; the
+current one stays as it is."
+  (let* ((face (plist-get tab :face))
+         (hover (and (not (plist-get tab :current)) (plist-get tab :hover-face)))
+         (background (urusi-tabs--face-color face :background))
+         (foreground (urusi-tabs--face-color face :foreground))
+         (close (plist-get tab :close)))
     `(Button :on-Click ,(plist-get tab :select)
              :Padding ,(if close "10,0,2,0" "10,0,10,0")
              :CornerRadius 0
@@ -164,6 +199,10 @@ can be closed.  Neither takes the focus, which would take the keys."
              :AllowFocusOnInteraction nil
              ,@(when background `(:Background ,background))
              ,@(when foreground `(:Foreground ,foreground))
+             ,(urusi-tabs-button-colors
+               background foreground
+               (urusi-tabs--face-color hover :background)
+               (urusi-tabs--face-color hover :foreground))
              (StackPanel :Orientation "Horizontal" :Spacing 4
                          (TextBlock :Text ,(urusi-literal (plist-get tab :name))
                                     :VerticalAlignment "Center")
@@ -180,7 +219,12 @@ can be closed.  Neither takes the focus, which would take the keys."
                                        :Background "Transparent"
                                        :VerticalAlignment "Center"
                                        :IsTabStop nil
-                                       :AllowFocusOnInteraction nil)))))))
+                                       :AllowFocusOnInteraction nil
+                                       ;; Its own, or it would take the
+                                       ;; tab's from the tab around it.
+                                       ,(urusi-tabs-button-colors
+                                         "Transparent" foreground
+                                         urusi-tabs-close-hover foreground))))))))
 
 (cl-defun urusi-tabs (tabs &rest properties &key (orientation "Horizontal")
                            (scroll t) &allow-other-keys)
