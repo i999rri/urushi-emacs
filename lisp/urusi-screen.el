@@ -591,9 +591,18 @@ parts take the room they need."
 Long enough to see what a keystroke costs, and then quiet."
   :type 'integer)
 
+(defvar urusi-screen--rendering nil
+  "Non-nil while the screen is being built.
+Building it has Emacs redisplay first, and that is not a change to show.")
+
 (defun urusi-screen-render ()
   "Show the screen in the host window."
   (interactive)
+  (let ((urusi-screen--rendering t))
+    (urusi-screen--render)))
+
+(defun urusi-screen--render ()
+  "Show the screen in the host window, saying how long it took at first."
   (urusi-screen--fit-frame (urusi-root-frame))
   (if (<= urusi-screen-timings urusi-screen--timed)
       (progn (redisplay)
@@ -617,6 +626,15 @@ Long enough to see what a keystroke costs, and then quiet."
 
 (defvar urusi-screen--pending nil
   "Timer that will show the screen, when one is waiting to run.")
+
+(defun urusi-screen--redisplaying (windows)
+  "Draw again once Emacs has redisplayed WINDOWS, if it redisplayed any.
+What changes the screen is not always a command: a timer shows a popup,
+the output of a process arrives in a buffer that is being shown.  Emacs
+says which windows it is about to redisplay, and nil when there are
+none, which is how often it is asked to with nothing to show for it."
+  (when (and windows (not urusi-screen--rendering))
+    (urusi-screen--after-command)))
 
 (defun urusi-screen--cursor-shown (&rest _)
   "Draw again now that the cursor has been hidden or shown.
@@ -644,6 +662,7 @@ no command between, so nothing else would draw it."
         (add-hook 'post-command-hook #'urusi-screen--after-command)
         (add-hook 'urusi-after-event-hook #'urusi-screen--after-command)
         (advice-add 'internal-show-cursor :after #'urusi-screen--cursor-shown)
+        (add-function :before pre-redisplay-function #'urusi-screen--redisplaying)
         (add-hook 'urusi-stale-hook #'urusi-screen-render)
         (add-hook 'urusi-message-hook #'urusi-screen--message)
         (add-hook 'urusi-host-event-functions #'urusi-screen--window-changed)
@@ -655,6 +674,7 @@ no command between, so nothing else would draw it."
     (remove-hook 'post-command-hook #'urusi-screen--after-command)
     (remove-hook 'urusi-after-event-hook #'urusi-screen--after-command)
     (advice-remove 'internal-show-cursor #'urusi-screen--cursor-shown)
+    (remove-function pre-redisplay-function #'urusi-screen--redisplaying)
     (remove-hook 'urusi-stale-hook #'urusi-screen-render)
     (remove-hook 'urusi-message-hook #'urusi-screen--message)
     (remove-hook 'urusi-host-event-functions #'urusi-screen--window-changed)))
