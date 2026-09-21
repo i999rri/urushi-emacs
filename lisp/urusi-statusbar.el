@@ -157,7 +157,7 @@ Clicking it lists them."
 LEFT and RIGHT are the segments that go from its left end and from its
 right end, each a function of the window returning XAML or nil.  The
 rest of PROPERTIES are properties of the Grid it is, its height and
-colours for one.
+background for one, and :Foreground, the colour of what it says.
 
 It is a row of its own, so that what it says changing sends the bar and
 nothing else."
@@ -173,10 +173,14 @@ nothing else."
            ,@(when row (list :Grid.Row row))
            (Grid :key "bar"
                  ,@(urusi-titlebar--without
-                    properties '(:left :right :Grid.Column :Grid.Row))
-                 ;; Text takes the colour of the bar from the bar, and a
-                 ;; button takes the theme's unless it is told otherwise.
+                    properties '(:left :right :Grid.Column :Grid.Row :Foreground))
+                 ;; A Grid has no colour for text to take.  Text and
+                 ;; buttons each take the theme's unless they are told
+                 ;; otherwise, so they are told here, all at once.
                  (Grid.Resources
+                  ,@(when foreground
+                      `((Style :TargetType "TextBlock"
+                               (Setter :Property "Foreground" :Value ,foreground))))
                   ,@(cl-loop for (key color) on
                              (list "ButtonForeground" foreground
                                    "ButtonForegroundPointerOver" foreground
