@@ -1403,84 +1403,80 @@ namespace winrt::urusi_emacs::implementation
     void MainWindow::ReconcileRows(Controls::Panel const& panel, JsonArray const& items)
     {
         auto children = panel.Children();
-        std::vector<UIElement> wanted;
-        wanted.reserve(items.Size());
 
+        std::vector<std::wstring> existing;
+        existing.reserve(children.Size());
+        for (auto const& child : children)
+        {
+            auto element = child.try_as<FrameworkElement>();
+            existing.emplace_back(element ? unbox_value_or<hstring>(element.Tag(), L"") : L"");
+        }
+
+        std::vector<urusi::RowItem> rows;
+        rows.reserve(items.Size());
         for (auto const& value : items)
         {
             auto item = value.GetObject();
-            auto key = item.GetNamedString(L"key", L"");
-
-            if (item.HasKey(L"xaml"))
-            {
-                UIElement row{ nullptr };
-                try
-                {
-                    row = Markup::XamlReader::Load(item.GetNamedString(L"xaml", L"")).as<UIElement>();
-                }
-                catch (hresult_error const& e)
-                {
-                    // One row that will not parse is one row missing,
-                    // not a screen lost.
-                    SendError(L"row " + key + L": " + e.message());
-                    continue;
-                }
-                auto element = row.as<FrameworkElement>();
-                element.Tag(box_value(key));
-                // The row is read on its own, and its names are its own:
-                // only the row can find what its events are on.
-                AttachEvents(element, item.GetNamedArray(L"events", JsonArray{}));
-                wanted.push_back(row);
-            }
-            else
-            {
-                // Kept from last time, and found by its key.
-                UIElement existing{ nullptr };
-                for (uint32_t i = 0; i < children.Size(); i++)
-                {
-                    auto child = children.GetAt(i).try_as<FrameworkElement>();
-                    if (child && unbox_value_or<hstring>(child.Tag(), L"") == key)
-                    {
-                        existing = child;
-                        break;
-                    }
-                }
-
-                if (!existing)
-                {
-                    // Emacs thinks this window shows something it does
-                    // not. Ask for the whole screen again.
-                    JsonObject stale;
-                    stale.SetNamedValue(L"type", JsonValue::CreateStringValue(L"stale"));
-                    Send(stale);
-                    return;
-                }
-                wanted.push_back(existing);
-            }
+            rows.push_back({ std::wstring{ item.GetNamedString(L"key", L"") },
+                             item.HasKey(L"xaml") });
         }
 
-        // Move what is out of place, rather than taking the lot apart:
-        // a row that is only further down the screen than it was keeps
-        // whatever it was doing.
-        for (uint32_t i = 0; i < wanted.size(); i++)
+        auto plan = urusi::PlanRows(existing, rows);
+        if (plan.stale)
         {
-            if (i < children.Size() && children.GetAt(i) == wanted[i])
+            // Emacs thinks this window shows something it does not. Ask
+            // for the whole screen again.
+            JsonObject stale;
+            stale.SetNamedValue(L"type", JsonValue::CreateStringValue(L"stale"));
+            Send(stale);
+            return;
+        }
+
+        std::vector<UIElement> wanted;
+        wanted.reserve(items.Size());
+        for (uint32_t i = 0; i < items.Size(); i++)
+        {
+            if (auto kept = plan.sources[i].kept)
             {
+                wanted.push_back(children.GetAt(*kept));
                 continue;
             }
 
-            uint32_t found = 0;
-            if (children.IndexOf(wanted[i], found))
+            auto item = items.GetObjectAt(i);
+            auto key = item.GetNamedString(L"key", L"");
+            UIElement row{ nullptr };
+            try
             {
-                children.RemoveAt(found);
+                row = Markup::XamlReader::Load(item.GetNamedString(L"xaml", L"")).as<UIElement>();
             }
-            children.InsertAt(i, wanted[i]);
+            catch (hresult_error const& e)
+            {
+                // One row that will not parse is one row missing, not a
+                // screen lost.
+                SendError(L"row " + key + L": " + e.message());
+                continue;
+            }
+            auto element = row.as<FrameworkElement>();
+            element.Tag(box_value(key));
+            // The row is read on its own, and its names are its own: only
+            // the row can find what its events are on.
+            AttachEvents(element, item.GetNamedArray(L"events", JsonArray{}));
+            wanted.push_back(row);
         }
 
-        while (children.Size() > wanted.size())
+        // The panel's children, in the few calls urusi::Arrange makes.
+        struct Children
         {
-            children.RemoveAtEnd();
-        }
+            Controls::UIElementCollection list;
+
+            uint32_t Size() const { return list.Size(); }
+            UIElement At(uint32_t i) const { return list.GetAt(i); }
+            bool IndexOf(UIElement const& x, uint32_t& at) const { return list.IndexOf(x, at); }
+            void RemoveAt(uint32_t i) { list.RemoveAt(i); }
+            void InsertAt(uint32_t i, UIElement const& x) { list.InsertAt(i, x); }
+            void RemoveAtEnd() { list.RemoveAtEnd(); }
+        } list{ children };
+        urusi::Arrange(list, wanted);
     }
 
     void MainWindow::AttachEvents(FrameworkElement const& root, JsonArray const& events)

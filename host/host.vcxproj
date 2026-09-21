@@ -138,6 +138,7 @@
     <ClInclude Include="Engagement.h" />
     <ClInclude Include="ImeBuffer.h" />
     <ClInclude Include="KeyTranslation.h" />
+    <ClInclude Include="Rows.h" />
     <ClInclude Include="Session.h" />
     <ClInclude Include="Utf.h" />
     <ClInclude Include="HostCalls.h" />
