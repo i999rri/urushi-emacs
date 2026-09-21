@@ -154,12 +154,55 @@ PROPERTIES are those of `urusi-statusbar-text'."
                            (match-string 1 vc))))
     (apply #'urusi-statusbar-text (concat (string #x2387) " " branch) properties)))
 
+(defvar urusi-statusbar--minibuffer-message nil
+  "What was said while the minibuffer was being typed in, or nil.")
+
+(defvar urusi-statusbar--minibuffer-message-timer nil
+  "Timer that forgets `urusi-statusbar--minibuffer-message'.")
+
+(defcustom urusi-statusbar-minibuffer-message-timeout 3
+  "How long, in seconds, a message said while typing in the minibuffer stays."
+  :type 'number)
+
+(defun urusi-statusbar-take-minibuffer-message (message)
+  "Say MESSAGE in the status bar if the minibuffer is being typed in.
+It is a function for `set-message-functions', to go before the others:
+
+  (add-hook \\='set-message-functions
+            #\\='urusi-statusbar-take-minibuffer-message)
+
+While the minibuffer is being typed in, Emacs puts a message after what
+is typed, where it wraps in a minibuffer of a fixed width and runs into
+the question being asked.  This takes it instead, for
+`urusi-statusbar-message' to say, and leaves the minibuffer as it is.
+Otherwise it leaves MESSAGE to the others, and to the echo area."
+  (when (active-minibuffer-window)
+    (setq urusi-statusbar--minibuffer-message message)
+    (when (timerp urusi-statusbar--minibuffer-message-timer)
+      (cancel-timer urusi-statusbar--minibuffer-message-timer))
+    (setq urusi-statusbar--minibuffer-message-timer
+          (run-at-time urusi-statusbar-minibuffer-message-timeout nil
+                       #'urusi-statusbar--forget-minibuffer-message))
+    (add-hook 'minibuffer-exit-hook #'urusi-statusbar--forget-minibuffer-message)
+    (urusi-screen--after-command)
+    t))
+
+(defun urusi-statusbar--forget-minibuffer-message ()
+  "Stop saying what was said while the minibuffer was being typed in."
+  (remove-hook 'minibuffer-exit-hook #'urusi-statusbar--forget-minibuffer-message)
+  (when (timerp urusi-statusbar--minibuffer-message-timer)
+    (cancel-timer urusi-statusbar--minibuffer-message-timer))
+  (setq urusi-statusbar--minibuffer-message nil
+        urusi-statusbar--minibuffer-message-timer nil)
+  (urusi-screen--after-command))
+
 (defun urusi-statusbar-message (_window &rest properties)
   "What Emacs is saying in the echo area, while it says it.
-Only its first line, cut off where there is no more room when it is in
-the FILL of `urusi-statusbar'.  PROPERTIES are those of
-`urusi-statusbar-text'."
-  (when-let* ((message (current-message))
+Or what it said while the minibuffer was being typed in, when
+`urusi-statusbar-take-minibuffer-message' took that.  Only its first
+line, cut off where there is no more room when it is in the FILL of
+`urusi-statusbar'.  PROPERTIES are those of `urusi-statusbar-text'."
+  (when-let* ((message (or urusi-statusbar--minibuffer-message (current-message)))
               (line (car (split-string (substring-no-properties message) "\n")))
               ((not (string-empty-p line))))
     (apply #'urusi-statusbar-text line properties)))

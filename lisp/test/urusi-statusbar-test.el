@@ -47,6 +47,25 @@
   (cl-letf (((symbol-function 'current-message) (lambda () nil)))
     (should-not (urusi-statusbar-message nil))))
 
+(ert-deftest urusi-statusbar-takes-messages-said-while-typing ()
+  "A message said while the minibuffer is typed in goes to the bar, and only then."
+  (unwind-protect
+      (cl-letf (((symbol-function 'urusi-screen--after-command) #'ignore)
+                ((symbol-function 'current-message) (lambda () nil)))
+        (cl-letf (((symbol-function 'active-minibuffer-window) (lambda () nil)))
+          (should-not (urusi-statusbar-take-minibuffer-message "not typing"))
+          (should-not (urusi-statusbar-message nil)))
+        (cl-letf (((symbol-function 'active-minibuffer-window) (lambda () 'window)))
+          (should (urusi-statusbar-take-minibuffer-message "while typing"))
+          (should (equal (plist-get (cdr (urusi-statusbar-message nil)) :Text)
+                         "while typing")))
+        ;; Gone once the minibuffer is left.
+        (run-hooks 'minibuffer-exit-hook)
+        (should-not (urusi-statusbar-message nil))
+        (should-not (memq #'urusi-statusbar--forget-minibuffer-message
+                          minibuffer-exit-hook)))
+    (urusi-statusbar--forget-minibuffer-message)))
+
 (ert-deftest urusi-statusbar-names-a-cc-mode-without-its-flags ()
   "A mode of CC Mode is named without how it is set."
   (require 'cc-mode)

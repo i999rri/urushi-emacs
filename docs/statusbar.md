@@ -106,6 +106,14 @@ What Emacs says in the echo area can be said in the bar instead, and the echo ar
 (setq urusi-screen-echo-area 'when-active)
 ```
 
+While the minibuffer is being typed in, Emacs puts a message after what is typed rather than in the echo area, where it wraps in a minibuffer of a fixed width and runs into the question being asked. Have the bar say those too:
+
+```elisp
+(add-hook 'set-message-functions #'urusi-statusbar-take-minibuffer-message)
+```
+
+They stay for `urusi-statusbar-minibuffer-message-timeout` seconds, or until the minibuffer is left.
+
 With `urusi-screen-echo-area` set to `when-active`, the line at the bottom of the frame is shown only while the minibuffer is being typed in there, as `M-:` does; a minibuffer that floats in a child frame leaves it out of sight. Emacs keeps the line whether or not it is shown, so the frame is made taller than its room by that line, and the line goes under the bar.
 
 ### Segments of your own
