@@ -18,6 +18,7 @@
     <File Path="lisp/urusi-screen.el" />
     <File Path="lisp/urusi-tabs.el" />
     <File Path="lisp/urusi-site-start.el" />
+    <File Path="lisp/urusi-statusbar.el" />
     <File Path="lisp/urusi-titlebar.el" />
   </Folder>
   <Folder Name="/lisp/test/">
