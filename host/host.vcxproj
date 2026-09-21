@@ -135,6 +135,7 @@
     </ClInclude>
     <ClInclude Include="Composition.h" />
     <ClInclude Include="Activation.h" />
+    <ClInclude Include="CaptionRegions.h" />
     <ClInclude Include="Engagement.h" />
     <ClInclude Include="FrameSizes.h" />
     <ClInclude Include="FrameView.h" />
@@ -146,6 +147,7 @@
     <ClInclude Include="Keyboard.h" />
     <ClInclude Include="Pointer.h" />
     <ClInclude Include="Splitter.h" />
+    <ClInclude Include="XamlCaptionRegions.h" />
     <ClInclude Include="XamlFrameView.h" />
     <ClInclude Include="XamlSplitter.h" />
     <ClInclude Include="Utf.h" />
@@ -169,6 +171,7 @@
       <DependentUpon>MainWindow.xaml</DependentUpon>
     </ClCompile>
     <ClCompile Include="Composition.cpp" />
+    <ClCompile Include="XamlCaptionRegions.cpp" />
     <ClCompile Include="XamlFrameView.cpp" />
     <ClCompile Include="XamlSplitter.cpp" />
     <ClCompile Include="HostCalls.cpp" />

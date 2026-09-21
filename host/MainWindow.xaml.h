@@ -9,11 +9,13 @@
 #include "MouseTranslation.h"
 #include "FrameSizes.h"
 #include "Rows.h"
+#include "XamlCaptionRegions.h"
 #include "XamlFrameView.h"
 #include "XamlSplitter.h"
 
 #include <chrono>
 #include <map>
+#include <optional>
 #include <memory>
 #include <set>
 #include <string>
@@ -107,6 +109,10 @@ namespace winrt::urusi_emacs::implementation
         // A view of each frame on the screen, made again with what Lisp
         // built around them.
         std::vector<std::shared_ptr<urusi::XamlFrameView>> m_frameViews;
+
+        // The part of the window that moves it, where Lisp drew a title
+        // bar: made once the window has an AppWindow to tell.
+        std::optional<urusi::XamlCaptionRegions> m_captionRegions;
         bool m_attached{ false };
 
         // The window itself, to ask Windows whether it is in front.

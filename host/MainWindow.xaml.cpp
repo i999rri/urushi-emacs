@@ -774,51 +774,11 @@ namespace winrt::urusi_emacs::implementation
     // controls on it are left to be clicked.
     void MainWindow::UpdateTitleBarRegions()
     {
-        auto app = AppWindow();
-        auto overlapped = app.Presenter().try_as<Microsoft::UI::Windowing::OverlappedPresenter>();
-        auto source = Microsoft::UI::Input::InputNonClientPointerSource::GetForWindowId(app.Id());
-        auto titlebar = Named(L"urusi-titlebar");
-
-        if (!titlebar || !titlebar.XamlRoot() || (overlapped && overlapped.HasTitleBar()))
+        if (!m_captionRegions)
         {
-            source.ClearRegionRects(Microsoft::UI::Input::NonClientRegionKind::Caption);
-            source.ClearRegionRects(Microsoft::UI::Input::NonClientRegionKind::Passthrough);
-            return;
+            m_captionRegions.emplace(AppWindow());
         }
-
-        // Windows counts in the pixels of the screen, from the corner of
-        // the window's client area, which is where XAML's root is.
-        double scale = titlebar.XamlRoot().RasterizationScale();
-        auto rect = [scale](FrameworkElement const& element) {
-            auto corner = element.TransformToVisual(nullptr).TransformPoint({ 0, 0 });
-            auto pixels = urusi::ToPixels(corner.X, corner.Y, element.ActualWidth(),
-                                          element.ActualHeight(), scale);
-            return Windows::Graphics::RectInt32{ pixels.x, pixels.y, pixels.width, pixels.height };
-        };
-
-        // Every control on the title bar, and not what is inside one: a
-        // button is clicked as a whole.
-        std::vector<Windows::Graphics::RectInt32> controls;
-        std::function<void(DependencyObject const&)> collect = [&](DependencyObject const& parent) {
-            int count = Media::VisualTreeHelper::GetChildrenCount(parent);
-            for (int i = 0; i < count; ++i)
-            {
-                auto child = Media::VisualTreeHelper::GetChild(parent, i);
-                auto control = child.try_as<Controls::Control>();
-                if (control && control.IsHitTestVisible() && control.Visibility() == Visibility::Visible)
-                {
-                    controls.push_back(rect(control));
-                }
-                else
-                {
-                    collect(child);
-                }
-            }
-        };
-        collect(titlebar);
-
-        source.SetRegionRects(Microsoft::UI::Input::NonClientRegionKind::Caption, { rect(titlebar) });
-        source.SetRegionRects(Microsoft::UI::Input::NonClientRegionKind::Passthrough, controls);
+        m_captionRegions->Update(Named(L"urusi-titlebar"));
     }
 
     void MainWindow::SizeEmacsFrame()

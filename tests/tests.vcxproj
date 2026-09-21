@@ -57,6 +57,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="test_activation.cpp" />
+    <ClCompile Include="test_caption_regions.cpp" />
     <ClCompile Include="test_engagement.cpp" />
     <ClCompile Include="test_frame_sizes.cpp" />
     <ClCompile Include="test_frame_view.cpp" />
@@ -69,6 +70,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\host\Activation.h" />
+    <ClInclude Include="..\host\CaptionRegions.h" />
     <ClInclude Include="..\host\Engagement.h" />
     <ClInclude Include="..\host\FrameSizes.h" />
     <ClInclude Include="..\host\FrameView.h" />
