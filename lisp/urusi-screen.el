@@ -271,7 +271,10 @@ beside the text rather than in a corner.")
 (defun urusi-screen-cursor (window)
   "Return the cursor of WINDOW, to be laid over its text.
 It is laid over rather than put in a line, so that moving it leaves
-every line as it was and a keystroke costs one line of the screen."
+every line as it was and a keystroke costs one line of the screen.
+
+It is not drawn while Emacs has it hidden, which is half the time while
+it blinks; what is being composed is drawn all the same."
   (when-let* (((eq window (selected-window)))
               (cursor (window-screen-cursor window))
               (color (or (urusi-screen-color (face-attribute 'cursor :background))
@@ -289,7 +292,9 @@ every line as it was and a keystroke costs one line of the screen."
                           :Canvas.Top ,top
                           :Width ,(/ 2 scale)
                           :Height ,height
-                          :Fill ,color)
+                          :Fill ,color
+                          ,@(unless (internal-show-cursor-p window)
+                              '(:Visibility "Collapsed")))
                ,@(unless (string-empty-p urusi-screen--composing)
                    ;; What is being composed goes where it will end up,
                    ;; underlined, as an input method draws it anywhere
@@ -579,6 +584,12 @@ Long enough to see what a keystroke costs, and then quiet."
 (defvar urusi-screen--pending nil
   "Timer that will show the screen, when one is waiting to run.")
 
+(defun urusi-screen--cursor-shown (&rest _)
+  "Draw again now that the cursor has been hidden or shown.
+This is how the cursor blinks: a timer hides it and shows it again, with
+no command between, so nothing else would draw it."
+  (urusi-screen--after-command))
+
 (defun urusi-screen--after-command ()
   "Show the screen once what is happening now has finished happening."
   (unless urusi-screen--pending
@@ -598,6 +609,7 @@ Long enough to see what a keystroke costs, and then quiet."
       (progn
         (add-hook 'post-command-hook #'urusi-screen--after-command)
         (add-hook 'urusi-after-event-hook #'urusi-screen--after-command)
+        (advice-add 'internal-show-cursor :after #'urusi-screen--cursor-shown)
         (add-hook 'urusi-stale-hook #'urusi-screen-render)
         (add-hook 'urusi-message-hook #'urusi-screen--message)
         (add-hook 'urusi-host-event-functions #'urusi-screen--window-changed)
@@ -608,6 +620,7 @@ Long enough to see what a keystroke costs, and then quiet."
         (urusi--log "screen mode on"))
     (remove-hook 'post-command-hook #'urusi-screen--after-command)
     (remove-hook 'urusi-after-event-hook #'urusi-screen--after-command)
+    (advice-remove 'internal-show-cursor #'urusi-screen--cursor-shown)
     (remove-hook 'urusi-stale-hook #'urusi-screen-render)
     (remove-hook 'urusi-message-hook #'urusi-screen--message)
     (remove-hook 'urusi-host-event-functions #'urusi-screen--window-changed)))
