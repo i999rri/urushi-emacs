@@ -301,6 +301,16 @@ last screen only: what a screen does not use is what the next one drops.")
         (replace-regexp-in-string "\"" "&quot;" escaped t t)
       escaped)))
 
+(defun urusi-literal (text)
+  "Return TEXT as a property value XAML takes to be that text.
+A value that begins with a brace is read as a markup extension, a
+{Binding} or a {ThemeResource}, and text that happens to begin with one,
+a line of C# or of JSON, would be read as a broken one.  An empty pair
+of braces in front says that what follows is text."
+  (if (string-prefix-p "{" text)
+      (concat "{}" text)
+    text))
+
 (defun urusi--value (value)
   "Return VALUE as the string XAML expects for a property."
   (cond ((stringp value) value)

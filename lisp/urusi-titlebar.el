@@ -74,8 +74,9 @@ else; only one can be on the screen."
     `(Rows :key "urusi-titlebar-title" :panel "Grid"
            ,@(when column (list :Grid.Column column))
            (TextBlock :key "title"
-                      :Text ,(format-mode-line frame-title-format nil
-                                              (frame-selected-window (urusi-root-frame)))
+                      :Text ,(urusi-literal
+                             (format-mode-line frame-title-format nil
+                                               (frame-selected-window (urusi-root-frame))))
                       ,@(urusi-titlebar--merge
                          (urusi-titlebar--without properties '(:Grid.Column))
                          '(:VerticalAlignment "Center"

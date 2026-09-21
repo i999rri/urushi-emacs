@@ -235,4 +235,11 @@
                              ("inside" ("a" t) ("b" t))))))
         (urusi-forget)))))
 
+(ert-deftest urusi-literal-braces ()
+  "Text that begins with a brace is text, and not a markup extension."
+  (should (equal (urusi-literal "{store.Count}") "{}{store.Count}"))
+  (should (equal (urusi-literal "a {b}") "a {b}"))
+  (should (equal (car (urusi--compile `(TextBlock :Text ,(urusi-literal "{x}"))))
+                 (concat "<TextBlock" urusi-test--ns " Text=\"{}{x}\" />"))))
+
 ;;; urusi-test.el ends here

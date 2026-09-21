@@ -283,7 +283,7 @@ its characters go; HEIGHT is how tall the line is."
   (let ((foreground (urusi-screen-color (plist-get run :foreground)))
         (weight (urusi-screen--set (plist-get run :weight)))
         (slant (urusi-screen--set (plist-get run :slant))))
-    `(TextBlock :Text ,text
+    `(TextBlock :Text ,(urusi-literal text)
                 :TextWrapping "NoWrap"
                 :FontFamily ,family
                 :FontSize ,size
@@ -374,7 +374,7 @@ it blinks; what is being composed is drawn all the same."
                              :Canvas.Top ,top
                              :Background ,(urusi-screen-color
                                            (face-attribute 'default :background frame t))
-                             (TextBlock :Text ,urusi-screen--composing
+                             (TextBlock :Text ,(urusi-literal urusi-screen--composing)
                                         :FontFamily ,(urusi-screen-font-family)
                                         :FontSize ,(urusi-screen-font-size)
                                         :Foreground ,color
