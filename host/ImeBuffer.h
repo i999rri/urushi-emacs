@@ -25,6 +25,17 @@ namespace urusi
         // method counts, with TEXT.
         void Update(int32_t start, int32_t end, std::wstring const& text)
         {
+            // With nothing being composed, where the input method puts
+            // the text is where what was handed on ends, as it counts.
+            // Taken from it, not counted here: it does not always
+            // start again from nothing when the focus comes back, and a
+            // count of our own that differs by one turns a replacement
+            // into an addition, and the text arrives twice.
+            if (m_text.empty())
+            {
+                m_handedOn = (std::max)(start, 0);
+            }
+
             int32_t size = static_cast<int32_t>(m_text.size());
             int32_t from = std::clamp(start - m_handedOn, 0, size);
             int32_t to = std::clamp(end - m_handedOn, from, size);

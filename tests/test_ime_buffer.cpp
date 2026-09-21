@@ -68,6 +68,25 @@ TEST(ImeBufferTest, TextWithoutCompositionIsCountedToo)
     EXPECT_EQ(buffer.Composed(), L"あ");
 }
 
+// The focus went and came back, and the buffer started again from
+// nothing, but the input method did not: it goes on at 76, and when the
+// window goes again mid-composition it replaces what it composed with
+// the same text. That is a replacement, not more text.
+TEST(ImeBufferTest, CountIsTakenFromTheInputMethod)
+{
+    ImeBuffer buffer;
+    buffer.Reset();
+    buffer.Started();
+    buffer.Update(76, 76, L"あ");
+    buffer.Update(77, 77, L"い");
+    EXPECT_EQ(buffer.Composed(), L"あい");
+
+    buffer.Update(76, 78, L"あい");
+    EXPECT_EQ(buffer.Composed(), L"あい");
+    EXPECT_EQ(buffer.Settle(), L"あい");
+    EXPECT_EQ(buffer.Caret(), 78);
+}
+
 TEST(ImeBufferTest, ResetCountsFromNothing)
 {
     ImeBuffer buffer;
