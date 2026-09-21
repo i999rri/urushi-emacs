@@ -72,7 +72,7 @@ namespace winrt::urusi_emacs::implementation
                            Windows::Data::Json::JsonObject const& details);
 
         // Safe from any thread.
-        void SendEvent(int64_t id, Windows::Data::Json::JsonObject const& args);
+        void SendEvent(winrt::hstring const& id, Windows::Data::Json::JsonObject const& args);
         void SendError(winrt::hstring const& message);
         void Send(Windows::Data::Json::JsonObject const& message);
 

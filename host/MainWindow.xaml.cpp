@@ -1338,7 +1338,11 @@ namespace winrt::urusi_emacs::implementation
                     SendError(L"row " + key + L": " + e.message());
                     continue;
                 }
-                row.as<FrameworkElement>().Tag(box_value(key));
+                auto element = row.as<FrameworkElement>();
+                element.Tag(box_value(key));
+                // The row is read on its own, and its names are its own:
+                // only the row can find what its events are on.
+                AttachEvents(element, item.GetNamedArray(L"events", JsonArray{}));
                 wanted.push_back(row);
             }
             else
@@ -1401,9 +1405,11 @@ namespace winrt::urusi_emacs::implementation
             auto entry = value.GetObject();
             auto name = entry.GetNamedString(L"name", L"");
             auto event = entry.GetNamedString(L"event", L"");
-            auto id = static_cast<int64_t>(entry.GetNamedNumber(L"id", -1));
+            auto id = entry.GetNamedString(L"id", L"");
 
-            auto target = root.FindName(name);
+            // An element may be the row itself, which FindName does not
+            // look at: it looks among what is inside.
+            IInspectable target = root.Name() == name ? IInspectable{ root } : root.FindName(name);
             if (!target)
             {
                 SendError(L"no element named " + name);
@@ -1475,11 +1481,11 @@ namespace winrt::urusi_emacs::implementation
         }
     }
 
-    void MainWindow::SendEvent(int64_t id, JsonObject const& args)
+    void MainWindow::SendEvent(hstring const& id, JsonObject const& args)
     {
         JsonObject message;
         message.SetNamedValue(L"type", String(L"event"));
-        message.SetNamedValue(L"id", JsonValue::CreateNumberValue(static_cast<double>(id)));
+        message.SetNamedValue(L"id", String(id));
         message.SetNamedValue(L"args", args);
         Send(message);
     }

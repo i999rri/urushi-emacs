@@ -38,10 +38,10 @@
     (should (string-match-p "<Button x:Name=\"urusi1\" Content=\"A\" />" (nth 0 result)))
     (should (string-match-p "<TextBox x:Name=\"query\" />" (nth 0 result)))
     (should (equal (nth 1 result)
-                   '((:name "urusi1" :event "Click" :id 1)
-                     (:name "query" :event "TextChanged" :id 2))))
-    (should (eq (gethash 1 (nth 2 result)) click))
-    (should (eq (gethash 2 (nth 2 result)) changed))))
+                   '((:name "urusi1" :event "Click" :id "urusi1:Click")
+                     (:name "query" :event "TextChanged" :id "query:TextChanged"))))
+    (should (eq (gethash "urusi1:Click" (nth 2 result)) click))
+    (should (eq (gethash "query:TextChanged" (nth 2 result)) changed))))
 
 (ert-deftest urusi-compile-rejects-non-function-handler ()
   (should-error (urusi--compile '(Button :on-Click "not a function"))))
@@ -68,9 +68,9 @@
             (let ((screen (json-parse-string (nth 1 posted) :object-type 'plist)))
               (should (equal (plist-get screen :type) "screen"))
               (should (equal (plist-get screen :events)
-                             [(:name "urusi1" :event "Click" :id 1)])))
-            ;; The host reports the click; the id arrives as a JSON number.
-            (push "{\"type\":\"event\",\"id\":1,\"args\":{}}" from-host)
+                             [(:name "urusi1" :event "Click" :id "urusi1:Click")])))
+            ;; The host reports the click, with the id it was given.
+            (push "{\"type\":\"event\",\"id\":\"urusi1:Click\",\"args\":{}}" from-host)
             (let* ((after nil)
                    (urusi-after-event-hook (list (lambda () (setq after clicked)))))
               (urusi--take)
@@ -172,8 +172,42 @@
   "A row is read on its own, so it has to bring the namespaces with it."
   (let ((rows (nth 3 (urusi--compile
                       '(Grid (Rows :key "buffer" (TextBlock :key "a" "one")))))))
-    (should (equal (cdr (assoc "a" (cdr (assoc "buffer" rows))))
+    (should (equal (cadr (assoc "a" (cdr (assoc "buffer" rows))))
                    (concat "<TextBlock" urusi-test--ns ">one</TextBlock>")))))
+
+(ert-deftest urusi-rows-bring-their-events ()
+  "A row brings the events of what is in it, by ids that say where it is."
+  (let ((posted nil)
+        (clicked nil))
+    (cl-letf (((symbol-function 'w32-host-available-p) (lambda () t))
+              ((symbol-function 'w32-host-post)
+               (lambda (message) (push message posted) t)))
+      (unwind-protect
+          (let ((screen (lambda (label)
+                          `(Grid (Button :Content "outside" :on-Click ,#'ignore)
+                                 (Rows :key "tabs"
+                                       (Button :key "a" :Content ,label
+                                               :on-Click ,(lambda () (setq clicked label))))))))
+            (urusi-render (funcall screen "one"))
+            (let* ((screen (json-parse-string (car posted) :object-type 'plist
+                                              :array-type 'list))
+                   (row (car (plist-get (car (plist-get screen :rows)) :items))))
+              ;; The XAML around the rows has its own, and the row its own,
+              ;; each named in its own scope.
+              (should (equal (plist-get screen :events)
+                             '((:name "urusi1" :event "Click" :id "urusi1:Click"))))
+              (should (equal (plist-get row :events)
+                             '((:name "urusi1" :event "Click" :id "tabs/a/urusi1:Click")))))
+            ;; Kept as it was, and still reaching the handler of this screen.
+            (setq posted nil)
+            (urusi-render (funcall screen "one"))
+            (should (equal (plist-get (json-parse-string (car posted) :object-type 'plist
+                                                         :array-type 'list)
+                                      :rows)
+                           '((:panel "tabs" :items ((:key "a"))))))
+            (urusi--call-handler "tabs/a/urusi1:Click" nil)
+            (should (equal clicked "one")))
+        (urusi-forget)))))
 
 (ert-deftest urusi-forgets-when-the-host-is-stale ()
   "Send the whole screen again when the host says it has lost track."

@@ -45,8 +45,11 @@ messages wait in a queue until Emacs looks at it."
 (defvar urusi--timer nil
   "Timer that looks for messages from the host.")
 
-(defvar urusi--handlers (make-hash-table :test #'eql)
-  "Event handlers of the UI currently shown, keyed by event id.")
+(defvar urusi--handlers (make-hash-table :test #'equal)
+  "Event handlers of the UI currently shown, keyed by event id.
+An id is a string that says where the event is, the row and the
+element, so that a row the host keeps from one screen to the next goes
+on reaching the handler of the same element in the screen after.")
 
 (defconst urusi--namespaces
   (concat " xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\""
@@ -284,8 +287,7 @@ method that waits on the person using the application."
 
 (defun urusi--call-handler (id args)
   "Call the handler registered for event ID with ARGS."
-  ;; The host sends numbers as JSON numbers, which may come back as floats.
-  (when-let* ((handler (gethash (truncate id) urusi--handlers)))
+  (when-let* ((handler (gethash id urusi--handlers)))
     (condition-case err
         (if (eql (cdr (func-arity handler)) 0)
             (funcall handler)
@@ -333,8 +335,8 @@ of braces in front says that what follows is text."
   "Turn TREE into XAML.
 Return (XAML EVENTS HANDLERS ROWS NESTED).
 
-EVENTS is the list the host uses to attach events, HANDLERS maps event
-ids to functions.
+EVENTS is the list the host uses to attach events to the XAML, HANDLERS
+maps event ids to functions.
 
 ROWS is what the host is to keep between one screen and the next.  A
 node written as
@@ -342,23 +344,29 @@ node written as
   (Rows :key NAME CHILD...)
 
 becomes an empty panel in the XAML, named after NAME, and its children
-are compiled one by one into ROWS as (NAME . ((KEY . XAML)...)).  Each
-child has to carry a :key of its own, which is what the host reuses it
-by: a child whose XAML has not changed is left alone, wherever it has
-moved to.
+are compiled one by one into ROWS as (NAME . ((KEY XAML . EVENTS)...)).
+Each child has to carry a :key of its own, which is what the host reuses
+it by: a child whose XAML has not changed is left alone, wherever it has
+moved to.  EVENTS are those of the elements in the row, which the host
+attaches when it builds the row: a row is read on its own, and the XAML
+around it cannot find what is in it.
+
+An event's id says where it is, the row and the element, and not how
+many came before it: a row that is kept keeps the id it was given, and
+so reaches the handler of the same element on the new screen.
 
 A row can hold rows of its own, with a `Rows' node inside it.  ROWS
 lists the outer before the inner, and NESTED says which row each inner
 set is in, as (NAME . (OUTER . KEY)): when that row is built again, what
 was in it goes with it, and the rows inside have to be built again too."
   (let ((next-name 0)
-        (next-id 0)
         (events nil)
+        (where "")
         (rows nil)
         (nested nil)
         (owner nil)
         (was urusi--row-xaml)
-        (handlers (make-hash-table :test #'eql)))
+        (handlers (make-hash-table :test #'equal)))
     (setq urusi--row-xaml (make-hash-table :test #'eq))
     (cl-labels
         ((row-xaml (child group key)
@@ -367,22 +375,30 @@ was in it goes with it, and the rows inside have to be built again too."
            ;; object it handed back last time.  Compiling it again
            ;; would only arrive at the string that is already here.
            (or (gethash child was)
-               (let* ((before events)
-                      (before-nested nested)
-                      ;; A row is read on its own, so it declares the
-                      ;; namespaces itself.
-                      (outer owner)
-                      (xaml (unwind-protect
-                                (progn (setq owner (cons group key))
-                                       (node child t))
-                              (setq owner outer))))
+               (let ((before-nested nested)
+                     (outer (list owner events next-name where))
+                     (row-events nil)
+                     (xaml nil))
+                 ;; A row is read on its own: it declares the namespaces
+                 ;; itself, and the names in it are its own.
+                 (unwind-protect
+                     (progn (setq owner (cons group key)
+                                  events nil
+                                  next-name 0
+                                  where (format "%s/%s/" group key))
+                            (setq xaml (node child t))
+                            (setq row-events (nreverse events)))
+                   (setq owner (nth 0 outer)
+                         events (nth 1 outer)
+                         next-name (nth 2 outer)
+                         where (nth 3 outer)))
                  ;; A row with a handler in it is compiled every time:
                  ;; the handler is registered as it is compiled, and
                  ;; skipping that would leave it unreachable.  So is one
                  ;; with rows in it, which are registered the same way.
-                 (if (and (eq before events) (eq before-nested nested))
-                     (puthash child xaml urusi--row-xaml)
-                   xaml))))
+                 (if (and (null row-events) (eq before-nested nested))
+                     (puthash child (list xaml) urusi--row-xaml)
+                   (cons xaml row-events)))))
          (node (form root)
            (cond
             ((stringp form) (urusi--escape form nil))
@@ -448,7 +464,7 @@ was in it goes with it, and the rows inside have to be built again too."
                (when (and element-handlers (not name))
                  (setq name (format "urusi%d" (cl-incf next-name))))
                (dolist (handler (nreverse element-handlers))
-                 (let ((id (cl-incf next-id)))
+                 (let ((id (format "%s%s:%s" where name (car handler))))
                    (puthash id (cdr handler) handlers)
                    (push (list :name name :event (car handler) :id id) events)))
                (let ((open (concat "<" tag
@@ -519,7 +535,9 @@ is slower than it should be."
                                       (list :key (car row))
                                     (cl-incf changed)
                                     (push (cons (car group) (car row)) built)
-                                    (list :key (car row) :xaml (cdr row))))
+                                    (nconc (list :key (car row) :xaml (cadr row))
+                                           (when (cddr row)
+                                             (list :events (vconcat (cddr row)))))))
                                 (cdr group))))))
                     rows)))))
     (setq urusi--shown (cons xaml rows))

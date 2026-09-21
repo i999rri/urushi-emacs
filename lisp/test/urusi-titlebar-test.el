@@ -40,7 +40,7 @@
                             (nth 0 result)))
     (should (equal (mapcar (lambda (event) (plist-get event :name)) (nth 1 result))
                    '("urusi-minimize" "urusi-maximize" "urusi-close")))
-    (let ((title (cdar (cdr (assoc "urusi-titlebar-title" (nth 3 result))))))
+    (let ((title (cadr (cadr (assoc "urusi-titlebar-title" (nth 3 result))))))
       (should (string-match-p "Text=\"the title\"" title))
       (should (string-match-p "Margin=\"12,0,0,0\"" title))
       (should-not (string-match-p "Grid.Column" title)))))
