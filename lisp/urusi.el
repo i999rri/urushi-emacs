@@ -163,6 +163,17 @@ the next chance is the next time timers run."
       (run-at-time 0 nil function)
     (run-with-idle-timer 0 nil function)))
 
+(defun urusi-root-frame (&optional frame)
+  "Return the frame FRAME is a child of, or of a child of, and so on.
+That is the frame the host window shows; child frames are drawn on top
+of it, and while one is selected, as a minibuffer that floats over the
+frame is, it is still the root that the window is about.  FRAME
+defaults to the selected one."
+  (let ((frame (or frame (selected-frame))))
+    (while (frame-parent frame)
+      (setq frame (frame-parent frame)))
+    frame))
+
 ;;;; Asking the host
 
 (defvar urusi-host-event-functions '(urusi--note-window-state)

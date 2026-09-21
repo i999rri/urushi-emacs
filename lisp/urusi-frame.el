@@ -38,8 +38,10 @@
 
 (defun urusi-frame--sync ()
   "Pass on to the host window whatever Emacs has changed about its frame."
-  (let ((title (format-mode-line frame-title-format))
-        (state (urusi-frame--state-of (selected-frame))))
+  (let* ((root (urusi-root-frame))
+         (title (format-mode-line frame-title-format nil
+                                  (frame-selected-window root)))
+         (state (urusi-frame--state-of root)))
     (unless (equal title urusi-frame--title)
       (setq urusi-frame--title title)
       (urusi-call "window.title" (list :title title)))

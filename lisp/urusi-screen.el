@@ -283,9 +283,11 @@ it blinks; what is being composed is drawn all the same."
            (left (/ (plist-get cursor :x) scale))
            (top (/ (plist-get cursor :y) scale))
            (height (/ (plist-get cursor :height) scale)))
-      (urusi-screen--tell-caret (plist-get cursor :x) (plist-get cursor :y)
-                                (plist-get cursor :width)
-                                (plist-get cursor :height))
+      (let ((origin (urusi-screen--window-origin window)))
+        (urusi-screen--tell-caret (+ (car origin) (plist-get cursor :x))
+                                  (+ (cdr origin) (plist-get cursor :y))
+                                  (plist-get cursor :width)
+                                  (plist-get cursor :height)))
       `(Canvas :key "cursor"
                :IsHitTestVisible "False"
                (Rectangle :Canvas.Left ,left
@@ -365,14 +367,17 @@ taller than the window has room for, the echo area's when it shows
 text in a taller font for one, and Emacs shows as much of it as fits."
   (let* ((scale (float urusi-scale))
          (rows (window-screen-rows window))
+         ;; Its edges are inside the frame's border, where
+         ;; `window-pixel-left' and `window-pixel-top' do not count it.
+         (edges (window-pixel-edges window))
          (width (/ (window-pixel-width window) scale))
          (height (/ (window-pixel-height window) scale))
          (background (urusi-screen-color
-                      (face-attribute 'default :background nil t))))
+                      (face-attribute 'default :background (window-frame window) t))))
     (unless rows
       (urusi-screen--nothing-to-draw window))
-    `(Canvas :Canvas.Left ,(/ (window-pixel-left window) scale)
-             :Canvas.Top ,(/ (window-pixel-top window) scale)
+    `(Canvas :Canvas.Left ,(/ (nth 0 edges) scale)
+             :Canvas.Top ,(/ (nth 1 edges) scale)
              :Width ,width
              :Height ,height
              ,@(when background `(:Background ,background))
@@ -387,14 +392,83 @@ text in a taller font for one, and Emacs shows as much of it as fits."
                                                   window)))
                        (list cursor))))))
 
+(defvar urusi-screen--windows-drawn 0
+  "How many windows this screen has drawn so far.
+It is what numbers them, so that no two share a name however many
+frames they are spread over.")
+
+(defun urusi-screen--frame-origin (frame)
+  "Return where FRAME is, as (X . Y) pixels from its root frame's corner."
+  (let ((x 0) (y 0))
+    (while (frame-parent frame)
+      (let ((position (frame-position frame)))
+        (setq x (+ x (car position))
+              y (+ y (cdr position))
+              frame (frame-parent frame))))
+    (cons x y)))
+
+(defun urusi-screen--window-origin (window)
+  "Return where WINDOW is, as (X . Y) pixels from its root frame's corner.
+It is where its edges are, which are inside the frame's border:
+`window-pixel-left' and `window-pixel-top' count from inside it."
+  (let ((frame (urusi-screen--frame-origin (window-frame window)))
+        (edges (window-pixel-edges window)))
+    (cons (+ (car frame) (nth 0 edges))
+          (+ (cdr frame) (nth 1 edges)))))
+
+(defun urusi-screen--child-frames (frame)
+  "Return the child frames of FRAME that can be seen."
+  (cl-remove-if-not (lambda (child)
+                      (and (eq (frame-parent child) frame)
+                           (eq (frame-visible-p child) t)))
+                    (frame-list)))
+
+(defun urusi-screen--border-color (frame)
+  "Return the colour of the border around FRAME, or nil for none.
+A child frame's is the face `child-frame-border', where there is one,
+and any frame's otherwise is the face `internal-border'."
+  (cl-loop for face in '(child-frame-border internal-border)
+           thereis (and (facep face)
+                        (urusi-screen-color
+                         (face-attribute face :background frame t)))))
+
+(defun urusi-screen-child-frame (frame)
+  "Return FRAME, a child frame, as XAML, where it sits on its parent.
+It is drawn as Emacs draws one: its own background, the border around
+it, and its windows, with its own children over those."
+  (let* ((scale (float urusi-scale))
+         (position (frame-position frame))
+         (width (/ (frame-native-width frame) scale))
+         (height (/ (frame-native-height frame) scale))
+         (border (frame-internal-border-width frame))
+         (border-color (urusi-screen--border-color frame))
+         (background (urusi-screen-color
+                      (face-attribute 'default :background frame t))))
+    `(Canvas :Canvas.Left ,(/ (car position) scale)
+             :Canvas.Top ,(/ (cdr position) scale)
+             :Width ,width
+             :Height ,height
+             ,@(when background `(:Background ,background))
+             ,@(when (and border-color (< 0 border))
+                 `((Border :Width ,width :Height ,height
+                           :BorderThickness ,(/ border scale)
+                           :BorderBrush ,border-color)))
+             ,(urusi-screen-windows frame))))
+
 (defun urusi-screen-windows (frame)
   "Return every window of FRAME, each where it is.
 The echo area is among them: it is the minibuffer window, and Emacs
-draws what it has to say there like anything else."
+draws what it has to say there like anything else.
+
+The child frames of FRAME that can be seen are drawn over its windows,
+where Emacs put them: completion that pops up by the point, or a
+minibuffer that floats in the middle of the frame."
   `(Canvas ,@(cl-loop for window in (window-list frame t)
-                      for index from 0
                       collect (funcall urusi-screen-window-function
-                                       window index))))
+                                       window
+                                       (1- (cl-incf urusi-screen--windows-drawn))))
+           ,@(mapcar #'urusi-screen-child-frame
+                     (urusi-screen--child-frames frame))))
 
 ;;;; The screen
 
@@ -458,7 +532,8 @@ parts take the room they need."
 (defun urusi-screen-tree (&optional frame)
   "Return the whole screen of FRAME as a tree for `urusi-render'."
   (urusi-screen--start-screen)
-  (let* ((frame (or frame (selected-frame)))
+  (setq urusi-screen--windows-drawn 0)
+  (let* ((frame (or frame (urusi-root-frame)))
          (parts (delq nil
                       (mapcar (lambda (component)
                                 (when-let* ((tree (funcall component frame)))
@@ -477,7 +552,7 @@ Long enough to see what a keystroke costs, and then quiet."
 (defun urusi-screen-render ()
   "Show the screen in the host window."
   (interactive)
-  (urusi-screen--fit-frame (selected-frame))
+  (urusi-screen--fit-frame (urusi-root-frame))
   (if (<= urusi-screen-timings urusi-screen--timed)
       (progn (redisplay)
              (urusi-render (urusi-screen-tree)))
@@ -575,7 +650,7 @@ window that something else would then tell us about."
         (height (plist-get message :height)))
     (when (and (numberp width) (numberp height) (< 0 width) (< 0 height))
       (setq urusi-screen--room (cons (truncate width) (truncate height)))
-      (urusi-screen--fit-frame (selected-frame))
+      (urusi-screen--fit-frame (urusi-root-frame))
       (urusi-forget)
       (urusi-screen-render))))
 

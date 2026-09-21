@@ -397,7 +397,7 @@ namespace winrt::urusi_emacs::implementation
     void MainWindow::Caret(JsonObject const& message)
     {
         HWND window = nullptr;
-        auto site = EditorSite();
+        auto site = FrameSite();
 
         if (!site.XamlRoot()
             || FAILED(try_as<::IWindowNative>()->get_WindowHandle(&window)))
