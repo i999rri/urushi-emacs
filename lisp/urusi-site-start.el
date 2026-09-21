@@ -20,13 +20,18 @@
 (declare-function urusi-screen-mode "urusi-screen" (&optional arg))
 (defvar urusi-screen-mode)
 
-(defcustom urusi-site-start-trace nil
+(defcustom urusi-site-start-trace
+  (file-exists-p (expand-file-name "urusi-trace" invocation-directory))
   "Whether to say what the init file is loading, as it loads it.
 
 An init file is read before there is a screen to show anything on, and
 before Emacs will answer anything, so one that does not finish leaves
 nothing at all to go on.  Saying what is being loaded leaves the last
-thing it reached, which is where it stopped."
+thing it reached, which is where it stopped.
+
+It is on when a file named urusi-trace is beside Emacs.  This is read
+before the init file is, so the init file cannot turn it on in time,
+and nothing else reaches a packaged application as it starts."
   :type 'boolean
   :group 'urusi)
 
@@ -44,8 +49,11 @@ so a feature that does not come back is a file that was never named."
   "Say that PROGRAM is being run with ARGUMENTS, and waited for.
 Emacs waits for what it runs this way, and a program that does not
 finish is an Emacs that does not start, so what it was asked to do is
-worth having."
-  (urusi--log "call-process %s %S" program arguments))
+worth having.  So is which program it found by that name: the search
+path is the environment's, and the environment is whoever started the
+application's."
+  (urusi--log "call-process %s (%s) %S"
+              program (or (executable-find program) "not found") arguments))
 
 (defun urusi-site-start--trace (on)
   "Say what is being loaded and run while an init file is read, if ON.
@@ -54,6 +62,7 @@ Also run a program and wait for it, because the host gives Emacs a
 pipe for its output and a program inherits what the process holds: a
 program that never comes back is the first thing to know about."
   (when on
+    (urusi--log "exec-path %S" exec-path)
     (urusi--log "a child says %S"
                 (condition-case error
                     (with-temp-buffer
