@@ -98,6 +98,23 @@ Only a close button:
 
 No buttons at all: leave `urusi-titlebar-buttons` out. The window can still be moved by the bar, maximized by double-clicking it, and closed with Alt+F4.
 
+### Buttons of your own design
+
+`urusi-titlebar-buttons` is there to be used as it is, and it looks like the buttons of Windows. Buttons that look like something else are any controls that call the same commands:
+
+```elisp
+(StackPanel :Grid.Column 1 :Orientation "Horizontal" :Spacing 6 :Margin "0,0,10,0"
+            ,@(cl-loop for (color . command) in '(("#febc2e" . urusi-titlebar-minimize)
+                                                  ("#28c840" . urusi-titlebar-toggle-maximized)
+                                                  ("#ff5f57" . urusi-titlebar-close))
+                       collect `(Button :Width 12 :Height 12 :Padding 0
+                                        :CornerRadius 6 :BorderThickness 0
+                                        :Background ,color
+                                        :VerticalAlignment "Center"
+                                        :IsTabStop nil :AllowFocusOnInteraction nil
+                                        :on-Click ,command)))
+```
+
 ### No title
 
 Leave `urusi-titlebar-title` out, and let the buttons sit on the right of an empty bar:
