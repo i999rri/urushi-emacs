@@ -62,6 +62,7 @@ namespace winrt::urusi_emacs::implementation
         void FollowLayout();
         void UpdateTitleBarRegions();
         void AttachSplitters(Microsoft::UI::Xaml::UIElement const& root);
+        void AttachMouse(Microsoft::UI::Xaml::FrameworkElement const& site);
         void KeepFocus();
         void SendHostEvent(winrt::hstring const& name,
                            Windows::Data::Json::JsonObject const& details);

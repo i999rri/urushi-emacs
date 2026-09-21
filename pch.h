@@ -12,6 +12,8 @@
 #include <winrt/Windows.Foundation.Collections.h>
 #include <winrt/Windows.ApplicationModel.Activation.h>
 #include <winrt/Windows.Data.Json.h>
+// For the modifier keys a pointer event says are down.
+#include <winrt/Windows.System.h>
 #include <winrt/Windows.UI.Text.Core.h>
 #include <winrt/Microsoft.UI.Composition.h>
 #include <winrt/Microsoft.UI.Xaml.h>

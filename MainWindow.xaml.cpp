@@ -530,6 +530,7 @@ namespace winrt::urusi_emacs::implementation
         if (auto site = Named(L"urusi-frame"))
         {
             site.SizeChanged(changed);
+            AttachMouse(site);
         }
         if (titlebar)
         {
@@ -541,6 +542,119 @@ namespace winrt::urusi_emacs::implementation
         {
             AttachSplitters(Surface().Children().GetAt(0));
         }
+    }
+
+    // Pass the mouse on to Emacs over SITE, the element the frame is
+    // shown in, as the messages Windows would have sent the frame's own
+    // window: the buttons, the wheel, and where the pointer is, counted
+    // from the corner of the frame in the pixels of the screen. Emacs
+    // makes of them what it makes of any mouse, a click that moves the
+    // point, a drag that selects, a wheel that scrolls.
+    //
+    // The pointer is captured while a button is down, so that a drag
+    // that leaves the frame is followed to where it ends.
+    void MainWindow::AttachMouse(FrameworkElement const& site)
+    {
+        auto weak = get_weak();
+
+        // What Emacs is told about a pointer: where it is on the frame,
+        // and which buttons and modifier keys are down, as the flags of
+        // a mouse message carry them.
+        auto describe = [site](Input::PointerRoutedEventArgs const& args) {
+            auto point = args.GetCurrentPoint(site);
+            double scale = site.XamlRoot() ? site.XamlRoot().RasterizationScale() : 1.0;
+            int x = static_cast<int>(std::lround(point.Position().X * scale));
+            int y = static_cast<int>(std::lround(point.Position().Y * scale));
+
+            auto properties = point.Properties();
+            auto modifiers = args.KeyModifiers();
+            WPARAM flags = 0;
+            if (properties.IsLeftButtonPressed()) flags |= MK_LBUTTON;
+            if (properties.IsRightButtonPressed()) flags |= MK_RBUTTON;
+            if (properties.IsMiddleButtonPressed()) flags |= MK_MBUTTON;
+            if ((modifiers & Windows::System::VirtualKeyModifiers::Shift) != Windows::System::VirtualKeyModifiers::None) flags |= MK_SHIFT;
+            if ((modifiers & Windows::System::VirtualKeyModifiers::Control) != Windows::System::VirtualKeyModifiers::None) flags |= MK_CONTROL;
+
+            return std::make_tuple(flags, MAKELPARAM(x, y), properties);
+        };
+
+        site.PointerPressed([weak, site, describe](IInspectable const&, Input::PointerRoutedEventArgs const& args) {
+            auto self = weak.get();
+            if (!self || !self->m_emacsWindow)
+            {
+                return;
+            }
+
+            auto [flags, where, properties] = describe(args);
+            UINT message = 0;
+            switch (properties.PointerUpdateKind())
+            {
+            case Microsoft::UI::Input::PointerUpdateKind::LeftButtonPressed: message = WM_LBUTTONDOWN; break;
+            case Microsoft::UI::Input::PointerUpdateKind::RightButtonPressed: message = WM_RBUTTONDOWN; break;
+            case Microsoft::UI::Input::PointerUpdateKind::MiddleButtonPressed: message = WM_MBUTTONDOWN; break;
+            default: return;
+            }
+
+            site.CapturePointer(args.Pointer());
+            PostMessageW(self->m_emacsWindow, message, flags, where);
+            args.Handled(true);
+        });
+
+        site.PointerReleased([weak, site, describe](IInspectable const&, Input::PointerRoutedEventArgs const& args) {
+            auto self = weak.get();
+            if (!self || !self->m_emacsWindow)
+            {
+                return;
+            }
+
+            auto [flags, where, properties] = describe(args);
+            UINT message = 0;
+            switch (properties.PointerUpdateKind())
+            {
+            case Microsoft::UI::Input::PointerUpdateKind::LeftButtonReleased: message = WM_LBUTTONUP; break;
+            case Microsoft::UI::Input::PointerUpdateKind::RightButtonReleased: message = WM_RBUTTONUP; break;
+            case Microsoft::UI::Input::PointerUpdateKind::MiddleButtonReleased: message = WM_MBUTTONUP; break;
+            default: return;
+            }
+
+            PostMessageW(self->m_emacsWindow, message, flags, where);
+            if (!(flags & (MK_LBUTTON | MK_RBUTTON | MK_MBUTTON)))
+            {
+                site.ReleasePointerCapture(args.Pointer());
+            }
+            args.Handled(true);
+        });
+
+        site.PointerMoved([weak, describe](IInspectable const&, Input::PointerRoutedEventArgs const& args) {
+            auto self = weak.get();
+            if (!self || !self->m_emacsWindow)
+            {
+                return;
+            }
+
+            auto [flags, where, properties] = describe(args);
+            PostMessageW(self->m_emacsWindow, WM_MOUSEMOVE, flags, where);
+        });
+
+        // A wheel message says where the pointer is on the screen rather
+        // than on the window, and Emacs turns it into a place on the
+        // frame from its own window. The frame's window is on no screen
+        // and is at its corner, so the place on the frame is what is
+        // given.
+        site.PointerWheelChanged([weak, describe](IInspectable const&, Input::PointerRoutedEventArgs const& args) {
+            auto self = weak.get();
+            if (!self || !self->m_emacsWindow)
+            {
+                return;
+            }
+
+            auto [flags, where, properties] = describe(args);
+            UINT message = properties.IsHorizontalMouseWheel() ? WM_MOUSEHWHEEL : WM_MOUSEWHEEL;
+            WPARAM wheel = MAKEWPARAM(static_cast<WORD>(flags),
+                                      static_cast<WORD>(static_cast<short>(properties.MouseWheelDelta())));
+            PostMessageW(self->m_emacsWindow, message, wheel, where);
+            args.Handled(true);
+        });
     }
 
     // Let the splitters Lisp put between the parts of a layout be
