@@ -125,19 +125,15 @@ namespace urusi
 
     bool EmacsHost::RedirectOutput(std::string& error)
     {
+        // Neither end is inheritable: both are this application's and
+        // Emacs's, and a program Emacs runs has no business with
+        // either.
         HANDLE write = nullptr;
-        SECURITY_ATTRIBUTES inheritable{ sizeof(SECURITY_ATTRIBUTES), nullptr, TRUE };
-        if (!CreatePipe(&m_output, &write, &inheritable, 0))
+        if (!CreatePipe(&m_output, &write, nullptr, 0))
         {
             error = LastErrorText("cannot create the output pipe");
             return false;
         }
-
-        // The reading end is this application's alone. A program Emacs
-        // runs inherits what this process holds, and a program holding
-        // the other end of a pipe it never reads is a pipe that never
-        // ends.
-        SetHandleInformation(m_output, HANDLE_FLAG_INHERIT, 0);
 
         // A packaged application has no console, so Emacs would write
         // its messages nowhere. Both handles go to one pipe: the order
@@ -146,10 +142,10 @@ namespace urusi
         // of the pipe and keeps up with Emacs for as long as it runs.
         //
         // These are the standard handles of the whole process only
-        // until Emacs has taken them: Emacs binds them to file
-        // descriptors of its own and puts the process back as it found
-        // it, because what a process holds here is what the programs it
-        // runs are given, and Emacs runs programs.
+        // until Emacs has taken them: they are the one way to hand
+        // Emacs something before it starts, and it binds them to file
+        // descriptors of its own and clears them. Standard error is the
+        // one it can count on reading back; see w32_emacs_init.
         SetStdHandle(STD_OUTPUT_HANDLE, write);
         SetStdHandle(STD_ERROR_HANDLE, write);
 
