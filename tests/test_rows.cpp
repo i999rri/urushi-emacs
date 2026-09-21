@@ -67,6 +67,15 @@ TEST(RowsTest, NothingMovesWhenNothingChanged)
     EXPECT_EQ(children.moves, 0);
 }
 
+// A line scrolled off the top: the rest move up without being taken
+// apart, one removal and nothing more.
+TEST(RowsTest, RowsOnlyFurtherUpAreNotTakenApart)
+{
+    Children children{ { "a", "b", "c" } };
+    Arrange(children, std::vector<std::string>{ "b", "c" });
+    EXPECT_EQ(children.items, (std::vector<std::string>{ "b", "c" }));
+    EXPECT_EQ(children.moves, 1);
+}
 
 TEST(RowsTest, ANewRowGoesWhereItIsWanted)
 {
@@ -83,3 +92,23 @@ TEST(RowsTest, WhatIsNotWantedIsTakenAway)
     EXPECT_EQ(children.items, (std::vector<std::string>{ "c", "a" }));
 }
 
+// A line scrolled in at the bottom as one goes off the top, on a screen
+// of many lines: two changes, not every line moved.
+TEST(RowsTest, ScrollingByALineMovesTwoRows)
+{
+    Children children;
+    std::vector<std::string> wanted;
+    for (int i = 0; i < 40; ++i)
+    {
+        children.items.push_back(std::to_string(i));
+        if (i > 0)
+        {
+            wanted.push_back(std::to_string(i));
+        }
+    }
+    wanted.push_back("40");
+
+    Arrange(children, wanted);
+    EXPECT_EQ(children.items, wanted);
+    EXPECT_EQ(children.moves, 2);
+}

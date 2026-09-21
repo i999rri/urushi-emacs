@@ -76,6 +76,27 @@ namespace urusi
     template <typename List, typename Item>
     void Arrange(List& children, std::vector<Item> const& wanted)
     {
+        // What is not wanted goes first. Left in, a row gone from the
+        // top would stand in the place of the one after it, and every
+        // row below would be taken out and put back to get past it.
+        for (uint32_t i = children.Size(); i-- > 0;)
+        {
+            auto child = children.At(i);
+            bool keep = false;
+            for (auto const& item : wanted)
+            {
+                if (item == child)
+                {
+                    keep = true;
+                    break;
+                }
+            }
+            if (!keep)
+            {
+                children.RemoveAt(i);
+            }
+        }
+
         for (uint32_t i = 0; i < wanted.size(); ++i)
         {
             if (i < children.Size() && children.At(i) == wanted[i])
