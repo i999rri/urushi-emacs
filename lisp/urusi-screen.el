@@ -298,6 +298,12 @@ its characters go; HEIGHT is how tall the line is."
                 :LineHeight ,height
                 :LineStackingStrategy "BlockLineHeight"
                 :CharacterSpacing ,(urusi-screen--spacing family size advance)
+                ;; The characters Emacs put one to a column stay one to a
+                ;; column.  Whether they join is Emacs's to decide, with
+                ;; `auto-composition-mode', and a font that joins them
+                ;; here would draw what Emacs did not lay out.
+                :Typography.StandardLigatures nil
+                :Typography.ContextualAlternates nil
                 ,@(when foreground `(:Foreground ,foreground))
                 ,@(when (memq weight '(bold semi-bold ultra-bold extra-bold))
                     '(:FontWeight "Bold"))
