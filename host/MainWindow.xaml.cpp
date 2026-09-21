@@ -578,59 +578,53 @@ namespace winrt::urusi_emacs::implementation
             return frame ? frame : (self ? self->m_emacsWindow : nullptr);
         };
 
-        // Where the pointer is on SITE, and what is held down.
-        auto describe = [site](Input::PointerRoutedEventArgs const& args) {
+        // Post what the pointer did, and take or let go of it.
+        auto pass = [site, target](urusi::PointerKind kind,
+                                   Input::PointerRoutedEventArgs const& args) {
+            using Microsoft::UI::Input::PointerUpdateKind;
             using Windows::System::VirtualKeyModifiers;
 
-            auto point = args.GetCurrentPoint(site);
-            auto properties = point.Properties();
-            auto modifiers = args.KeyModifiers();
-
-            urusi::PointerState pointer;
-            pointer.x = point.Position().X;
-            pointer.y = point.Position().Y;
-            pointer.scale = site.XamlRoot() ? site.XamlRoot().RasterizationScale() : 1.0;
-            pointer.left = properties.IsLeftButtonPressed();
-            pointer.right = properties.IsRightButtonPressed();
-            pointer.middle = properties.IsMiddleButtonPressed();
-            pointer.shift = (modifiers & VirtualKeyModifiers::Shift) != VirtualKeyModifiers::None;
-            pointer.control = (modifiers & VirtualKeyModifiers::Control) != VirtualKeyModifiers::None;
-            return std::make_pair(pointer, properties);
-        };
-
-        // Which button a press or release is of.
-        auto button = [](Microsoft::UI::Input::PointerPointProperties const& properties) {
-            using Microsoft::UI::Input::PointerUpdateKind;
-
-            switch (properties.PointerUpdateKind())
-            {
-            case PointerUpdateKind::LeftButtonPressed:
-            case PointerUpdateKind::LeftButtonReleased:
-                return urusi::PointerButton::Left;
-            case PointerUpdateKind::RightButtonPressed:
-            case PointerUpdateKind::RightButtonReleased:
-                return urusi::PointerButton::Right;
-            case PointerUpdateKind::MiddleButtonPressed:
-            case PointerUpdateKind::MiddleButtonReleased:
-                return urusi::PointerButton::Middle;
-            default:
-                return urusi::PointerButton::None;
-            }
-        };
-
-        // Post what EVENT comes to, and take or let go of the pointer.
-        auto pass = [site, describe, button, target](urusi::PointerEvent event,
-                                                      Input::PointerRoutedEventArgs const& args) {
             HWND window = target();
             if (!window)
             {
                 return;
             }
 
-            auto [pointer, properties] = describe(args);
-            auto message = urusi::TranslatePointer(event, pointer, button(properties),
-                                                   properties.MouseWheelDelta(),
-                                                   properties.IsHorizontalMouseWheel());
+            auto point = args.GetCurrentPoint(site);
+            auto properties = point.Properties();
+            auto modifiers = args.KeyModifiers();
+
+            urusi::PointerEvent event;
+            event.kind = kind;
+            event.x = point.Position().X;
+            event.y = point.Position().Y;
+            event.left = properties.IsLeftButtonPressed();
+            event.right = properties.IsRightButtonPressed();
+            event.middle = properties.IsMiddleButtonPressed();
+            event.shift = (modifiers & VirtualKeyModifiers::Shift) != VirtualKeyModifiers::None;
+            event.control = (modifiers & VirtualKeyModifiers::Control) != VirtualKeyModifiers::None;
+            event.wheel = properties.MouseWheelDelta();
+            event.horizontal = properties.IsHorizontalMouseWheel();
+            switch (properties.PointerUpdateKind())
+            {
+            case PointerUpdateKind::LeftButtonPressed:
+            case PointerUpdateKind::LeftButtonReleased:
+                event.button = urusi::PointerButton::Left;
+                break;
+            case PointerUpdateKind::RightButtonPressed:
+            case PointerUpdateKind::RightButtonReleased:
+                event.button = urusi::PointerButton::Right;
+                break;
+            case PointerUpdateKind::MiddleButtonPressed:
+            case PointerUpdateKind::MiddleButtonReleased:
+                event.button = urusi::PointerButton::Middle;
+                break;
+            default:
+                break;
+            }
+
+            double scale = site.XamlRoot() ? site.XamlRoot().RasterizationScale() : 1.0;
+            auto message = urusi::TranslatePointer(event, scale);
             if (!message)
             {
                 return;
@@ -645,44 +639,31 @@ namespace winrt::urusi_emacs::implementation
             {
                 site.ReleasePointerCapture(args.Pointer());
             }
-            if (event != urusi::PointerEvent::Moved)
+            if (kind != urusi::PointerKind::Moved)
             {
                 args.Handled(true);
             }
         };
 
         site.PointerPressed([pass](IInspectable const&, Input::PointerRoutedEventArgs const& args) {
-            pass(urusi::PointerEvent::Pressed, args);
+            pass(urusi::PointerKind::Pressed, args);
         });
         site.PointerReleased([pass](IInspectable const&, Input::PointerRoutedEventArgs const& args) {
-            pass(urusi::PointerEvent::Released, args);
+            pass(urusi::PointerKind::Released, args);
         });
         site.PointerMoved([pass](IInspectable const&, Input::PointerRoutedEventArgs const& args) {
-            pass(urusi::PointerEvent::Moved, args);
+            pass(urusi::PointerKind::Moved, args);
         });
         site.PointerWheelChanged([pass](IInspectable const&, Input::PointerRoutedEventArgs const& args) {
-            pass(urusi::PointerEvent::Wheel, args);
+            pass(urusi::PointerKind::Wheel, args);
         });
     }
 
     // Let the splitters Lisp put between the parts of a layout be
-    // dragged. A splitter is named urusi-splitter:DIRECTION:BEFORE:AFTER,
-    // and sits in a cell of its own between the cells of the parts
-    // either side of it, in the grid they are in. Dragging it makes the
-    // part with a size of its own bigger or smaller and leaves the one
-    // that shares what is left to take the rest; if neither has one,
-    // the one before is given one. Where it is let go is Lisp's to
-    // remember, and it is told.
+    // dragged: each element named as one becomes a urusi::Splitter.
+    // Where one is let go is Lisp's to remember, and it is told.
     void MainWindow::AttachSplitters(UIElement const& root)
     {
-        struct Drag
-        {
-            bool active{ false };
-            double start{ 0 };
-            double before{ 0 };
-            double after{ 0 };
-        };
-
         auto weak = get_weak();
         std::vector<UIElement> pending{ root };
 
@@ -703,125 +684,39 @@ namespace winrt::urusi_emacs::implementation
                 pending.push_back(border.Child());
             }
 
-            auto splitter = element.try_as<FrameworkElement>();
-            std::wstring name = splitter ? std::wstring{ splitter.Name() } : L"";
-            auto parsed = urusi::ParseSplitter(name);
-            if (!parsed)
+            auto named = element.try_as<FrameworkElement>();
+            if (!named)
             {
                 continue;
             }
 
-            bool horizontal = parsed->horizontal;
-            auto drag = std::make_shared<Drag>();
+            hstring name = named.Name();
+            urusi::XamlSplitter::Attach(named, {
+                .started = [weak] {
+                    if (auto self = weak.get())
+                    {
+                        self->m_splitting = true;
+                    }
+                },
+                .finished = [weak, name](double before, double after) {
+                    auto self = weak.get();
+                    if (!self)
+                    {
+                        return;
+                    }
 
-            // The cursor says it can be dragged, and which way. It is a
-            // protected property, meant for a control to set of itself,
-            // and this one is set from outside.
-            splitter.as<IUIElementProtected>().ProtectedCursor(
-                Microsoft::UI::Input::InputSystemCursor::Create(
-                    horizontal ? Microsoft::UI::Input::InputSystemCursorShape::SizeWestEast
-                               : Microsoft::UI::Input::InputSystemCursorShape::SizeNorthSouth));
-
-            // The grid the splitter is in, and which cell of it is the
-            // splitter's; the parts are in the cells either side.
-            auto cells = [splitter, horizontal]() {
-                auto grid = splitter.Parent().try_as<Controls::Grid>();
-                int index = horizontal ? Controls::Grid::GetColumn(splitter)
-                                       : Controls::Grid::GetRow(splitter);
-                return std::make_tuple(grid, index);
-            };
-            auto lengths = [horizontal](Controls::Grid const& grid, int index) {
-                if (horizontal)
-                {
-                    return std::make_pair(grid.ColumnDefinitions().GetAt(index - 1).ActualWidth(),
-                                          grid.ColumnDefinitions().GetAt(index + 1).ActualWidth());
-                }
-                return std::make_pair(grid.RowDefinitions().GetAt(index - 1).ActualHeight(),
-                                      grid.RowDefinitions().GetAt(index + 1).ActualHeight());
-            };
-
-            splitter.PointerPressed([weak, splitter, horizontal, drag, cells, lengths](
-                                        IInspectable const&, Input::PointerRoutedEventArgs const& args) {
-                auto self = weak.get();
-                auto [grid, index] = cells();
-                if (!self || !grid || index < 1)
-                {
-                    return;
-                }
-
-                auto point = args.GetCurrentPoint(grid).Position();
-                drag->active = true;
-                drag->start = horizontal ? point.X : point.Y;
-                std::tie(drag->before, drag->after) = lengths(grid, index);
-                self->m_splitting = true;
-                splitter.CapturePointer(args.Pointer());
-                args.Handled(true);
-            });
-
-            splitter.PointerMoved([horizontal, drag, cells](
-                                      IInspectable const&, Input::PointerRoutedEventArgs const& args) {
-                auto [grid, index] = cells();
-                if (!drag->active || !grid)
-                {
-                    return;
-                }
-
-                auto point = args.GetCurrentPoint(grid).Position();
-                double moved = (horizontal ? point.X : point.Y) - drag->start;
-                GridLength pixels{ 0, GridUnitType::Pixel };
-                auto shares = [](GridLength const& value) { return value.GridUnitType == GridUnitType::Star; };
-
-                if (horizontal)
-                {
-                    auto before = grid.ColumnDefinitions().GetAt(index - 1);
-                    auto after = grid.ColumnDefinitions().GetAt(index + 1);
-                    auto resize = urusi::DragSplitter(drag->before, drag->after, moved,
-                                                      shares(before.Width()), shares(after.Width()));
-                    pixels.Value = resize.length;
-                    (resize.before ? before : after).Width(pixels);
-                }
-                else
-                {
-                    auto before = grid.RowDefinitions().GetAt(index - 1);
-                    auto after = grid.RowDefinitions().GetAt(index + 1);
-                    auto resize = urusi::DragSplitter(drag->before, drag->after, moved,
-                                                      shares(before.Height()), shares(after.Height()));
-                    pixels.Value = resize.length;
-                    (resize.before ? before : after).Height(pixels);
-                }
-                args.Handled(true);
-            });
-
-            auto finish = [weak, splitter, drag, cells, lengths, name](
-                              IInspectable const&, Input::PointerRoutedEventArgs const& args) {
-                auto self = weak.get();
-                auto [grid, index] = cells();
-                if (!self || !drag->active)
-                {
-                    return;
-                }
-
-                drag->active = false;
-                self->m_splitting = false;
-                splitter.ReleasePointerCapture(args.Pointer());
-
-                JsonObject details;
-                details.SetNamedValue(L"name", JsonValue::CreateStringValue(name));
-                if (grid)
-                {
-                    auto [before, after] = lengths(grid, index);
+                    self->m_splitting = false;
+                    JsonObject details;
+                    details.SetNamedValue(L"name", JsonValue::CreateStringValue(name));
                     details.SetNamedValue(L"before", JsonValue::CreateNumberValue(std::round(before)));
                     details.SetNamedValue(L"after", JsonValue::CreateNumberValue(std::round(after)));
-                }
-                self->SendHostEvent(L"splitter", details);
+                    self->SendHostEvent(L"splitter", details);
 
-                // The frame was left the size it was while the splitter
-                // moved, and is given the size it has now.
-                self->SizeEmacsFrame();
-                args.Handled(true);
-            };
-            splitter.PointerReleased(finish);
-            splitter.PointerCaptureLost(finish);
+                    // The frame was left the size it was while the
+                    // splitter moved, and is given the size it has now.
+                    self->SizeEmacsFrame();
+                },
+            });
         }
     }
 

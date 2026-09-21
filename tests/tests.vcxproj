@@ -72,6 +72,7 @@
     <ClInclude Include="..\host\ImeBuffer.h" />
     <ClInclude Include="..\host\KeyTranslation.h" />
     <ClInclude Include="..\host\MouseTranslation.h" />
+    <ClInclude Include="..\host\Pointer.h" />
     <ClInclude Include="..\host\Rows.h" />
     <ClInclude Include="..\host\Session.h" />
     <ClInclude Include="..\host\Splitter.h" />

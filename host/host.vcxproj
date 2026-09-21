@@ -142,7 +142,9 @@
     <ClInclude Include="MouseTranslation.h" />
     <ClInclude Include="Rows.h" />
     <ClInclude Include="Session.h" />
+    <ClInclude Include="Pointer.h" />
     <ClInclude Include="Splitter.h" />
+    <ClInclude Include="XamlSplitter.h" />
     <ClInclude Include="Utf.h" />
     <ClInclude Include="HostCalls.h" />
     <ClInclude Include="EmacsHost.h" />
@@ -164,6 +166,7 @@
       <DependentUpon>MainWindow.xaml</DependentUpon>
     </ClCompile>
     <ClCompile Include="Composition.cpp" />
+    <ClCompile Include="XamlSplitter.cpp" />
     <ClCompile Include="HostCalls.cpp" />
     <ClCompile Include="EmacsHost.cpp" />
     <ClCompile Include="HostApi.cpp" />

@@ -51,6 +51,9 @@
     <ClCompile Include="Composition.cpp">
       <Filter>Input</Filter>
     </ClCompile>
+    <ClCompile Include="XamlSplitter.cpp">
+      <Filter>Window</Filter>
+    </ClCompile>
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -100,6 +103,12 @@
       <Filter>Window</Filter>
     </ClInclude>
     <ClInclude Include="Splitter.h">
+      <Filter>Window</Filter>
+    </ClInclude>
+    <ClInclude Include="Pointer.h">
+      <Filter>Input</Filter>
+    </ClInclude>
+    <ClInclude Include="XamlSplitter.h">
       <Filter>Window</Filter>
     </ClInclude>
     <ClInclude Include="Session.h">

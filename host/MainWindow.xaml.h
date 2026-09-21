@@ -9,7 +9,7 @@
 #include "MouseTranslation.h"
 #include "FrameSizes.h"
 #include "Rows.h"
-#include "Splitter.h"
+#include "XamlSplitter.h"
 
 #include <chrono>
 #include <map>
