@@ -78,6 +78,9 @@
     <ClInclude Include="Composition.h">
       <Filter>Input</Filter>
     </ClInclude>
+    <ClInclude Include="Engagement.h">
+      <Filter>Input</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Manifest Include="app.manifest">

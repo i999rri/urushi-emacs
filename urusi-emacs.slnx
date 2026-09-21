@@ -36,4 +36,8 @@
   <Project Path="host/host.vcxproj" Id="3220ffce-015c-48f0-8f85-c40af85ba8c5">
     <Platform Solution="*|x86" Project="Win32" />
   </Project>
+  <Project Path="tests/tests.vcxproj" Id="4d8e2a91-6c3f-4b57-9e0d-1a7c5f2b8e36">
+    <Build Solution="*|x86" Project="false" />
+    <Build Solution="*|ARM64" Project="false" />
+  </Project>
 </Solution>

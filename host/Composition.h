@@ -3,6 +3,8 @@
 #include <winrt/Microsoft.UI.Xaml.h>
 #include <winrt/Windows.UI.Text.Core.h>
 
+#include "Engagement.h"
+
 #include <functional>
 #include <string>
 
@@ -55,6 +57,7 @@ namespace urusi
 
     private:
         void Bind();
+        void Perform(Engagement::Action action);
         void Settle();
         void Reset();
         void Say(std::string const& what);
@@ -73,8 +76,9 @@ namespace urusi
         std::wstring m_text;
         bool m_composing{ false };
 
-        // Whether the context has been told the focus is here.
-        bool m_entered{ false };
+        // What the context has been told of the focus, and what the
+        // window wants it told.
+        Engagement m_engagement;
         winrt::Windows::Foundation::Rect m_caret{ 0, 0, 2, 16 };
     };
 }

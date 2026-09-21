@@ -22,6 +22,7 @@ namespace urusi
         m_context.InputPaneDisplayPolicy(CoreTextInputPaneDisplayPolicy::Manual);
         m_context.InputScope(CoreTextInputScope::Default);
         Bind();
+        Perform(m_engagement.ContextCreated());
 
         // The input method only talks to a context that has the focus,
         // and turning it on and off is part of that talk, from a key or
@@ -34,24 +35,23 @@ namespace urusi
 
     void Composition::Focus(bool enter)
     {
-        // Said once each way: the input method ends what it is composing
-        // when told again that the focus has come, as though it had
-        // gone and come back.
-        if (!m_context || enter == m_entered)
-        {
-            return;
-        }
-        m_entered = enter;
+        Perform(m_engagement.Want(enter));
+    }
 
-        if (enter)
+    void Composition::Perform(Engagement::Action action)
+    {
+        switch (action)
         {
+        case Engagement::Action::Enter:
             m_context.NotifyFocusEnter();
             Say("focus enter");
-        }
-        else
-        {
+            break;
+        case Engagement::Action::Leave:
             m_context.NotifyFocusLeave();
             Say("focus leave");
+            break;
+        case Engagement::Action::None:
+            break;
         }
     }
 
@@ -203,7 +203,7 @@ namespace urusi
         m_context.FocusRemoved([this](CoreTextEditContext const&, auto&&) {
             // Taken away by the input method, not by us: the next focus
             // there is to be told of again.
-            m_entered = false;
+            m_engagement.Removed();
             m_composing = false;
             Say("focus removed");
             Reset();
