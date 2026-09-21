@@ -348,15 +348,19 @@ it blinks; what is being composed is drawn all the same."
               (frame (window-frame window))
               (color (or (urusi-screen-color (face-attribute 'cursor :background frame t))
                          (urusi-screen-color (face-attribute 'default :foreground frame t)))))
+    ;; As tall as the text and where the text is: the space between lines
+    ;; is not the line's text, and a cursor through it touches the next.
     (let* ((scale (float urusi-scale))
+           (spacing (or (plist-get cursor :line-spacing) 0))
+           (above (or (plist-get cursor :line-spacing-above) 0))
            (left (/ (plist-get cursor :x) scale))
-           (top (/ (plist-get cursor :y) scale))
-           (height (/ (plist-get cursor :height) scale)))
+           (top (/ (+ (plist-get cursor :y) above) scale))
+           (height (/ (- (plist-get cursor :height) spacing) scale)))
       (let ((origin (urusi-screen--window-origin window)))
         (urusi-screen--tell-caret (+ (car origin) (plist-get cursor :x))
-                                  (+ (cdr origin) (plist-get cursor :y))
+                                  (+ (cdr origin) (plist-get cursor :y) above)
                                   (plist-get cursor :width)
-                                  (plist-get cursor :height)))
+                                  (- (plist-get cursor :height) spacing)))
       `(Canvas :key "cursor"
                :IsHitTestVisible "False"
                (Rectangle :Canvas.Left ,left
