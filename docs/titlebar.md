@@ -39,12 +39,14 @@ A title bar like the one Windows draws, 32 pixels tall, in the colours of a face
 (defvar my-titlebar-height 32
   "How tall my title bar is, in the pixels XAML counts in.")
 
-(defun my-titlebar--color (attribute)
-  (urusi-screen-color (face-attribute 'my-titlebar attribute nil t)))
+(defun my-titlebar--color (attribute frame)
+  (urusi-screen-color (face-attribute 'my-titlebar attribute frame t)))
 
-(defun my-titlebar (_frame)
-  (let ((background (my-titlebar--color :background))
-        (foreground (my-titlebar--color :foreground)))
+(defun my-titlebar (frame)
+  ;; The colours of FRAME, the one the window shows: a child frame, such
+  ;; as a minibuffer floating over it, can have colours of its own.
+  (let ((background (my-titlebar--color :background frame))
+        (foreground (my-titlebar--color :foreground frame)))
     `(Grid :Name "urusi-titlebar"
            :Height ,my-titlebar-height
            ,@(when background `(:Background ,background))
