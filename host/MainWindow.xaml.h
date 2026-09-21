@@ -6,6 +6,7 @@
 #include "HostApi.h"
 #include "HostCalls.h"
 #include "KeyTranslation.h"
+#include "MouseTranslation.h"
 #include "Rows.h"
 
 #include <chrono>

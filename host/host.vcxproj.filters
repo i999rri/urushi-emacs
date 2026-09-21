@@ -90,6 +90,9 @@
     <ClInclude Include="KeyTranslation.h">
       <Filter>Input</Filter>
     </ClInclude>
+    <ClInclude Include="MouseTranslation.h">
+      <Filter>Input</Filter>
+    </ClInclude>
     <ClInclude Include="Rows.h">
       <Filter>Window</Filter>
     </ClInclude>

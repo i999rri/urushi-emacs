@@ -566,14 +566,7 @@ namespace winrt::urusi_emacs::implementation
     }
 
     // Pass the mouse on to Emacs over SITE, the element the frame is
-    // shown in, as the messages Windows would have sent the frame's own
-    // window: the buttons, the wheel, and where the pointer is, counted
-    // from the corner of the frame in the pixels of the screen. Emacs
-    // makes of them what it makes of any mouse, a click that moves the
-    // point, a drag that selects, a wheel that scrolls.
-    //
-    // The pointer is captured while a button is down, so that a drag
-    // that leaves the frame is followed to where it ends.
+    // shown in, as the messages urusi::TranslatePointer makes of it.
     void MainWindow::AttachMouse(FrameworkElement const& site, HWND frame)
     {
         auto weak = get_weak();
@@ -585,103 +578,90 @@ namespace winrt::urusi_emacs::implementation
             return frame ? frame : (self ? self->m_emacsWindow : nullptr);
         };
 
-        // What Emacs is told about a pointer: where it is on the frame,
-        // and which buttons and modifier keys are down, as the flags of
-        // a mouse message carry them.
+        // Where the pointer is on SITE, and what is held down.
         auto describe = [site](Input::PointerRoutedEventArgs const& args) {
-            auto point = args.GetCurrentPoint(site);
-            double scale = site.XamlRoot() ? site.XamlRoot().RasterizationScale() : 1.0;
-            int x = static_cast<int>(std::lround(point.Position().X * scale));
-            int y = static_cast<int>(std::lround(point.Position().Y * scale));
+            using Windows::System::VirtualKeyModifiers;
 
+            auto point = args.GetCurrentPoint(site);
             auto properties = point.Properties();
             auto modifiers = args.KeyModifiers();
-            WPARAM flags = 0;
-            if (properties.IsLeftButtonPressed()) flags |= MK_LBUTTON;
-            if (properties.IsRightButtonPressed()) flags |= MK_RBUTTON;
-            if (properties.IsMiddleButtonPressed()) flags |= MK_MBUTTON;
-            if ((modifiers & Windows::System::VirtualKeyModifiers::Shift) != Windows::System::VirtualKeyModifiers::None) flags |= MK_SHIFT;
-            if ((modifiers & Windows::System::VirtualKeyModifiers::Control) != Windows::System::VirtualKeyModifiers::None) flags |= MK_CONTROL;
 
-            return std::make_tuple(flags, MAKELPARAM(x, y), properties);
+            urusi::PointerState pointer;
+            pointer.x = point.Position().X;
+            pointer.y = point.Position().Y;
+            pointer.scale = site.XamlRoot() ? site.XamlRoot().RasterizationScale() : 1.0;
+            pointer.left = properties.IsLeftButtonPressed();
+            pointer.right = properties.IsRightButtonPressed();
+            pointer.middle = properties.IsMiddleButtonPressed();
+            pointer.shift = (modifiers & VirtualKeyModifiers::Shift) != VirtualKeyModifiers::None;
+            pointer.control = (modifiers & VirtualKeyModifiers::Control) != VirtualKeyModifiers::None;
+            return std::make_pair(pointer, properties);
         };
 
-        site.PointerPressed([weak, site, describe, target](IInspectable const&, Input::PointerRoutedEventArgs const& args) {
-            auto self = weak.get();
-            if (!self || !target())
+        // Which button a press or release is of.
+        auto button = [](Microsoft::UI::Input::PointerPointProperties const& properties) {
+            using Microsoft::UI::Input::PointerUpdateKind;
+
+            switch (properties.PointerUpdateKind())
+            {
+            case PointerUpdateKind::LeftButtonPressed:
+            case PointerUpdateKind::LeftButtonReleased:
+                return urusi::PointerButton::Left;
+            case PointerUpdateKind::RightButtonPressed:
+            case PointerUpdateKind::RightButtonReleased:
+                return urusi::PointerButton::Right;
+            case PointerUpdateKind::MiddleButtonPressed:
+            case PointerUpdateKind::MiddleButtonReleased:
+                return urusi::PointerButton::Middle;
+            default:
+                return urusi::PointerButton::None;
+            }
+        };
+
+        // Post what EVENT comes to, and take or let go of the pointer.
+        auto pass = [site, describe, button, target](urusi::PointerEvent event,
+                                                      Input::PointerRoutedEventArgs const& args) {
+            HWND window = target();
+            if (!window)
             {
                 return;
             }
 
-            auto [flags, where, properties] = describe(args);
-            UINT message = 0;
-            switch (properties.PointerUpdateKind())
-            {
-            case Microsoft::UI::Input::PointerUpdateKind::LeftButtonPressed: message = WM_LBUTTONDOWN; break;
-            case Microsoft::UI::Input::PointerUpdateKind::RightButtonPressed: message = WM_RBUTTONDOWN; break;
-            case Microsoft::UI::Input::PointerUpdateKind::MiddleButtonPressed: message = WM_MBUTTONDOWN; break;
-            default: return;
-            }
-
-            site.CapturePointer(args.Pointer());
-            PostMessageW(target(), message, flags, where);
-            args.Handled(true);
-        });
-
-        site.PointerReleased([weak, site, describe, target](IInspectable const&, Input::PointerRoutedEventArgs const& args) {
-            auto self = weak.get();
-            if (!self || !target())
+            auto [pointer, properties] = describe(args);
+            auto message = urusi::TranslatePointer(event, pointer, button(properties),
+                                                   properties.MouseWheelDelta(),
+                                                   properties.IsHorizontalMouseWheel());
+            if (!message)
             {
                 return;
             }
 
-            auto [flags, where, properties] = describe(args);
-            UINT message = 0;
-            switch (properties.PointerUpdateKind())
+            if (message->capture)
             {
-            case Microsoft::UI::Input::PointerUpdateKind::LeftButtonReleased: message = WM_LBUTTONUP; break;
-            case Microsoft::UI::Input::PointerUpdateKind::RightButtonReleased: message = WM_RBUTTONUP; break;
-            case Microsoft::UI::Input::PointerUpdateKind::MiddleButtonReleased: message = WM_MBUTTONUP; break;
-            default: return;
+                site.CapturePointer(args.Pointer());
             }
-
-            PostMessageW(target(), message, flags, where);
-            if (!(flags & (MK_LBUTTON | MK_RBUTTON | MK_MBUTTON)))
+            PostMessageW(window, message->message, message->wParam, message->lParam);
+            if (message->release)
             {
                 site.ReleasePointerCapture(args.Pointer());
             }
-            args.Handled(true);
-        });
-
-        site.PointerMoved([weak, describe, target](IInspectable const&, Input::PointerRoutedEventArgs const& args) {
-            auto self = weak.get();
-            if (!self || !target())
+            if (event != urusi::PointerEvent::Moved)
             {
-                return;
+                args.Handled(true);
             }
+        };
 
-            auto [flags, where, properties] = describe(args);
-            PostMessageW(target(), WM_MOUSEMOVE, flags, where);
+        site.PointerPressed([pass](IInspectable const&, Input::PointerRoutedEventArgs const& args) {
+            pass(urusi::PointerEvent::Pressed, args);
         });
-
-        // A wheel message says where the pointer is on the screen rather
-        // than on the window, and Emacs turns it into a place on the
-        // frame from its own window. The frame's window is on no screen
-        // and is at its corner, so the place on the frame is what is
-        // given.
-        site.PointerWheelChanged([weak, describe, target](IInspectable const&, Input::PointerRoutedEventArgs const& args) {
-            auto self = weak.get();
-            if (!self || !target())
-            {
-                return;
-            }
-
-            auto [flags, where, properties] = describe(args);
-            UINT message = properties.IsHorizontalMouseWheel() ? WM_MOUSEHWHEEL : WM_MOUSEWHEEL;
-            WPARAM wheel = MAKEWPARAM(static_cast<WORD>(flags),
-                                      static_cast<WORD>(static_cast<short>(properties.MouseWheelDelta())));
-            PostMessageW(target(), message, wheel, where);
-            args.Handled(true);
+        site.PointerReleased([pass](IInspectable const&, Input::PointerRoutedEventArgs const& args) {
+            pass(urusi::PointerEvent::Released, args);
+        });
+        site.PointerMoved([pass](IInspectable const&, Input::PointerRoutedEventArgs const& args) {
+            pass(urusi::PointerEvent::Moved, args);
+        });
+        site.PointerWheelChanged([pass](IInspectable const&, Input::PointerRoutedEventArgs const& args) {
+            pass(urusi::PointerEvent::Wheel, args);
         });
     }
 
