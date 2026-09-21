@@ -492,7 +492,9 @@ stacks them: the one shown last, or raised, on top, and the shadow of
 one under it falling behind it rather than on it."
   (cl-remove-if-not (lambda (child)
                       (and (eq (frame-parent child) frame)
-                           (eq (frame-visible-p child) t)))
+                           (eq (frame-visible-p child) t)
+                           ;; The frame of a panel is drawn in its panel.
+                           (not (frame-parameter child 'urusi-panel))))
                     (reverse (frame-list-z-order frame))))
 
 (defun urusi-screen--border-color (frame)
@@ -620,12 +622,27 @@ frame they were built for."
   (or (urusi-screen--frame-part-p part)
       (get (car part) 'urusi-screen-fill)))
 
-(defun urusi-screen-frame-site (frame)
+(defvar urusi-screen--sites (make-hash-table :test #'equal)
+  "The frame shown where each name says, other than the root frame's.")
+
+(defun urusi-screen-frame-site (frame &optional name)
   "Return the windows of FRAME in the element the host sizes the frame by.
 It is named urusi-frame: the host makes the frame as big as it is, so
 what else is on the screen is room the frame does not have, and Emacs
-lays its text out to fit.  There is to be one of it on the screen."
-  `(Grid :Name "urusi-frame" ,(urusi-screen-windows frame)))
+lays its text out to fit.  There is to be one of it on the screen.
+
+A frame of its own shown somewhere else on the screen, as the frame of
+a panel is, is given a NAME, a string, and is put in an element named
+urusi-frame:NAME, which the host sizes it by in the same way.  The
+element carries the number of the frame's window, which the host sends
+the mouse to."
+  (if (not name)
+      `(Grid :Name "urusi-frame" ,(urusi-screen-windows frame))
+    (puthash name frame urusi-screen--sites)
+    `(Grid :Name ,(concat "urusi-frame:" name)
+           :Tag ,(frame-parameter frame 'window-id)
+           :Background "Transparent"
+           ,(urusi-screen-windows frame))))
 
 (defun urusi-screen--in-row (tree row)
   "Return TREE placed in ROW of the grid around it."
@@ -676,6 +693,9 @@ parts take the room they need."
 Long enough to see what a keystroke costs, and then quiet."
   :type 'integer)
 
+(defvar urusi-screen--rooms (make-hash-table :test #'eq)
+  "How much room the host has for each frame, as (WIDTH . HEIGHT) in pixels.")
+
 (defvar urusi-screen--rendering nil
   "Non-nil while the screen is being built.
 Building it has Emacs redisplay first, and that is not a change to show.")
@@ -688,7 +708,8 @@ Building it has Emacs redisplay first, and that is not a change to show.")
 
 (defun urusi-screen--render ()
   "Show the screen in the host window, saying how long it took at first."
-  (urusi-screen--fit-frame (urusi-root-frame))
+  (maphash (lambda (frame _room) (urusi-screen--fit-frame frame))
+           urusi-screen--rooms)
   (if (<= urusi-screen-timings urusi-screen--timed)
       (progn (redisplay)
              (urusi-render (urusi-screen-tree)))
@@ -764,9 +785,6 @@ no command between, so nothing else would draw it."
     (remove-hook 'urusi-message-hook #'urusi-screen--message)
     (remove-hook 'urusi-host-event-functions #'urusi-screen--window-changed)))
 
-(defvar urusi-screen--room nil
-  "How much room the host has for the frame, as (WIDTH . HEIGHT) in pixels.")
-
 (defun urusi-screen--fit-frame (frame)
   "Make FRAME as big as the room the host has for it, if it is not.
 Return non-nil if it had to be resized.
@@ -777,7 +795,8 @@ off first.  What is around it can change afterwards, as when the
 fringes are made wider, and Emacs then keeps the text as big as it was
 and makes the frame bigger, past the room it has; which is why this is
 asked again every time the screen is drawn."
-  (when-let* ((room urusi-screen--room)
+  (when-let* (((frame-live-p frame))
+              (room (gethash frame urusi-screen--rooms))
               ((not (and (= (car room) (frame-native-width frame))
                          (= (cdr room) (frame-native-height frame))))))
     (set-frame-size frame
@@ -793,11 +812,16 @@ The frame's own window is on no screen and its size means nothing to
 Windows, so the size comes as a message rather than as a window being
 resized.  Which also means it cannot come back: nothing here moves a
 window that something else would then tell us about."
-  (let ((width (plist-get message :width))
-        (height (plist-get message :height)))
-    (when (and (numberp width) (numberp height) (< 0 width) (< 0 height))
-      (setq urusi-screen--room (cons (truncate width) (truncate height)))
-      (urusi-screen--fit-frame (urusi-root-frame))
+  (let* ((width (plist-get message :width))
+         (height (plist-get message :height))
+         (name (plist-get message :frame))
+         (frame (if name
+                    (gethash name urusi-screen--sites)
+                  (urusi-root-frame))))
+    (when (and (frame-live-p frame)
+               (numberp width) (numberp height) (< 0 width) (< 0 height))
+      (puthash frame (cons (truncate width) (truncate height)) urusi-screen--rooms)
+      (urusi-screen--fit-frame frame)
       (urusi-forget)
       (urusi-screen-render))))
 

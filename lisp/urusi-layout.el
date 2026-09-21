@@ -34,12 +34,25 @@
 ;; What a panel holds is its :content:
 ;;
 ;;   emacs       the Emacs frame, windows and all; there is to be one
+;;   frame       an Emacs frame of the panel's own, showing the :buffer
+;;               it names at first, or *scratch*
 ;;   nil         nothing, a space for the sake of a space
 ;;   a function  called with the frame, returning a tree for `urusi-render'
 ;;   a tree      put there as it is
 ;;
 ;; and :background, :padding, :margin and :corner-radius, if it has
 ;; them, are the panel's own.
+;;
+;; A panel with a frame of its own is where a buffer can be sent, with
+;; `urusi-layout-display-in-panel' in `display-buffer-alist':
+;;
+;;   (add-to-list 'display-buffer-alist
+;;                '("\\*compilation\\*"
+;;                  (urusi-layout-display-in-panel)
+;;                  (panel . output)))
+;;
+;; Clicking in it selects it, and what is typed goes to it, as it does to
+;; any window that is selected.
 
 ;;; Code:
 
@@ -134,11 +147,61 @@ NODE defaults to the whole of `urusi-layout'."
   (let ((id (plist-get (urusi-layout--properties node) :id)))
     (if id (symbol-name id) "-")))
 
-(defun urusi-layout--content (content frame)
-  "Return CONTENT, what a panel holds, as a tree, for FRAME."
+(defvar urusi-layout--frames (make-hash-table :test #'eq)
+  "The frame of each panel that has one of its own, by the panel's :id.")
+
+(defvar urusi-layout-make-frame-functions nil
+  "Functions to run when the frame of a panel has been made.
+Each is called with the frame and the :id of its panel, and can make it
+what that panel needs: an output that has no use for tabs above it, for
+one, can have its window show none.")
+
+(defun urusi-layout-frame (id)
+  "Return the frame of the panel whose :id is ID, making it if there is none.
+It is a child of the root frame, so that it is drawn by the host as the
+root frame is and has its keys from the same place, and it is drawn in
+its panel rather than over the root frame.  It has no minibuffer of its
+own: the root frame's is the one it uses.
+
+Making it does not select it: a panel that comes into being, to show
+the output of a compilation for one, is not where typing is to go."
+  (let ((frame (gethash id urusi-layout--frames)))
+    (unless (frame-live-p frame)
+      (let* ((selected (selected-frame))
+             (panel (urusi-layout--find id))
+             (buffer (get-buffer-create
+                      (or (plist-get (urusi-layout--properties panel) :buffer)
+                          "*scratch*"))))
+        (setq frame (make-frame `((parent-frame . ,(urusi-root-frame))
+                                  (urusi-panel . ,id)
+                                  (name . ,(format "urusi-%s" id))
+                                  (minibuffer . nil)
+                                  (undecorated . t)
+                                  (left . 0) (top . 0)
+                                  (width . 80) (height . 10)
+                                  (internal-border-width . 0)
+                                  (child-frame-border-width . 0)
+                                  (tab-bar-lines . 0)
+                                  (vertical-scroll-bars . nil)
+                                  (no-other-frame . t)
+                                  (no-focus-on-map . t))))
+        (set-window-buffer (frame-root-window frame) buffer)
+        (puthash id frame urusi-layout--frames)
+        (run-hook-with-args 'urusi-layout-make-frame-functions frame id)
+        (when (frame-live-p selected)
+          (select-frame selected 'norecord))))
+    frame))
+
+(defun urusi-layout--content (content frame &optional id)
+  "Return CONTENT, what a panel holds, as a tree, for FRAME.
+ID is the :id of the panel, which a frame of its own is known by."
   (cond
    ((null content) '(Border))
    ((eq content 'emacs) (urusi-screen-frame-site frame))
+   ((eq content 'frame)
+    (unless id
+      (error "urusi-layout: A panel with a frame of its own needs an :id"))
+    (urusi-screen-frame-site (urusi-layout-frame id) (symbol-name id)))
    ((functionp content) (funcall content frame))
    ((and (consp content) (symbolp (car content))) content)
    (t (error "urusi-layout: Cannot put %S in a panel" content))))
@@ -152,7 +215,8 @@ NODE defaults to the whole of `urusi-layout'."
                                             (:corner-radius :CornerRadius))
                         for value = (plist-get properties key)
                         when value append (list xaml value))
-             ,(urusi-layout--content (plist-get properties :content) frame))))
+             ,(urusi-layout--content (plist-get properties :content) frame
+                                     (plist-get properties :id)))))
 
 (defun urusi-layout--splitter (horizontal before after position)
   "Return the splitter between BEFORE and AFTER, at POSITION of their grid.
@@ -266,6 +330,42 @@ SIZE nil has it share what is left with the others instead."
   (interactive)
   (clrhash urusi-layout--state)
   (urusi-screen--after-command))
+
+;;;; Sending buffers to panels
+
+(defun urusi-layout-display-in-panel (buffer alist)
+  "Show BUFFER in the frame of a panel, for `display-buffer'.
+The panel is the one whose :id is the `panel' entry of ALIST.  It is
+shown if it is hidden, and BUFFER goes in the window of its frame that
+is selected."
+  (when-let* ((id (alist-get 'panel alist))
+              ((urusi-layout--find id)))
+    (let ((window (frame-selected-window (urusi-layout-frame id))))
+      (when (urusi-layout--get (urusi-layout--find id) :hidden)
+        (urusi-layout-show id))
+      (window--display-buffer buffer window 'reuse alist))))
+
+;;;; Following the frame that is selected
+
+(defun urusi-layout--follow-selection ()
+  "Send what is typed to the frame that is selected, if it is a panel's.
+The keys arrive at the root frame, and go where its focus is sent.  A
+panel's frame selected by a click, or by any other means, is where they
+are to go from then on; the root frame selected again takes them back.
+A floating minibuffer sends them to itself, and is left to."
+  (let* ((selected (selected-frame))
+         (root (urusi-root-frame selected))
+         (focus (frame-focus root)))
+    (cond
+     ((and (frame-parameter selected 'urusi-panel)
+           (not (eq focus selected)))
+      (redirect-frame-focus root selected))
+     ((and (eq selected root)
+           (frame-live-p focus)
+           (frame-parameter focus 'urusi-panel))
+      (redirect-frame-focus root nil)))))
+
+(add-hook 'post-command-hook #'urusi-layout--follow-selection)
 
 ;;;; The splitters
 

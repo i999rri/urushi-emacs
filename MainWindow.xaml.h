@@ -7,6 +7,7 @@
 #include "HostCalls.h"
 
 #include <chrono>
+#include <map>
 #include <memory>
 #include <set>
 #include <string>
@@ -62,7 +63,9 @@ namespace winrt::urusi_emacs::implementation
         void FollowLayout();
         void UpdateTitleBarRegions();
         void AttachSplitters(Microsoft::UI::Xaml::UIElement const& root);
-        void AttachMouse(Microsoft::UI::Xaml::FrameworkElement const& site);
+        void AttachMouse(Microsoft::UI::Xaml::FrameworkElement const& site, HWND frame);
+        std::vector<Microsoft::UI::Xaml::FrameworkElement> PanelSites();
+        void SizeFrame(Microsoft::UI::Xaml::FrameworkElement const& site, std::wstring const& id);
         void KeepFocus();
         void SendHostEvent(winrt::hstring const& name,
                            Windows::Data::Json::JsonObject const& details);
@@ -89,6 +92,10 @@ namespace winrt::urusi_emacs::implementation
         // How big Emacs was last told its frame is, so that it is only
         // told once.
         SIZE m_emacsSize{ 0, 0 };
+
+        // How big each frame of a panel was last told it is, by the id
+        // of its panel.
+        std::map<std::wstring, SIZE> m_panelSizes;
         bool m_attached{ false };
         bool m_active{ false };
 

@@ -530,7 +530,27 @@ namespace winrt::urusi_emacs::implementation
         if (auto site = Named(L"urusi-frame"))
         {
             site.SizeChanged(changed);
-            AttachMouse(site);
+            AttachMouse(site, nullptr);
+        }
+
+        // The frame of a panel says which window is its in its Tag, as
+        // the number of the window, which is what its mouse is sent to.
+        for (auto const& panel : PanelSites())
+        {
+            std::wstring id = std::wstring{ panel.Name() }.substr(12);
+            panel.SizeChanged([weak, id](IInspectable const& sender, SizeChangedEventArgs const&) {
+                if (auto self = weak.get())
+                {
+                    self->SizeFrame(sender.as<FrameworkElement>(), id);
+                }
+            });
+
+            HWND frame = nullptr;
+            if (auto tag = panel.Tag().try_as<hstring>())
+            {
+                frame = reinterpret_cast<HWND>(static_cast<INT_PTR>(std::wcstoll(tag->c_str(), nullptr, 10)));
+            }
+            AttachMouse(panel, frame);
         }
         if (titlebar)
         {
@@ -553,9 +573,16 @@ namespace winrt::urusi_emacs::implementation
     //
     // The pointer is captured while a button is down, so that a drag
     // that leaves the frame is followed to where it ends.
-    void MainWindow::AttachMouse(FrameworkElement const& site)
+    void MainWindow::AttachMouse(FrameworkElement const& site, HWND frame)
     {
         auto weak = get_weak();
+
+        // The window of the frame shown in SITE, or of the frame the
+        // window shows if SITE is its.
+        auto target = [weak, frame]() -> HWND {
+            auto self = weak.get();
+            return frame ? frame : (self ? self->m_emacsWindow : nullptr);
+        };
 
         // What Emacs is told about a pointer: where it is on the frame,
         // and which buttons and modifier keys are down, as the flags of
@@ -578,9 +605,9 @@ namespace winrt::urusi_emacs::implementation
             return std::make_tuple(flags, MAKELPARAM(x, y), properties);
         };
 
-        site.PointerPressed([weak, site, describe](IInspectable const&, Input::PointerRoutedEventArgs const& args) {
+        site.PointerPressed([weak, site, describe, target](IInspectable const&, Input::PointerRoutedEventArgs const& args) {
             auto self = weak.get();
-            if (!self || !self->m_emacsWindow)
+            if (!self || !target())
             {
                 return;
             }
@@ -596,13 +623,13 @@ namespace winrt::urusi_emacs::implementation
             }
 
             site.CapturePointer(args.Pointer());
-            PostMessageW(self->m_emacsWindow, message, flags, where);
+            PostMessageW(target(), message, flags, where);
             args.Handled(true);
         });
 
-        site.PointerReleased([weak, site, describe](IInspectable const&, Input::PointerRoutedEventArgs const& args) {
+        site.PointerReleased([weak, site, describe, target](IInspectable const&, Input::PointerRoutedEventArgs const& args) {
             auto self = weak.get();
-            if (!self || !self->m_emacsWindow)
+            if (!self || !target())
             {
                 return;
             }
@@ -617,7 +644,7 @@ namespace winrt::urusi_emacs::implementation
             default: return;
             }
 
-            PostMessageW(self->m_emacsWindow, message, flags, where);
+            PostMessageW(target(), message, flags, where);
             if (!(flags & (MK_LBUTTON | MK_RBUTTON | MK_MBUTTON)))
             {
                 site.ReleasePointerCapture(args.Pointer());
@@ -625,15 +652,15 @@ namespace winrt::urusi_emacs::implementation
             args.Handled(true);
         });
 
-        site.PointerMoved([weak, describe](IInspectable const&, Input::PointerRoutedEventArgs const& args) {
+        site.PointerMoved([weak, describe, target](IInspectable const&, Input::PointerRoutedEventArgs const& args) {
             auto self = weak.get();
-            if (!self || !self->m_emacsWindow)
+            if (!self || !target())
             {
                 return;
             }
 
             auto [flags, where, properties] = describe(args);
-            PostMessageW(self->m_emacsWindow, WM_MOUSEMOVE, flags, where);
+            PostMessageW(target(), WM_MOUSEMOVE, flags, where);
         });
 
         // A wheel message says where the pointer is on the screen rather
@@ -641,9 +668,9 @@ namespace winrt::urusi_emacs::implementation
         // frame from its own window. The frame's window is on no screen
         // and is at its corner, so the place on the frame is what is
         // given.
-        site.PointerWheelChanged([weak, describe](IInspectable const&, Input::PointerRoutedEventArgs const& args) {
+        site.PointerWheelChanged([weak, describe, target](IInspectable const&, Input::PointerRoutedEventArgs const& args) {
             auto self = weak.get();
-            if (!self || !self->m_emacsWindow)
+            if (!self || !target())
             {
                 return;
             }
@@ -652,7 +679,7 @@ namespace winrt::urusi_emacs::implementation
             UINT message = properties.IsHorizontalMouseWheel() ? WM_MOUSEHWHEEL : WM_MOUSEWHEEL;
             WPARAM wheel = MAKEWPARAM(static_cast<WORD>(flags),
                                       static_cast<WORD>(static_cast<short>(properties.MouseWheelDelta())));
-            PostMessageW(self->m_emacsWindow, message, wheel, where);
+            PostMessageW(target(), message, wheel, where);
             args.Handled(true);
         });
     }
@@ -919,6 +946,11 @@ namespace winrt::urusi_emacs::implementation
 
         SIZE size{ pixels(site.ActualWidth()), pixels(site.ActualHeight()) };
 
+        for (auto const& panel : PanelSites())
+        {
+            SizeFrame(panel, std::wstring{ panel.Name() }.substr(12));
+        }
+
         if (size.cx <= 0 || size.cy <= 0
             || (size.cx == m_emacsSize.cx && size.cy == m_emacsSize.cy))
         {
@@ -928,6 +960,71 @@ namespace winrt::urusi_emacs::implementation
 
         JsonObject message;
         message.SetNamedValue(L"type", String(L"resize"));
+        message.SetNamedValue(L"width", JsonValue::CreateNumberValue(size.cx));
+        message.SetNamedValue(L"height", JsonValue::CreateNumberValue(size.cy));
+        Send(message);
+    }
+
+    // The elements Lisp put the frames of panels in, named
+    // urusi-frame:ID after the panel. They are frames of their own, each
+    // as big as its element, as the frame the window shows is as big as
+    // the element named urusi-frame.
+    std::vector<FrameworkElement> MainWindow::PanelSites()
+    {
+        std::vector<FrameworkElement> sites;
+        if (Surface().Children().Size() == 0)
+        {
+            return sites;
+        }
+
+        std::vector<UIElement> pending{ Surface().Children().GetAt(0) };
+        while (!pending.empty())
+        {
+            auto element = pending.back();
+            pending.pop_back();
+
+            auto named = element.try_as<FrameworkElement>();
+            if (named && std::wstring{ named.Name() }.rfind(L"urusi-frame:", 0) == 0)
+            {
+                sites.push_back(named);
+            }
+            if (auto panel = element.try_as<Controls::Panel>())
+            {
+                for (auto const& child : panel.Children())
+                {
+                    pending.push_back(child);
+                }
+            }
+            else if (auto border = element.try_as<Controls::Border>(); border && border.Child())
+            {
+                pending.push_back(border.Child());
+            }
+        }
+        return sites;
+    }
+
+    // Tell Emacs how big the frame of the panel ID is, from SITE, the
+    // element it is shown in, when that has changed.
+    void MainWindow::SizeFrame(FrameworkElement const& site, std::wstring const& id)
+    {
+        if (!site.XamlRoot() || m_splitting)
+        {
+            return;
+        }
+
+        double scale = site.XamlRoot().RasterizationScale();
+        SIZE size{ static_cast<int>(std::lround(site.ActualWidth() * scale)),
+                   static_cast<int>(std::lround(site.ActualHeight() * scale)) };
+        auto& told = m_panelSizes[id];
+        if (size.cx <= 0 || size.cy <= 0 || (size.cx == told.cx && size.cy == told.cy))
+        {
+            return;
+        }
+        told = size;
+
+        JsonObject message;
+        message.SetNamedValue(L"type", String(L"resize"));
+        message.SetNamedValue(L"frame", String(hstring{ id }));
         message.SetNamedValue(L"width", JsonValue::CreateNumberValue(size.cx));
         message.SetNamedValue(L"height", JsonValue::CreateNumberValue(size.cy));
         Send(message);
