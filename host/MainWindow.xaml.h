@@ -9,6 +9,7 @@
 #include "MouseTranslation.h"
 #include "FrameSizes.h"
 #include "Rows.h"
+#include "XamlFrameView.h"
 #include "XamlSplitter.h"
 
 #include <chrono>
@@ -69,9 +70,8 @@ namespace winrt::urusi_emacs::implementation
         void FollowLayout();
         void UpdateTitleBarRegions();
         void AttachSplitters(Microsoft::UI::Xaml::UIElement const& root);
-        void AttachMouse(Microsoft::UI::Xaml::FrameworkElement const& site, HWND frame);
         std::vector<Microsoft::UI::Xaml::FrameworkElement> PanelSites();
-        void SizeFrame(Microsoft::UI::Xaml::FrameworkElement const& site, std::wstring const& id);
+        void TellFrameSize(std::wstring const& id, urusi::PixelSize size);
         void KeepFocus();
         void ResumeComposition();
         void CheckDeactivation();
@@ -103,6 +103,10 @@ namespace winrt::urusi_emacs::implementation
         // How big each frame was last told it is, so that it is only
         // told when that changes.
         urusi::FrameSizes m_frameSizes;
+
+        // A view of each frame on the screen, made again with what Lisp
+        // built around them.
+        std::vector<std::shared_ptr<urusi::XamlFrameView>> m_frameViews;
         bool m_attached{ false };
 
         // The window itself, to ask Windows whether it is in front.

@@ -528,30 +528,44 @@ namespace winrt::urusi_emacs::implementation
             }
         };
 
+        // A view of each frame shown: the one the window shows, in the
+        // element named urusi-frame, and those of panels, in elements
+        // named urusi-frame:ID, whose Tag is the number of the frame's
+        // window.
+        m_frameViews.clear();
+        urusi::XamlFrameView::Frame root{
+            .window = [weak]() -> HWND {
+                auto self = weak.get();
+                return self ? self->m_emacsWindow : nullptr;
+            },
+            .tellSize = [weak](std::wstring const& id, urusi::PixelSize size) {
+                if (auto self = weak.get())
+                {
+                    self->TellFrameSize(id, size);
+                }
+            },
+        };
+
         if (auto site = Named(L"urusi-frame"))
         {
             site.SizeChanged(changed);
-            AttachMouse(site, nullptr);
+            m_frameViews.push_back(urusi::XamlFrameView::Attach(site, L"", root, m_frameSizes));
         }
 
-        // The frame of a panel says which window is its in its Tag, as
-        // the number of the window, which is what its mouse is sent to.
         for (auto const& panel : PanelSites())
         {
-            std::wstring id = std::wstring{ panel.Name() }.substr(12);
-            panel.SizeChanged([weak, id](IInspectable const& sender, SizeChangedEventArgs const&) {
-                if (auto self = weak.get())
-                {
-                    self->SizeFrame(sender.as<FrameworkElement>(), id);
-                }
-            });
-
-            HWND frame = nullptr;
+            HWND window = nullptr;
             if (auto tag = panel.Tag().try_as<hstring>())
             {
-                frame = reinterpret_cast<HWND>(static_cast<INT_PTR>(std::wcstoll(tag->c_str(), nullptr, 10)));
+                window = reinterpret_cast<HWND>(
+                    static_cast<INT_PTR>(std::wcstoll(tag->c_str(), nullptr, 10)));
             }
-            AttachMouse(panel, frame);
+
+            auto frame = root;
+            frame.window = [window] { return window; };
+            panel.SizeChanged(changed);
+            m_frameViews.push_back(urusi::XamlFrameView::Attach(
+                panel, std::wstring{ panel.Name() }.substr(12), frame, m_frameSizes));
         }
         if (titlebar)
         {
@@ -563,100 +577,6 @@ namespace winrt::urusi_emacs::implementation
         {
             AttachSplitters(Surface().Children().GetAt(0));
         }
-    }
-
-    // Pass the mouse on to Emacs over SITE, the element the frame is
-    // shown in, as the messages urusi::TranslatePointer makes of it.
-    void MainWindow::AttachMouse(FrameworkElement const& site, HWND frame)
-    {
-        auto weak = get_weak();
-
-        // The window of the frame shown in SITE, or of the frame the
-        // window shows if SITE is its.
-        auto target = [weak, frame]() -> HWND {
-            auto self = weak.get();
-            return frame ? frame : (self ? self->m_emacsWindow : nullptr);
-        };
-
-        // Post what the pointer did, and take or let go of it.
-        auto pass = [site, target](urusi::PointerKind kind,
-                                   Input::PointerRoutedEventArgs const& args) {
-            using Microsoft::UI::Input::PointerUpdateKind;
-            using Windows::System::VirtualKeyModifiers;
-
-            HWND window = target();
-            if (!window)
-            {
-                return;
-            }
-
-            auto point = args.GetCurrentPoint(site);
-            auto properties = point.Properties();
-            auto modifiers = args.KeyModifiers();
-
-            urusi::PointerEvent event;
-            event.kind = kind;
-            event.x = point.Position().X;
-            event.y = point.Position().Y;
-            event.left = properties.IsLeftButtonPressed();
-            event.right = properties.IsRightButtonPressed();
-            event.middle = properties.IsMiddleButtonPressed();
-            event.shift = (modifiers & VirtualKeyModifiers::Shift) != VirtualKeyModifiers::None;
-            event.control = (modifiers & VirtualKeyModifiers::Control) != VirtualKeyModifiers::None;
-            event.wheel = properties.MouseWheelDelta();
-            event.horizontal = properties.IsHorizontalMouseWheel();
-            switch (properties.PointerUpdateKind())
-            {
-            case PointerUpdateKind::LeftButtonPressed:
-            case PointerUpdateKind::LeftButtonReleased:
-                event.button = urusi::PointerButton::Left;
-                break;
-            case PointerUpdateKind::RightButtonPressed:
-            case PointerUpdateKind::RightButtonReleased:
-                event.button = urusi::PointerButton::Right;
-                break;
-            case PointerUpdateKind::MiddleButtonPressed:
-            case PointerUpdateKind::MiddleButtonReleased:
-                event.button = urusi::PointerButton::Middle;
-                break;
-            default:
-                break;
-            }
-
-            double scale = site.XamlRoot() ? site.XamlRoot().RasterizationScale() : 1.0;
-            auto message = urusi::TranslatePointer(event, scale);
-            if (!message)
-            {
-                return;
-            }
-
-            if (message->capture)
-            {
-                site.CapturePointer(args.Pointer());
-            }
-            PostMessageW(window, message->message, message->wParam, message->lParam);
-            if (message->release)
-            {
-                site.ReleasePointerCapture(args.Pointer());
-            }
-            if (kind != urusi::PointerKind::Moved)
-            {
-                args.Handled(true);
-            }
-        };
-
-        site.PointerPressed([pass](IInspectable const&, Input::PointerRoutedEventArgs const& args) {
-            pass(urusi::PointerKind::Pressed, args);
-        });
-        site.PointerReleased([pass](IInspectable const&, Input::PointerRoutedEventArgs const& args) {
-            pass(urusi::PointerKind::Released, args);
-        });
-        site.PointerMoved([pass](IInspectable const&, Input::PointerRoutedEventArgs const& args) {
-            pass(urusi::PointerKind::Moved, args);
-        });
-        site.PointerWheelChanged([pass](IInspectable const&, Input::PointerRoutedEventArgs const& args) {
-            pass(urusi::PointerKind::Wheel, args);
-        });
     }
 
     // Let the splitters Lisp put between the parts of a layout be
@@ -903,31 +823,34 @@ namespace winrt::urusi_emacs::implementation
 
     void MainWindow::SizeEmacsFrame()
     {
+        if (m_splitting)
+        {
+            return;
+        }
+
+        bool shown = false;
+        for (auto const& view : m_frameViews)
+        {
+            view->Resize();
+            shown = shown || view->Id().empty();
+        }
+        if (shown)
+        {
+            return;
+        }
+
+        // Lisp put the frame the window shows in no element of its own:
+        // it is as big as the window.
         auto site = FrameSite();
-        if (!site.XamlRoot() || m_splitting)
+        if (!site.XamlRoot())
         {
             return;
         }
-
-        for (auto const& panel : PanelSites())
+        if (auto size = m_frameSizes.Resized(L"", site.ActualWidth(), site.ActualHeight(),
+                                             site.XamlRoot().RasterizationScale()))
         {
-            SizeFrame(panel, std::wstring{ panel.Name() }.substr(12));
+            TellFrameSize(L"", *size);
         }
-
-        // XAML works in device-independent pixels and Emacs in the ones
-        // of the screen.
-        auto size = m_frameSizes.Resized(L"", site.ActualWidth(), site.ActualHeight(),
-                                         site.XamlRoot().RasterizationScale());
-        if (!size)
-        {
-            return;
-        }
-
-        JsonObject message;
-        message.SetNamedValue(L"type", String(L"resize"));
-        message.SetNamedValue(L"width", JsonValue::CreateNumberValue(size->width));
-        message.SetNamedValue(L"height", JsonValue::CreateNumberValue(size->height));
-        Send(message);
     }
 
     // The elements Lisp put the frames of panels in, named
@@ -968,27 +891,18 @@ namespace winrt::urusi_emacs::implementation
         return sites;
     }
 
-    // Tell Emacs how big the frame of the panel ID is, from SITE, the
-    // element it is shown in, when that has changed.
-    void MainWindow::SizeFrame(FrameworkElement const& site, std::wstring const& id)
+    // Tell Emacs how big the frame ID is: the panel's, or the empty one
+    // for the frame the window shows.
+    void MainWindow::TellFrameSize(std::wstring const& id, urusi::PixelSize size)
     {
-        if (!site.XamlRoot() || m_splitting)
-        {
-            return;
-        }
-
-        auto size = m_frameSizes.Resized(id, site.ActualWidth(), site.ActualHeight(),
-                                         site.XamlRoot().RasterizationScale());
-        if (!size)
-        {
-            return;
-        }
-
         JsonObject message;
         message.SetNamedValue(L"type", String(L"resize"));
-        message.SetNamedValue(L"frame", String(hstring{ id }));
-        message.SetNamedValue(L"width", JsonValue::CreateNumberValue(size->width));
-        message.SetNamedValue(L"height", JsonValue::CreateNumberValue(size->height));
+        if (!id.empty())
+        {
+            message.SetNamedValue(L"frame", String(hstring{ id }));
+        }
+        message.SetNamedValue(L"width", JsonValue::CreateNumberValue(size.width));
+        message.SetNamedValue(L"height", JsonValue::CreateNumberValue(size.height));
         Send(message);
     }
 

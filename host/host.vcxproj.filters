@@ -54,6 +54,9 @@
     <ClCompile Include="XamlSplitter.cpp">
       <Filter>Window</Filter>
     </ClCompile>
+    <ClCompile Include="XamlFrameView.cpp">
+      <Filter>Window</Filter>
+    </ClCompile>
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -100,6 +103,12 @@
       <Filter>Window</Filter>
     </ClInclude>
     <ClInclude Include="FrameSizes.h">
+      <Filter>Window</Filter>
+    </ClInclude>
+    <ClInclude Include="FrameView.h">
+      <Filter>Window</Filter>
+    </ClInclude>
+    <ClInclude Include="XamlFrameView.h">
       <Filter>Window</Filter>
     </ClInclude>
     <ClInclude Include="Splitter.h">

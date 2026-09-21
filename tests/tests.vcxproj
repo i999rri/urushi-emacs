@@ -59,6 +59,7 @@
     <ClCompile Include="test_activation.cpp" />
     <ClCompile Include="test_engagement.cpp" />
     <ClCompile Include="test_frame_sizes.cpp" />
+    <ClCompile Include="test_frame_view.cpp" />
     <ClCompile Include="test_ime_buffer.cpp" />
     <ClCompile Include="test_key_translation.cpp" />
     <ClCompile Include="test_mouse_translation.cpp" />
@@ -70,6 +71,7 @@
     <ClInclude Include="..\host\Activation.h" />
     <ClInclude Include="..\host\Engagement.h" />
     <ClInclude Include="..\host\FrameSizes.h" />
+    <ClInclude Include="..\host\FrameView.h" />
     <ClInclude Include="..\host\ImeBuffer.h" />
     <ClInclude Include="..\host\KeyInput.h" />
     <ClInclude Include="..\host\Keyboard.h" />

@@ -137,6 +137,7 @@
     <ClInclude Include="Activation.h" />
     <ClInclude Include="Engagement.h" />
     <ClInclude Include="FrameSizes.h" />
+    <ClInclude Include="FrameView.h" />
     <ClInclude Include="ImeBuffer.h" />
     <ClInclude Include="KeyTranslation.h" />
     <ClInclude Include="MouseTranslation.h" />
@@ -145,6 +146,7 @@
     <ClInclude Include="Keyboard.h" />
     <ClInclude Include="Pointer.h" />
     <ClInclude Include="Splitter.h" />
+    <ClInclude Include="XamlFrameView.h" />
     <ClInclude Include="XamlSplitter.h" />
     <ClInclude Include="Utf.h" />
     <ClInclude Include="HostCalls.h" />
@@ -167,6 +169,7 @@
       <DependentUpon>MainWindow.xaml</DependentUpon>
     </ClCompile>
     <ClCompile Include="Composition.cpp" />
+    <ClCompile Include="XamlFrameView.cpp" />
     <ClCompile Include="XamlSplitter.cpp" />
     <ClCompile Include="HostCalls.cpp" />
     <ClCompile Include="EmacsHost.cpp" />
