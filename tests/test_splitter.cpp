@@ -13,7 +13,7 @@ using urusi::Splitter;
 namespace
 {
     // A pointer that says what was asked of it.
-    struct Pointer : urusi::IPointerDevice
+    struct Pointer : urusi::IPointerInputDevice
     {
         void Capture() override { captured = true; }
         void Release() override { captured = false; }

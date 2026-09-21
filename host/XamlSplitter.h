@@ -16,7 +16,7 @@ namespace urusi
     //
     // UI thread only. The element's handlers keep this alive, and it
     // holds the element only weakly, so that the two go together.
-    class XamlSplitter : public IPointerDevice, public ISplitterTracks,
+    class XamlSplitter : public IPointerInputDevice, public ISplitterTracks,
                          public std::enable_shared_from_this<XamlSplitter>
     {
     public:
@@ -30,7 +30,7 @@ namespace urusi
 
         Splitter const& Model() const noexcept { return m_splitter; }
 
-        // IPointerDevice
+        // IPointerInputDevice
         void Capture() override;
         void Release() override;
 

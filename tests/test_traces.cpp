@@ -1,13 +1,13 @@
 #include <gtest/gtest.h>
 
-#include "Session.h"
+#include "Keyboard.h"
 #include "TraceReader.h"
 
 #include <filesystem>
 #include <fstream>
 #include <sstream>
 
-// Every trace in tests/traces, played back into a Session.
+// Every trace in tests/traces, played back into a Keyboard.
 //
 // A trace is what urusi-debug-mode writes beside the application
 // (urusi-emacs.trace.jsonl): one line of JSON for each thing that
@@ -30,7 +30,7 @@ namespace
     using urusi::FromUtf8;
     using urusi::ToUtf8;
 
-    struct Recorded : urusi::SessionEffects
+    struct Recorded : urusi::KeyboardEvents, urusi::IKeyInputDevice
     {
         void CheckLater() override {}
         void ResumeLater() override {}
@@ -60,27 +60,30 @@ namespace
         return static_cast<int32_t>(Get<double>(line, key, 0));
     }
 
-    // Play LINE back into SESSION; say what went wrong, or nothing.
-    std::string Play(trace::Line const& line, urusi::Session& session)
+    // Play LINE back into KEYBOARD; say what went wrong, or nothing.
+    std::string Play(trace::Line const& line, urusi::Keyboard& keyboard)
     {
         auto event = Get<std::string>(line, "e", "");
 
-        if (event == "activated") session.Activated();
-        else if (event == "deactivated") session.Deactivated();
+        if (event == "activated") keyboard.Activated();
+        else if (event == "key")
+            keyboard.Key({ .key = Number(line, "key"), .menuDown = Get<bool>(line, "alt", false),
+                          .down = Get<bool>(line, "down", true) });
+        else if (event == "deactivated") keyboard.Deactivated();
         else if (event == "deactivation-checked")
-            session.DeactivationChecked(Get<bool>(line, "foreground", false));
+            keyboard.DeactivationChecked(Get<bool>(line, "foreground", false));
         else if (event == "resume-checked")
-            session.ResumeChecked(Get<bool>(line, "foreground", false),
+            keyboard.ResumeChecked(Get<bool>(line, "foreground", false),
                                   Get<bool>(line, "keys", false));
-        else if (event == "focus-gained") session.FocusGained();
-        else if (event == "focus-lost") session.FocusLost();
-        else if (event == "context-created") session.ContextCreated();
+        else if (event == "focus-gained") keyboard.FocusGained();
+        else if (event == "focus-lost") keyboard.FocusLost();
+        else if (event == "context-created") keyboard.ContextCreated();
         else if (event == "text-updating")
-            session.TextUpdating(Number(line, "start"), Number(line, "end"),
+            keyboard.TextUpdating(Number(line, "start"), Number(line, "end"),
                                  FromUtf8(Get<std::string>(line, "text", "")));
-        else if (event == "composition-started") session.CompositionStarted();
-        else if (event == "composition-completed") session.CompositionCompleted();
-        else if (event == "focus-removed") session.FocusRemoved();
+        else if (event == "composition-started") keyboard.CompositionStarted();
+        else if (event == "composition-completed") keyboard.CompositionCompleted();
+        else if (event == "focus-removed") keyboard.FocusRemoved();
         else return "an event that is not known: " + event;
         return {};
     }
@@ -93,27 +96,28 @@ namespace
     }
 }
 
-// What a session writes down is what a playback reads: a trace taken
+// What a keyboard writes down is what a playback reads: a trace taken
 // from the application plays back to what happened there.
 TEST(TraceTest, WhatIsWrittenPlaysBackTheSame)
 {
     Recorded original;
-    urusi::Session session{ original };
+    urusi::Keyboard keyboard{ original, original };
     std::vector<std::string> lines;
-    session.Record([&](std::string const& line) { lines.push_back(line); });
+    keyboard.Record([&](std::string const& line) { lines.push_back(line); });
 
-    session.ContextCreated();
-    session.FocusGained();
-    session.Activated();
-    session.CompositionStarted();
-    session.TextUpdating(0, 0, L"\"か\"\\");
-    session.CompositionCompleted();
-    session.TextUpdating(3, 3, L"\U0001F600");
-    session.Deactivated();
-    session.DeactivationChecked(false);
+    keyboard.ContextCreated();
+    keyboard.Key({ .key = 0x41, .down = true });
+    keyboard.FocusGained();
+    keyboard.Activated();
+    keyboard.CompositionStarted();
+    keyboard.TextUpdating(0, 0, L"\"か\"\\");
+    keyboard.CompositionCompleted();
+    keyboard.TextUpdating(3, 3, L"\U0001F600");
+    keyboard.Deactivated();
+    keyboard.DeactivationChecked(false);
 
     Recorded played;
-    urusi::Session playback{ played };
+    urusi::Keyboard playback{ played, played };
     for (auto const& text : lines)
     {
         trace::Line line;
@@ -128,20 +132,20 @@ TEST(TraceTest, WhatIsWrittenPlaysBackTheSame)
     EXPECT_EQ(played.commits, original.commits);
     EXPECT_EQ(played.commits, (std::vector<std::string>{ ToUtf8(L"\"か\"\\"),
                                                          ToUtf8(L"\U0001F600") }));
-    EXPECT_EQ(playback.Active(), session.Active());
+    EXPECT_EQ(playback.Active(), keyboard.Active());
 }
 
 // Nobody listening, nothing is written.
 TEST(TraceTest, NothingIsMadeWithoutARecorder)
 {
     Recorded effects;
-    urusi::Session session{ effects };
+    urusi::Keyboard keyboard{ effects, effects };
     std::vector<std::string> lines;
-    session.Record([&](std::string const& line) { lines.push_back(line); });
-    session.Record({});
+    keyboard.Record([&](std::string const& line) { lines.push_back(line); });
+    keyboard.Record({});
 
-    session.Activated();
-    session.TextUpdating(0, 0, L"a");
+    keyboard.Activated();
+    keyboard.TextUpdating(0, 0, L"a");
     EXPECT_TRUE(lines.empty());
 }
 
@@ -160,7 +164,7 @@ TEST(TraceTest, EveryTracePlaysBackToWhatItExpects)
         ++played;
 
         Recorded effects;
-        urusi::Session session{ effects };
+        urusi::Keyboard keyboard{ effects, effects };
         std::ifstream file{ entry.path(), std::ios::binary };
         std::string text;
         int number = 0;
@@ -184,7 +188,7 @@ TEST(TraceTest, EveryTracePlaysBackToWhatItExpects)
 
             if (line.count("e"))
             {
-                auto problem = Play(line, session);
+                auto problem = Play(line, keyboard);
                 EXPECT_TRUE(problem.empty()) << "line " << number << ": " << problem;
                 continue;
             }
@@ -203,11 +207,11 @@ TEST(TraceTest, EveryTracePlaysBackToWhatItExpects)
             }
             else if (expect == "active")
             {
-                EXPECT_EQ(session.Active(), Get<bool>(line, "value", false)) << "line " << number;
+                EXPECT_EQ(keyboard.Active(), Get<bool>(line, "value", false)) << "line " << number;
             }
             else if (expect == "composing")
             {
-                EXPECT_EQ(session.Composing(), Get<bool>(line, "value", false))
+                EXPECT_EQ(keyboard.Composing(), Get<bool>(line, "value", false))
                     << "line " << number;
             }
             else if (expect == "entered")

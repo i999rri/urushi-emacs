@@ -1,5 +1,7 @@
 #pragma once
 
+#include "KeyInput.h"
+
 #include <windows.h>
 
 #include <cstdint>
@@ -7,20 +9,7 @@
 
 namespace urusi
 {
-    // A key as XAML reports it, in the terms Windows would have put it
-    // to a window of its own.
-    struct KeyState
-    {
-        int key{ 0 };            // the virtual key; 0 for none
-        uint32_t repeat{ 1 };
-        uint32_t scanCode{ 0 };
-        bool extended{ false };
-        bool menuDown{ false };  // Alt is held
-        bool wasDown{ false };   // it was already down: a repeat
-        bool down{ true };       // pressed, or released
-    };
-
-    // The message Emacs's frame is to be posted for it.
+    // The message Emacs's frame is to be posted for a key.
     struct KeyMessage
     {
         UINT message{ 0 };
@@ -70,7 +59,7 @@ namespace urusi
     // carries the repeat count, the scan code, whether it is an extended
     // key, whether Alt is held, whether it was down, and whether it is
     // being released, where Emacs reads them.
-    inline std::optional<KeyMessage> TranslateKey(KeyState const& key) noexcept
+    inline std::optional<KeyMessage> TranslateKey(KeyEvent const& key) noexcept
     {
         if (key.key == 0 || IsInputMethodKey(key.key))
         {

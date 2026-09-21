@@ -2,7 +2,7 @@
 
 #include "KeyTranslation.h"
 
-using urusi::KeyState;
+using urusi::KeyEvent;
 using urusi::TranslateKey;
 
 TEST(KeyTranslationTest, KeyIsTheMessageWindowsWouldHaveSent)

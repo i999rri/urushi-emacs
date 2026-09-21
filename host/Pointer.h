@@ -28,9 +28,9 @@ namespace urusi
     };
 
     // What something the pointer is over can ask of it.
-    struct IPointerDevice
+    struct IPointerInputDevice
     {
-        virtual ~IPointerDevice() = default;
+        virtual ~IPointerInputDevice() = default;
 
         // Take the pointer, so that what it does is told here even
         // once it has left, as a drag that goes past the edge; or let

@@ -43,7 +43,7 @@ namespace winrt::urusi_emacs::implementation
         void TakeInputToEmacs();
         void TellEmacsFocus(bool focused);
         void StartComposition();
-        void RecordSession();
+        void RecordKeyboard();
         void TypeIntoEmacs(std::wstring const& text);
         void Caret(Windows::Data::Json::JsonObject const& message);
         void ForwardKey(Microsoft::UI::Xaml::Input::KeyRoutedEventArgs const& args,
@@ -130,26 +130,24 @@ namespace winrt::urusi_emacs::implementation
         std::wstring m_windowState{ L"normal" };
         urusi::Composition m_composition;
 
-        // What the Session asks of this window.
-        struct Effects : urusi::SessionEffects
+        // What the Keyboard tells this window.
+        struct Effects : urusi::KeyboardEvents
         {
             explicit Effects(MainWindow* owner) : window(owner) {}
 
             void CheckLater() override;
             void ResumeLater() override;
             void TellEmacsFocus(bool focused) override;
-            void NotifyFocusEnter() override;
-            void NotifyFocusLeave() override;
             void Commit(std::wstring const& text) override;
             void Composing(std::wstring const& text) override;
 
             MainWindow* window;
         };
 
-        // The keyboard's side of the window: which window has it, and
-        // what the input method makes of it.
+        // The keyboard's side of the window: which window has it, what
+        // becomes of each key, and what the input method makes of them.
         Effects m_effects{ this };
-        urusi::Session m_session{ m_effects };
+        urusi::Keyboard m_keyboard{ m_composition, m_effects };
     };
 }
 

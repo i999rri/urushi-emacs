@@ -92,7 +92,7 @@ namespace urusi
             std::function<void(double before, double after)> finished;
         };
 
-        Splitter(SplitterName name, IPointerDevice& pointer, ISplitterTracks& tracks,
+        Splitter(SplitterName name, IPointerInputDevice& pointer, ISplitterTracks& tracks,
                  Events events)
             : m_name(std::move(name)), m_pointer(pointer), m_tracks(tracks),
               m_events(std::move(events))
@@ -181,7 +181,7 @@ namespace urusi
         }
 
         SplitterName m_name;
-        IPointerDevice& m_pointer;
+        IPointerInputDevice& m_pointer;
         ISplitterTracks& m_tracks;
         Events m_events;
 

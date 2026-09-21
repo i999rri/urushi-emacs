@@ -3,7 +3,7 @@
 #include <winrt/Microsoft.UI.Xaml.h>
 #include <winrt/Windows.UI.Text.Core.h>
 
-#include "Session.h"
+#include "Keyboard.h"
 
 namespace urusi
 {
@@ -15,23 +15,24 @@ namespace urusi
     // only at the end says what was settled on. Windows holds that
     // conversation through a CoreTextEditContext, and this is one.
     //
-    // What to make of the conversation is the Session's to decide: this
-    // passes on what the context says, answers what it asks from the
-    // Session, and does to the context what the Session asks.
+    // It is the device the keys come from, to the Keyboard: what to make
+    // of the conversation is the Keyboard's to decide, and this passes on
+    // what the context says, answers what it asks from the Keyboard, and
+    // tells the context what the Keyboard asks.
     //
     // UI thread only.
-    class Composition
+    class Composition : public IKeyInputDevice
     {
     public:
         // ELEMENT is what holds the focus while typing; the context is
-        // made for the window it is in. SESSION hears everything the
+        // made for the window it is in. KEYBOARD hears everything the
         // context says, and outlives this.
         void Start(winrt::Microsoft::UI::Xaml::FrameworkElement const& element,
-                   Session& session);
+                   Keyboard& keyboard);
 
-        // Tell the context the focus has come, or gone.
-        void NotifyFocusEnter();
-        void NotifyFocusLeave();
+        // IKeyInputDevice
+        void NotifyFocusEnter() override;
+        void NotifyFocusLeave() override;
 
         // Where the caret is on the screen, which is where the
         // candidates are shown.
@@ -41,7 +42,7 @@ namespace urusi
         void Bind();
 
         winrt::Windows::UI::Text::Core::CoreTextEditContext m_context{ nullptr };
-        Session* m_session{ nullptr };
+        Keyboard* m_keyboard{ nullptr };
         winrt::Windows::Foundation::Rect m_caret{ 0, 0, 2, 16 };
     };
 }

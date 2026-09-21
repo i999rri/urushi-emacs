@@ -111,7 +111,10 @@
     <ClInclude Include="XamlSplitter.h">
       <Filter>Window</Filter>
     </ClInclude>
-    <ClInclude Include="Session.h">
+    <ClInclude Include="Keyboard.h">
+      <Filter>Input</Filter>
+    </ClInclude>
+    <ClInclude Include="KeyInput.h">
       <Filter>Input</Filter>
     </ClInclude>
     <ClInclude Include="Utf.h">

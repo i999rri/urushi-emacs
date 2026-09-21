@@ -35,7 +35,8 @@
       <WarningLevel>Level4</WarningLevel>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>/utf-8 /Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\host;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>    </ClCompile>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\host;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
@@ -70,11 +71,12 @@
     <ClInclude Include="..\host\Engagement.h" />
     <ClInclude Include="..\host\FrameSizes.h" />
     <ClInclude Include="..\host\ImeBuffer.h" />
+    <ClInclude Include="..\host\KeyInput.h" />
+    <ClInclude Include="..\host\Keyboard.h" />
     <ClInclude Include="..\host\KeyTranslation.h" />
     <ClInclude Include="..\host\MouseTranslation.h" />
     <ClInclude Include="..\host\Pointer.h" />
     <ClInclude Include="..\host\Rows.h" />
-    <ClInclude Include="..\host\Session.h" />
     <ClInclude Include="..\host\Splitter.h" />
     <ClInclude Include="..\host\Utf.h" />
     <ClInclude Include="TraceReader.h" />

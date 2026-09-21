@@ -170,11 +170,11 @@ namespace winrt::urusi_emacs::implementation
             {
                 self->TakeInputToEmacs();
                 self->KeepFocus();
-                self->m_session.Activated();
+                self->m_keyboard.Activated();
             }
             else
             {
-                self->m_session.Deactivated();
+                self->m_keyboard.Deactivated();
             }
         });
 
@@ -294,7 +294,7 @@ namespace winrt::urusi_emacs::implementation
 
         // The window may have come to the front before there was a
         // frame to tell.
-        if (m_session.Active())
+        if (m_keyboard.Active())
         {
             TellEmacsFocus(true);
         }
@@ -362,8 +362,8 @@ namespace winrt::urusi_emacs::implementation
     // before.
     void MainWindow::StartComposition()
     {
-        RecordSession();
-        m_composition.Start(InputSink(), m_session);
+        RecordKeyboard();
+        m_composition.Start(InputSink(), m_keyboard);
 
         InputSink().Focus(FocusState::Programmatic);
     }
@@ -372,15 +372,15 @@ namespace winrt::urusi_emacs::implementation
     // written down while debugging, to be read, and to be played back
     // in a test: see tests/traces. Not debugging, the session is given
     // nothing to write to, and makes nothing to write.
-    void MainWindow::RecordSession()
+    void MainWindow::RecordKeyboard()
     {
         if (!m_debug)
         {
-            m_session.Record({});
+            m_keyboard.Record({});
             return;
         }
 
-        m_session.Record([](std::string const& line) { WriteToTraceFile(line + "\n"); });
+        m_keyboard.Record([](std::string const& line) { WriteToTraceFile(line + "\n"); });
     }
 
     // Put TEXT into Emacs as the characters it is. Emacs reads them
@@ -447,7 +447,7 @@ namespace winrt::urusi_emacs::implementation
         }
 
         auto status = args.KeyStatus();
-        auto message = urusi::TranslateKey({
+        auto message = m_keyboard.Key({
             .key = static_cast<int>(args.Key()),
             .repeat = status.RepeatCount,
             .scanCode = status.ScanCode,
@@ -766,7 +766,7 @@ namespace winrt::urusi_emacs::implementation
 
         char text[256];
         sprintf_s(text, "%s: foreground %s, active %s, win32 focus %p, xaml focus %s\n",
-                  what, IsForeground() ? "yes" : "no", m_session.Active() ? "yes" : "no",
+                  what, IsForeground() ? "yes" : "no", m_keyboard.Active() ? "yes" : "no",
                   static_cast<void*>(GetFocus()), xaml.c_str());
         AppendLog("host", text);
     }
@@ -809,7 +809,7 @@ namespace winrt::urusi_emacs::implementation
                 self->TraceFocus("resumed");
                 bool keysComeHere =
                     Input::FocusManager::GetFocusedElement(root) == self->InputSink();
-                self->m_session.ResumeChecked(self->IsForeground(), keysComeHere);
+                self->m_keyboard.ResumeChecked(self->IsForeground(), keysComeHere);
             });
     }
 
@@ -824,16 +824,14 @@ namespace winrt::urusi_emacs::implementation
                 if (auto self = weak.get())
                 {
                     self->TraceFocus("deactivated, checked");
-                    self->m_session.DeactivationChecked(self->IsForeground());
+                    self->m_keyboard.DeactivationChecked(self->IsForeground());
                 }
             });
     }
 
-    // What the Session asks to have done.
+    // What the Keyboard tells this window.
     void MainWindow::Effects::CheckLater() { window->CheckDeactivation(); }
     void MainWindow::Effects::ResumeLater() { window->ResumeComposition(); }
-    void MainWindow::Effects::NotifyFocusEnter() { window->m_composition.NotifyFocusEnter(); }
-    void MainWindow::Effects::NotifyFocusLeave() { window->m_composition.NotifyFocusLeave(); }
     void MainWindow::Effects::Commit(std::wstring const& text) { window->TypeIntoEmacs(text); }
 
     void MainWindow::Effects::TellEmacsFocus(bool focused)
@@ -1108,7 +1106,7 @@ namespace winrt::urusi_emacs::implementation
         else if (type == L"debug")
         {
             m_debug = message.GetNamedBoolean(L"on", false);
-            RecordSession();
+            RecordKeyboard();
             AppendLog("host", std::string{ "debug " } + (m_debug ? "on" : "off") + "\n");
         }
         else if (type == L"frame")

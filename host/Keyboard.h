@@ -3,6 +3,7 @@
 #include "Activation.h"
 #include "Engagement.h"
 #include "ImeBuffer.h"
+#include "KeyTranslation.h"
 #include "Utf.h"
 
 #include <cstdint>
@@ -12,11 +13,11 @@
 
 namespace urusi
 {
-    // What the session asks of the window to have done: the things that
-    // touch Windows, the input method's context, or Emacs.
-    struct SessionEffects
+    // What the keyboard tells the window it is in: the things that
+    // touch Windows, or Emacs.
+    struct KeyboardEvents
     {
-        virtual ~SessionEffects() = default;
+        virtual ~KeyboardEvents() = default;
 
         // Look later, once XAML is done, whether the window is still in
         // front, and say so with DeactivationChecked.
@@ -29,10 +30,6 @@ namespace urusi
         // Tell Emacs its frame has the focus, or has lost it.
         virtual void TellEmacsFocus(bool focused) = 0;
 
-        // Tell the input method's context the focus has come, or gone.
-        virtual void NotifyFocusEnter() = 0;
-        virtual void NotifyFocusLeave() = 0;
-
         // What the input method settled on, to go to Emacs as typed.
         virtual void Commit(std::wstring const& text) = 0;
 
@@ -41,20 +38,25 @@ namespace urusi
         virtual void Composing(std::wstring const& text) = 0;
     };
 
-    // The keyboard's side of the window: which window has it, and what
-    // the input method makes of it. Everything that happens to it comes
-    // in through one of these calls, and everything it does goes out
-    // through SessionEffects, so that it can be written down as it
-    // happens and played back in a test to happen again.
+    // The keyboard's side of the window: which window has it, what
+    // becomes of each key, and what the input method makes of them.
+    // Everything that happens to it comes in through one of these calls,
+    // and everything it does goes out to the device the keys come from
+    // (IKeyInputDevice) or to the window (KeyboardEvents), so that it can
+    // be written down as it happens and played back in a test to happen
+    // again.
     //
     // UI thread only.
-    class Session
+    class Keyboard
     {
     public:
         // Writes one line of JSON for each thing that happens.
         using Recorder = std::function<void(std::string const&)>;
 
-        explicit Session(SessionEffects& effects) : m_effects(effects) {}
+        Keyboard(IKeyInputDevice& device, KeyboardEvents& events)
+            : m_device(device), m_effects(events)
+        {
+        }
 
         void Record(Recorder recorder) { m_recorder = std::move(recorder); }
 
@@ -88,6 +90,19 @@ namespace urusi
                        + Bool(foreground) + R"(,"keys":)" + Bool(keysComeHere) + "}";
             });
             Perform(m_activation.ResumeChecked(foreground, keysComeHere));
+        }
+
+        // ----- The keys -----
+
+        // What to post Emacs for KEY, or nothing: see TranslateKey.
+        std::optional<KeyMessage> Key(KeyEvent const& key)
+        {
+            Say([&] {
+                return std::string{ R"({"e":"key","key":)" } + std::to_string(key.key)
+                       + R"(,"down":)" + Bool(key.down) + R"(,"alt":)" + Bool(key.menuDown)
+                       + "}";
+            });
+            return TranslateKey(key);
         }
 
         // ----- The element the keys go to -----
@@ -210,11 +225,11 @@ namespace urusi
                 // The input method counts from nothing again once told.
                 Forget();
                 Say(R"({"out":"enter"})");
-                m_effects.NotifyFocusEnter();
+                m_device.NotifyFocusEnter();
                 break;
             case Engagement::Action::Leave:
                 Say(R"({"out":"leave"})");
-                m_effects.NotifyFocusLeave();
+                m_device.NotifyFocusLeave();
                 break;
             case Engagement::Action::None:
                 break;
@@ -250,7 +265,7 @@ namespace urusi
         // Write down what happened ("e"), or what was done about it
         // ("out", there to be read and not played back). Only while
         // something is listening: a line that is not written is not
-        // made either, so that a session nobody records costs nothing.
+        // made either, so that a keyboard nobody records costs nothing.
         void Say(char const* line)
         {
             if (m_recorder)
@@ -298,7 +313,8 @@ namespace urusi
             return quoted + "\"";
         }
 
-        SessionEffects& m_effects;
+        IKeyInputDevice& m_device;
+        KeyboardEvents& m_effects;
         Recorder m_recorder;
         Activation m_activation;
         Engagement m_engagement;

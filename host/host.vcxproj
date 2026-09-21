@@ -141,7 +141,8 @@
     <ClInclude Include="KeyTranslation.h" />
     <ClInclude Include="MouseTranslation.h" />
     <ClInclude Include="Rows.h" />
-    <ClInclude Include="Session.h" />
+    <ClInclude Include="KeyInput.h" />
+    <ClInclude Include="Keyboard.h" />
     <ClInclude Include="Pointer.h" />
     <ClInclude Include="Splitter.h" />
     <ClInclude Include="XamlSplitter.h" />

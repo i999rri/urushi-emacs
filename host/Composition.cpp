@@ -7,9 +7,9 @@ using namespace Windows::UI::Text::Core;
 namespace urusi
 {
     void Composition::Start(winrt::Microsoft::UI::Xaml::FrameworkElement const& element,
-                            Session& session)
+                            Keyboard& keyboard)
     {
-        m_session = &session;
+        m_keyboard = &keyboard;
 
         auto manager = CoreTextServicesManager::GetForCurrentView();
         m_context = manager.CreateEditContext();
@@ -19,15 +19,15 @@ namespace urusi
         m_context.InputPaneDisplayPolicy(CoreTextInputPaneDisplayPolicy::Manual);
         m_context.InputScope(CoreTextInputScope::Default);
         Bind();
-        m_session->ContextCreated();
+        m_keyboard->ContextCreated();
 
         // The input method only talks to a context that has the focus,
         // and turning it on and off is part of that talk, from a key or
         // from the taskbar alike. The focus the element has is the
         // focus the context has.
-        element.Loaded([this](auto&&, auto&&) { m_session->FocusGained(); });
-        element.GotFocus([this](auto&&, auto&&) { m_session->FocusGained(); });
-        element.LostFocus([this](auto&&, auto&&) { m_session->FocusLost(); });
+        element.Loaded([this](auto&&, auto&&) { m_keyboard->FocusGained(); });
+        element.GotFocus([this](auto&&, auto&&) { m_keyboard->FocusGained(); });
+        element.LostFocus([this](auto&&, auto&&) { m_keyboard->FocusLost(); });
     }
 
     void Composition::NotifyFocusEnter()
@@ -66,13 +66,13 @@ namespace urusi
             auto request = args.Request();
             auto range = request.Range();
 
-            request.Text(hstring{ m_session->TextRequested(range.StartCaretPosition,
-                                                           range.EndCaretPosition) });
+            request.Text(hstring{ m_keyboard->TextRequested(range.StartCaretPosition,
+                                                            range.EndCaretPosition) });
         });
 
         m_context.SelectionRequested([this](CoreTextEditContext const&,
                                             CoreTextSelectionRequestedEventArgs const& args) {
-            auto caret = m_session->SelectionRequested();
+            auto caret = m_keyboard->SelectionRequested();
 
             args.Request().Selection({ caret, caret });
         });
@@ -82,8 +82,8 @@ namespace urusi
             auto range = args.Range();
 
             args.Result(CoreTextTextUpdatingResult::Succeeded);
-            m_session->TextUpdating(range.StartCaretPosition, range.EndCaretPosition,
-                                    std::wstring{ args.Text() });
+            m_keyboard->TextUpdating(range.StartCaretPosition, range.EndCaretPosition,
+                                     std::wstring{ args.Text() });
         });
 
         m_context.SelectionUpdating([](CoreTextEditContext const&,
@@ -94,12 +94,12 @@ namespace urusi
 
         m_context.CompositionStarted([this](CoreTextEditContext const&,
                                             CoreTextCompositionStartedEventArgs const&) {
-            m_session->CompositionStarted();
+            m_keyboard->CompositionStarted();
         });
 
         m_context.CompositionCompleted([this](CoreTextEditContext const&,
                                               CoreTextCompositionCompletedEventArgs const&) {
-            m_session->CompositionCompleted();
+            m_keyboard->CompositionCompleted();
         });
 
         // Where to put the candidates: beside the caret, as anywhere
@@ -111,7 +111,7 @@ namespace urusi
         });
 
         m_context.FocusRemoved([this](CoreTextEditContext const&, auto&&) {
-            m_session->FocusRemoved();
+            m_keyboard->FocusRemoved();
         });
     }
 }
