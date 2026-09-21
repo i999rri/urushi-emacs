@@ -6,7 +6,7 @@ Without one, each window keeps its mode line.
 
 ## How it works
 
-The bar is two lists of segments, one from its left end and one from its right. A segment is a function of the window the bar is about, returning XAML, or nil for nothing. Written as a list, `(FUNCTION PROPERTIES...)`, it is given PROPERTIES as well, which the segments urusi brings put on what they draw.
+The bar is lists of segments: one from its left end, one from its right, and one between them that takes the room the others leave, where what does not fit is cut off. A segment is a function of the window the bar is about, returning XAML, or nil for nothing. Written as a list, `(FUNCTION PROPERTIES...)`, it is given PROPERTIES as well, which the segments urusi brings put on what they draw.
 
 The window the bar is about is the selected one, or while the minibuffer is being typed in, the one selected before: what is being typed is about that.
 
@@ -16,7 +16,7 @@ The parts are:
 
 | Part | What it is |
 | --- | --- |
-| `(urusi-statusbar FRAME &rest PROPERTIES &key left right)` | The bar, with the segments LEFT and RIGHT. PROPERTIES go to the `Grid` it is, its height and background for one, and `:Foreground` is the colour of what it says. |
+| `(urusi-statusbar FRAME &rest PROPERTIES &key left fill right)` | The bar, with the segments LEFT and RIGHT at its ends and FILL between them, the last of FILL taking what is left. PROPERTIES go to the `Grid` it is, its height and background for one, and `:Foreground` is the colour of what it says. |
 | `(urusi-statusbar-text TEXT &rest PROPERTIES)` | TEXT as a segment. PROPERTIES go to its `TextBlock`. |
 | `(urusi-statusbar-button TEXT ACTION &rest PROPERTIES)` | TEXT as a segment that calls ACTION when clicked. PROPERTIES go to its `Button`. |
 | `(urusi-statusbar-window &optional FRAME)` | The window the bar is about. |
@@ -25,6 +25,7 @@ And the segments, each a function of the window and of properties for what it dr
 
 | Segment | What it says |
 | --- | --- |
+| `urusi-statusbar-message` | The first line of what Emacs is saying in the echo area, while it says it. Put it in FILL. |
 | `urusi-statusbar-vc` | The branch the file is on, as version control says it. |
 | `urusi-statusbar-buffer` | The name of the buffer, with a dot when it is not saved. |
 | `urusi-statusbar-diagnostics` | How many errors and warnings Flymake has found. Clicking it lists them. |
@@ -91,6 +92,21 @@ The bar says what the mode lines say, and they can go. Without them, windows one
 The colour of the line is the foreground of the face `window-divider`.
 
 A package that draws the mode line, such as doom-modeline, sets `mode-line-format` again whenever it is turned on. Turn it off first, and after it has been loaded: with a package manager that loads packages after the init file, that is in a hook that runs after them, such as `elpaca-after-init-hook`.
+
+### Messages in the bar
+
+What Emacs says in the echo area can be said in the bar instead, and the echo area left out of sight:
+
+```elisp
+(urusi-statusbar frame
+                 :left '(urusi-statusbar-vc)
+                 :fill '(urusi-statusbar-message)
+                 :right '(urusi-statusbar-position))
+
+(setq urusi-screen-echo-area 'when-active)
+```
+
+With `urusi-screen-echo-area` set to `when-active`, the line at the bottom of the frame is shown only while the minibuffer is being typed in there, as `M-:` does; a minibuffer that floats in a child frame leaves it out of sight. Emacs keeps the line whether or not it is shown, so the frame is made taller than its room by that line, and the line goes under the bar.
 
 ### Segments of your own
 
