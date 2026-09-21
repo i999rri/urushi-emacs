@@ -28,7 +28,8 @@
 ;; changing one changes that much and no more:
 ;; `urusi-screen-window-function' for a window, `-line-function' for one
 ;; of its lines, `-run-function' for a stretch of a line drawn one way,
-;; and `-cursor-function' for the cursor.
+;; `-cursor-function' for the cursor, and `-child-frame-function' for a
+;; child frame, such as a minibuffer floating over the frame.
 
 ;;; Code:
 
@@ -437,27 +438,27 @@ and any frame's otherwise is the face `internal-border'."
   "Return a name for FRAME that no other frame has while it lives."
   (format "%x" (sxhash-eq frame)))
 
-(defun urusi-screen-child-frame (frame)
-  "Return FRAME, a child frame, as a row of XAML, where it sits on its parent.
-It is drawn as Emacs draws one: its own background, the border around
-it, and its windows, with its own children over those.
+(defcustom urusi-screen-child-frame-function #'urusi-screen-child-frame-body
+  "Function that draws one child frame, such as a floating minibuffer.
+It takes the frame and returns it as XAML, as big as the frame is;
+where it goes on its parent is Emacs's to decide, and it is put there.
+The one that draws it as Emacs would is `urusi-screen-child-frame-body',
+which one of your own can wrap in whatever it likes: a shadow under
+it, rounded corners, only for some frames and not others."
+  :type 'function)
 
-It is a row of its own, and its windows are rows inside it, so that a
-child frame that comes, goes or changes size is sent by itself: the
-frame it is over stays as it was, and so do its own lines when only
-where it is has changed."
+(defun urusi-screen-child-frame-body (frame)
+  "Return FRAME, a child frame, as XAML, the way Emacs draws one.
+That is its own background, the border around it, and its windows, with
+its own children over those."
   (let* ((scale (float urusi-scale))
-         (position (frame-position frame))
          (width (/ (frame-native-width frame) scale))
          (height (/ (frame-native-height frame) scale))
          (border (frame-internal-border-width frame))
          (border-color (urusi-screen--border-color frame))
          (background (urusi-screen-color
                       (face-attribute 'default :background frame t))))
-    `(Canvas :key ,(urusi-screen--frame-name frame)
-             :Canvas.Left ,(/ (car position) scale)
-             :Canvas.Top ,(/ (cdr position) scale)
-             :Width ,width
+    `(Canvas :Width ,width
              :Height ,height
              ,@(when background `(:Background ,background))
              ,@(when (and border-color (< 0 border))
@@ -465,6 +466,21 @@ where it is has changed."
                            :BorderThickness ,(/ border scale)
                            :BorderBrush ,border-color)))
              ,(urusi-screen-windows frame))))
+
+(defun urusi-screen-child-frame (frame)
+  "Return FRAME, a child frame, as a row of XAML, where it sits on its parent.
+What is drawn is up to `urusi-screen-child-frame-function'.
+
+It is a row of its own, and its windows are rows inside it, so that a
+child frame that comes, goes or changes size is sent by itself: the
+frame it is over stays as it was, and so do its own lines when only
+where it is has changed."
+  (let ((scale (float urusi-scale))
+        (position (frame-position frame)))
+    `(Canvas :key ,(urusi-screen--frame-name frame)
+             :Canvas.Left ,(/ (car position) scale)
+             :Canvas.Top ,(/ (cdr position) scale)
+             ,(funcall urusi-screen-child-frame-function frame))))
 
 (defun urusi-screen-windows (frame)
   "Return every window of FRAME, each where it is.
