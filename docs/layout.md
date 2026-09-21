@@ -29,11 +29,37 @@ What a panel holds is its `:content`:
 | Content | What it is |
 | --- | --- |
 | `emacs` | The Emacs frame, windows and all. There is to be one. |
+| `frame` | An Emacs frame of the panel's own, showing the buffer named by the panel's `:buffer` at first, or `*scratch*`. |
 | `nil` | Nothing: a space. |
 | a function | Called with the frame, returning a tree for `urusi-render`. |
 | a tree | Put there as it is. |
 
 A panel's own `:background`, `:padding`, `:margin` and `:corner-radius` are the panel's.
+
+## Buffers in panels
+
+A panel whose content is `frame` has an Emacs frame of its own, with windows that split and buffers that show as in any other. It is made the first time it is shown. Clicking in it selects it, and what is typed goes to it; clicking back in the other frame takes the keys back.
+
+A buffer is sent to it with `urusi-layout-display-in-panel`, an action for `display-buffer-alist`. The panel it names is shown if it is hidden:
+
+```elisp
+(add-to-list 'display-buffer-alist
+             '("\*compilation\*"
+               (urusi-layout-display-in-panel)
+               (panel . output)))
+```
+
+With that, `M-x compile` puts its output in the output panel, and the frame being typed in stays the one it was.
+
+A frame of a panel is made what its panel needs by `urusi-layout-make-frame-functions`, which are called with the frame and the panel's `:id`. An output needs no tabs above it:
+
+```elisp
+(add-hook 'urusi-layout-make-frame-functions
+          (lambda (frame _id)
+            (let ((window (frame-root-window frame)))
+              (set-window-parameter window 'tab-line-format 'none)
+              (set-window-parameter window 'header-line-format 'none))))
+```
 
 ## Changing it
 
@@ -57,6 +83,16 @@ Emacs, and nothing else, which is the layout there is to start with:
 
 ```elisp
 (setq urusi-layout '(panel :id editor :content emacs))
+```
+
+An output under Emacs that shows itself when there is a compilation to show:
+
+```elisp
+(setq urusi-layout
+      '(column
+        (panel :id editor :content emacs)
+        (panel :id output :size 220 :hidden t
+               :content frame :buffer "*compilation*")))
 ```
 
 A file tree on the left and an output under Emacs, the output hidden until it is wanted:
