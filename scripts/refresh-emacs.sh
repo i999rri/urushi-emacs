@@ -43,12 +43,11 @@ echo "=== libemacs.pdmp"
  mv -f emacs.pdmp libemacs.pdmp
  mv -f emacs.pdmp.exe emacs.pdmp)
 
-# The staged Emacs, and the copies the application's builds made of it,
+# The staged Emacs, and the copies the package's builds laid out,
 # which is what running the application without building it again
 # finds.
 for emacs in "$here/emacs" \
-             "$here"/x64/*/urusi-emacs/emacs \
-             "$here"/x64/*/urusi-emacs/AppX/emacs; do
+             "$here"/package/bin/*/*/AppX/emacs; do
     [ -d "$emacs/bin" ] || continue
 
     cp -f "$build/libemacs.dll" "$build/libemacs.pdmp" "$emacs/bin/"
