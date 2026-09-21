@@ -160,7 +160,23 @@ namespace winrt::urusi_emacs::implementation
             {
                 self->TakeInputToEmacs();
                 self->KeepFocus();
-                self->ResumeComposition();
+
+                // Only on coming back from another window. The window is
+                // also told it is active while it already is, as the
+                // input method's own windows come and go, and telling
+                // the input method again then ends what it is composing.
+                if (!self->m_active)
+                {
+                    self->ResumeComposition();
+                }
+            }
+            else
+            {
+                // Said to have gone, so that coming back is news to it:
+                // told only that the focus is here, while it thinks it
+                // never left, it goes on talking to the window it
+                // talked to meanwhile.
+                self->m_composition.Focus(false);
             }
             self->TellEmacsFocus(active);
             self->SendHostEvent(active ? L"activated" : L"deactivated", JsonObject{});

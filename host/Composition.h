@@ -72,6 +72,9 @@ namespace urusi
         // the text this context holds: Emacs keeps everything else.
         std::wstring m_text;
         bool m_composing{ false };
+
+        // Whether the context has been told the focus is here.
+        bool m_entered{ false };
         winrt::Windows::Foundation::Rect m_caret{ 0, 0, 2, 16 };
     };
 }

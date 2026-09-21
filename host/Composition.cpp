@@ -34,10 +34,14 @@ namespace urusi
 
     void Composition::Focus(bool enter)
     {
-        if (!m_context)
+        // Said once each way: the input method ends what it is composing
+        // when told again that the focus has come, as though it had
+        // gone and come back.
+        if (!m_context || enter == m_entered)
         {
             return;
         }
+        m_entered = enter;
 
         if (enter)
         {
@@ -197,6 +201,9 @@ namespace urusi
         });
 
         m_context.FocusRemoved([this](CoreTextEditContext const&, auto&&) {
+            // Taken away by the input method, not by us: the next focus
+            // there is to be told of again.
+            m_entered = false;
             m_composing = false;
             Say("focus removed");
             Reset();
