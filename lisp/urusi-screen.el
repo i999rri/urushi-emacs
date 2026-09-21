@@ -591,7 +591,10 @@ or nil for nothing at all.  They are passed in this order to
 `urusi-screen-layout-function'.
 
 The one whose symbol has a non-nil `urusi-screen-frame' property is
-where the Emacs frame goes; see `urusi-screen-layout'.
+where the Emacs frame goes, and takes whatever room the others leave;
+see `urusi-screen-layout'.  One with a non-nil `urusi-screen-fill'
+property takes that room too, and puts the frame somewhere in it
+itself, with `urusi-screen-frame-site', as `urusi-layout' does.
 
 A component can draw the window's title bar.  An element named
 urusi-titlebar is what tells the host to take the window's own title
@@ -612,6 +615,18 @@ frame they were built for."
   "Return non-nil if PART is where the Emacs frame goes."
   (get (car part) 'urusi-screen-frame))
 
+(defun urusi-screen--fill-part-p (part)
+  "Return non-nil if PART takes the room the other parts leave."
+  (or (urusi-screen--frame-part-p part)
+      (get (car part) 'urusi-screen-fill)))
+
+(defun urusi-screen-frame-site (frame)
+  "Return the windows of FRAME in the element the host sizes the frame by.
+It is named urusi-frame: the host makes the frame as big as it is, so
+what else is on the screen is room the frame does not have, and Emacs
+lays its text out to fit.  There is to be one of it on the screen."
+  `(Grid :Name "urusi-frame" ,(urusi-screen-windows frame)))
+
 (defun urusi-screen--in-row (tree row)
   "Return TREE placed in ROW of the grid around it."
   (cons (car tree) (append (list :Grid.Row row) (cdr tree))))
@@ -630,7 +645,7 @@ parts take the room they need."
     `(Grid ,@(when background `(:Background ,background))
            (Grid.RowDefinitions
             ,@(mapcar (lambda (part)
-                        `(RowDefinition :Height ,(if (urusi-screen--frame-part-p part)
+                        `(RowDefinition :Height ,(if (urusi-screen--fill-part-p part)
                                                      "*"
                                                    "Auto")))
                       parts))

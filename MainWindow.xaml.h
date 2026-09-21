@@ -61,6 +61,7 @@ namespace winrt::urusi_emacs::implementation
         Microsoft::UI::Xaml::FrameworkElement FrameSite();
         void FollowLayout();
         void UpdateTitleBarRegions();
+        void AttachSplitters(Microsoft::UI::Xaml::UIElement const& root);
         void KeepFocus();
         void SendHostEvent(winrt::hstring const& name,
                            Windows::Data::Json::JsonObject const& details);
@@ -89,6 +90,11 @@ namespace winrt::urusi_emacs::implementation
         SIZE m_emacsSize{ 0, 0 };
         bool m_attached{ false };
         bool m_active{ false };
+
+        // Whether a splitter is being dragged. The frame is not resized
+        // while it is: resizing it has Emacs lay out and draw again, and
+        // what it draws replaces the grid the splitter is in.
+        bool m_splitting{ false };
         bool m_shown{ false };
 
         // Whether Emacs can be asked yet, when it was last heard from,

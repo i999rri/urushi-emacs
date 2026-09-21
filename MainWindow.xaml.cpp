@@ -536,6 +536,182 @@ namespace winrt::urusi_emacs::implementation
             titlebar.SizeChanged(changed);
         }
         UpdateTitleBarRegions();
+
+        if (Surface().Children().Size())
+        {
+            AttachSplitters(Surface().Children().GetAt(0));
+        }
+    }
+
+    // Let the splitters Lisp put between the parts of a layout be
+    // dragged. A splitter is named urusi-splitter:DIRECTION:BEFORE:AFTER,
+    // and sits in a cell of its own between the cells of the parts
+    // either side of it, in the grid they are in. Dragging it makes the
+    // part with a size of its own bigger or smaller and leaves the one
+    // that shares what is left to take the rest; if neither has one,
+    // the one before is given one. Where it is let go is Lisp's to
+    // remember, and it is told.
+    void MainWindow::AttachSplitters(UIElement const& root)
+    {
+        constexpr double kMinimumPart = 40;
+
+        struct Drag
+        {
+            bool active{ false };
+            double start{ 0 };
+            double before{ 0 };
+            double after{ 0 };
+        };
+
+        auto weak = get_weak();
+        std::vector<UIElement> pending{ root };
+
+        while (!pending.empty())
+        {
+            auto element = pending.back();
+            pending.pop_back();
+
+            if (auto panel = element.try_as<Controls::Panel>())
+            {
+                for (auto const& child : panel.Children())
+                {
+                    pending.push_back(child);
+                }
+            }
+            else if (auto border = element.try_as<Controls::Border>(); border && border.Child())
+            {
+                pending.push_back(border.Child());
+            }
+
+            auto splitter = element.try_as<FrameworkElement>();
+            std::wstring name = splitter ? std::wstring{ splitter.Name() } : L"";
+            if (name.rfind(L"urusi-splitter:", 0) != 0)
+            {
+                continue;
+            }
+
+            bool horizontal = name.size() > 15 && name[15] == L'h';
+            auto drag = std::make_shared<Drag>();
+
+            // The cursor says it can be dragged, and which way. It is a
+            // protected property, meant for a control to set of itself,
+            // and this one is set from outside.
+            splitter.as<IUIElementProtected>().ProtectedCursor(
+                Microsoft::UI::Input::InputSystemCursor::Create(
+                    horizontal ? Microsoft::UI::Input::InputSystemCursorShape::SizeWestEast
+                               : Microsoft::UI::Input::InputSystemCursorShape::SizeNorthSouth));
+
+            // The grid the splitter is in, and which cell of it is the
+            // splitter's; the parts are in the cells either side.
+            auto cells = [splitter, horizontal]() {
+                auto grid = splitter.Parent().try_as<Controls::Grid>();
+                int index = horizontal ? Controls::Grid::GetColumn(splitter)
+                                       : Controls::Grid::GetRow(splitter);
+                return std::make_tuple(grid, index);
+            };
+            auto lengths = [horizontal](Controls::Grid const& grid, int index) {
+                if (horizontal)
+                {
+                    return std::make_pair(grid.ColumnDefinitions().GetAt(index - 1).ActualWidth(),
+                                          grid.ColumnDefinitions().GetAt(index + 1).ActualWidth());
+                }
+                return std::make_pair(grid.RowDefinitions().GetAt(index - 1).ActualHeight(),
+                                      grid.RowDefinitions().GetAt(index + 1).ActualHeight());
+            };
+
+            splitter.PointerPressed([weak, splitter, horizontal, drag, cells, lengths](
+                                        IInspectable const&, Input::PointerRoutedEventArgs const& args) {
+                auto self = weak.get();
+                auto [grid, index] = cells();
+                if (!self || !grid || index < 1)
+                {
+                    return;
+                }
+
+                auto point = args.GetCurrentPoint(grid).Position();
+                drag->active = true;
+                drag->start = horizontal ? point.X : point.Y;
+                std::tie(drag->before, drag->after) = lengths(grid, index);
+                self->m_splitting = true;
+                splitter.CapturePointer(args.Pointer());
+                args.Handled(true);
+            });
+
+            splitter.PointerMoved([horizontal, drag, cells](
+                                      IInspectable const&, Input::PointerRoutedEventArgs const& args) {
+                auto [grid, index] = cells();
+                if (!drag->active || !grid)
+                {
+                    return;
+                }
+
+                auto point = args.GetCurrentPoint(grid).Position();
+                double moved = (horizontal ? point.X : point.Y) - drag->start;
+                moved = std::clamp(moved, kMinimumPart - drag->before, drag->after - kMinimumPart);
+
+                auto pixels = [](double value) { return GridLength{ value, GridUnitType::Pixel }; };
+                auto shares = [](GridLength const& value) { return value.GridUnitType == GridUnitType::Star; };
+
+                if (horizontal)
+                {
+                    auto before = grid.ColumnDefinitions().GetAt(index - 1);
+                    auto after = grid.ColumnDefinitions().GetAt(index + 1);
+                    if (shares(before.Width()) && !shares(after.Width()))
+                    {
+                        after.Width(pixels(drag->after - moved));
+                    }
+                    else
+                    {
+                        before.Width(pixels(drag->before + moved));
+                    }
+                }
+                else
+                {
+                    auto before = grid.RowDefinitions().GetAt(index - 1);
+                    auto after = grid.RowDefinitions().GetAt(index + 1);
+                    if (shares(before.Height()) && !shares(after.Height()))
+                    {
+                        after.Height(pixels(drag->after - moved));
+                    }
+                    else
+                    {
+                        before.Height(pixels(drag->before + moved));
+                    }
+                }
+                args.Handled(true);
+            });
+
+            auto finish = [weak, splitter, drag, cells, lengths, name](
+                              IInspectable const&, Input::PointerRoutedEventArgs const& args) {
+                auto self = weak.get();
+                auto [grid, index] = cells();
+                if (!self || !drag->active)
+                {
+                    return;
+                }
+
+                drag->active = false;
+                self->m_splitting = false;
+                splitter.ReleasePointerCapture(args.Pointer());
+
+                JsonObject details;
+                details.SetNamedValue(L"name", JsonValue::CreateStringValue(name));
+                if (grid)
+                {
+                    auto [before, after] = lengths(grid, index);
+                    details.SetNamedValue(L"before", JsonValue::CreateNumberValue(std::round(before)));
+                    details.SetNamedValue(L"after", JsonValue::CreateNumberValue(std::round(after)));
+                }
+                self->SendHostEvent(L"splitter", details);
+
+                // The frame was left the size it was while the splitter
+                // moved, and is given the size it has now.
+                self->SizeEmacsFrame();
+                args.Handled(true);
+            };
+            splitter.PointerReleased(finish);
+            splitter.PointerCaptureLost(finish);
+        }
     }
 
     // Give the focus back to the element the keys go to Emacs from,
@@ -617,7 +793,7 @@ namespace winrt::urusi_emacs::implementation
     void MainWindow::SizeEmacsFrame()
     {
         auto site = FrameSite();
-        if (!site.XamlRoot())
+        if (!site.XamlRoot() || m_splitting)
         {
             return;
         }
