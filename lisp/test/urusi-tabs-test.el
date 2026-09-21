@@ -59,6 +59,23 @@
     (should (cl-every (lambda (event) (string-prefix-p "tabs/strip/" (plist-get event :id)))
                       (cddr row)))))
 
+(defface urusi-tabs-test-icon '((t :foreground "#123456"))
+  "A face for an icon to inherit its colour from.")
+
+(ert-deftest urusi-tabs-draw-icons-in-the-font-on-them ()
+  "An icon is drawn in the family its face gives, and in its colour when it has one."
+  (let ((urusi-tabs-icon-function
+         (lambda (tab)
+           (if (plist-get tab :current)
+               (propertize "i" 'face '(:family "Icons" :inherit urusi-tabs-test-icon))
+             (propertize "j" 'face '(:family "Icons"))))))
+    (let ((current (car (urusi--compile (urusi-tabs-tab (list :name "a" :current t
+                                                              :select #'ignore)))))
+          (other (car (urusi--compile (urusi-tabs-tab (list :name "b" :select #'ignore))))))
+      (should (string-match-p "<TextBlock Text=\"i\" [^>]*FontFamily=\"Icons\" Foreground=\"#[0-9a-f]+\"" current))
+      ;; Without a colour of its own, it takes the tab's.
+      (should (string-match-p "<TextBlock Text=\"j\" [^>]*FontFamily=\"Icons\" Margin" other)))))
+
 (ert-deftest urusi-tabs-strip-can-stand-down-the-side ()
   "Tabs down the side scroll up and down, and tabs that are cut off do not scroll."
   (let ((down (car (urusi--compile (urusi-tabs nil :orientation "Vertical"))))

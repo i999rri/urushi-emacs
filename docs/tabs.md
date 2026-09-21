@@ -32,6 +32,8 @@ The parts are:
 | `(urusi-tabs-tab-line-tabs &optional WINDOW)` | The tabs of `tab-line-mode`, one to a window, each a buffer, as `tab-line-tabs-function` lists them and `tab-line-tab-name-function` names them. Closing one does what `tab-line-close-tab-function` says. |
 | `(urusi-tabs TABS &rest PROPERTIES &key orientation scroll)` | TABS laid out in a strip. ORIENTATION is `"Horizontal"` or `"Vertical"`. SCROLL nil cuts off the tabs that do not fit rather than letting them be scrolled to. PROPERTIES go to the outermost element. |
 | `urusi-tabs-tab-function` | The function that draws one tab. The one urusi brings, `urusi-tabs-tab`, is a button in the colours of the tab's faces, with a button that closes it. |
+| `urusi-tabs-icon-function` | A function of a tab that returns its icon, a string, or nil. The icon is drawn before the name, in the font family and colour of the face on it, and in the tab's colour where the face gives none. |
+| `(urusi-tabs-icon ICON &rest PROPERTIES)` | ICON drawn as `urusi-tabs-tab` draws it, for tabs of your own design. |
 | `(urusi-tabs-button-colors BACKGROUND FOREGROUND &optional HOVER-BACKGROUND HOVER-FOREGROUND)` | Colours for a button, to go in its `Button.Resources`: the ones WinUI would give it under the pointer are the theme's, not yours. |
 | `(urusi-tabs-tab-bar FRAME &rest PROPERTIES)` | The tabs of `tab-bar-mode` as a row of their own, ready to be a component. PROPERTIES are those of `urusi-tabs`. |
 | `(urusi-tabs-tab-line WINDOW LINE)` | The tabs of `tab-line-mode`, for `urusi-screen-tab-line-function`. |
@@ -116,6 +118,26 @@ Closing a tab buries its buffer by default. To have it closed, as other editors 
 ```
 
 A buffer that is not saved asks first.
+
+### Icons
+
+`urusi-tabs-icon-function` gives each tab an icon. The icon of the file's kind, from the package `nerd-icons`, in the colour of the tab's text, which stays readable on the current tab whatever its colour:
+
+```elisp
+(defun my-tab-icon (tab)
+  (let ((buffer (let ((tab (plist-get tab :tab)))
+                  (if (bufferp tab) tab (alist-get 'buffer tab)))))
+    (when (and (buffer-live-p buffer) (require 'nerd-icons nil t))
+      (let ((icon (with-current-buffer buffer (nerd-icons-icon-for-buffer))))
+        (when (and (stringp icon) (< 0 (length icon)))
+          ;; The glyph in the icons' font, without the colour nerd-icons gives it.
+          (propertize (substring-no-properties icon)
+                      'face `(:family ,nerd-icons-font-family)))))))
+
+(setq urusi-tabs-icon-function #'my-tab-icon)
+```
+
+Return the icon as `nerd-icons` makes it to keep its colours.
 
 ### Tabs of your own design
 

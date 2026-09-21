@@ -146,6 +146,45 @@ XAML.  Clicking what it returns does nothing by itself: the tab's
 :select and :close are what to give the controls in it."
   :type 'function)
 
+(defcustom urusi-tabs-icon-function nil
+  "Function that gives a tab its icon, or nil for tabs without one.
+It takes the tab, a plist as `urusi-tabs' describes, and returns a
+string to draw before its name, or nil.  The string is drawn in the
+font family and the colour of the face on it, as Emacs would draw it,
+and in the colour of the tab where its face gives none: an icon of a
+font of icons, such as the ones `nerd-icons' makes, draws as it is."
+  :type '(choice (const :tag "None" nil) function))
+
+(defun urusi-tabs--string-face-attribute (string attribute)
+  "Return ATTRIBUTE of the face on the start of STRING, or nil if it has none.
+The face can be a face, a plist of attributes, or a list of either, and
+an attribute it does not give is looked for in what it inherits."
+  (cl-labels ((lookup (face)
+                (cond ((null face) nil)
+                      ((symbolp face)
+                       (and (facep face)
+                            (let ((value (face-attribute face attribute nil t)))
+                              (unless (eq value 'unspecified) value))))
+                      ((keywordp (car face))
+                       (or (let ((value (plist-get face attribute)))
+                             (unless (eq value 'unspecified) value))
+                           (lookup (plist-get face :inherit))))
+                      (t (cl-some #'lookup face)))))
+    (lookup (get-text-property 0 'face string))))
+
+(defun urusi-tabs-icon (icon &rest properties)
+  "Return ICON, a string, as the icon of a tab.
+It is drawn in the font family and the colour of the face on it, and
+PROPERTIES are more properties of the TextBlock it is in."
+  (let ((family (urusi-tabs--string-face-attribute icon :family))
+        (foreground (urusi-screen-color
+                     (urusi-tabs--string-face-attribute icon :foreground))))
+    `(TextBlock :Text ,(urusi-literal (substring-no-properties icon))
+                :VerticalAlignment "Center"
+                ,@(when (stringp family) `(:FontFamily ,family))
+                ,@(when foreground `(:Foreground ,foreground))
+                ,@properties)))
+
 (defun urusi-tabs--face-color (face attribute)
   "Return the colour FACE gives ATTRIBUTE, or nil if it gives none."
   (and face (facep face)
@@ -204,6 +243,9 @@ current one stays as it is."
                (urusi-tabs--face-color hover :background)
                (urusi-tabs--face-color hover :foreground))
              (StackPanel :Orientation "Horizontal" :Spacing 4
+                         ,@(when-let* ((icon (and urusi-tabs-icon-function
+                                                  (funcall urusi-tabs-icon-function tab))))
+                             (list (urusi-tabs-icon icon :Margin "0,0,2,0")))
                          (TextBlock :Text ,(urusi-literal (plist-get tab :name))
                                     :VerticalAlignment "Center")
                          ,@(when close
