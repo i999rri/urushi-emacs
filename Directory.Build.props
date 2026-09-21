@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <!--
+    The solution's directory, when a project is built without the
+    solution, as msbuild package\Package.wapproj does: the application
+    is then built where Visual Studio builds it, in x64\ at the top and
+    not in host\x64\, and there is one place to look for it.
+  -->
+  <PropertyGroup Condition="'$(SolutionDir)'=='' or '$(SolutionDir)'=='*Undefined*'">
+    <SolutionDir>$(MSBuildThisFileDirectory)</SolutionDir>
+  </PropertyGroup>
+</Project>

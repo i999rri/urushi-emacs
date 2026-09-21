@@ -4,6 +4,8 @@
 
 # Build output
 x64/
+/package/bin/
+/package/obj/
 ARM64/
 Win32/
 Debug/

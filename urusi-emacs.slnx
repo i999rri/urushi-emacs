@@ -4,7 +4,29 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="urusi-emacs.vcxproj">
+  <Folder Name="/docs/">
+    <File Path="README.md" />
+    <File Path="docs/child-frames.md" />
+    <File Path="docs/layout.md" />
+    <File Path="docs/titlebar.md" />
+  </Folder>
+  <Folder Name="/lisp/">
+    <File Path="lisp/urusi.el" />
+    <File Path="lisp/urusi-frame.el" />
+    <File Path="lisp/urusi-layout.el" />
+    <File Path="lisp/urusi-screen.el" />
+    <File Path="lisp/urusi-site-start.el" />
+    <File Path="lisp/urusi-titlebar.el" />
+  </Folder>
+  <Folder Name="/lisp/test/">
+    <File Path="lisp/test/urusi-layout-test.el" />
+    <File Path="lisp/test/urusi-test.el" />
+    <File Path="lisp/test/urusi-titlebar-test.el" />
+  </Folder>
+  <Project Path="host/host.vcxproj" Id="3220ffce-015c-48f0-8f85-c40af85ba8c5">
+    <Platform Solution="*|x86" Project="Win32" />
+  </Project>
+  <Project Path="package/Package.wapproj" Type="c7167f0d-bc9f-4e6e-afe1-012c56b48db5">
     <Deploy />
   </Project>
 </Solution>

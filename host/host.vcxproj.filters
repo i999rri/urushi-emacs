@@ -1,0 +1,92 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="App">
+      <UniqueIdentifier>{6f5e1f43-3f7a-4c52-9a1b-0b6a4f3c2e11}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Window">
+      <UniqueIdentifier>{2d8a7c1e-5b44-4e0f-8c3d-7a9e1b2c4d22}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Emacs">
+      <UniqueIdentifier>{9c3b5e2a-1d6f-4a87-b2e4-3f8c6d1a5e33}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Input">
+      <UniqueIdentifier>{4e7d2a9b-8c1f-4b35-a6d2-5c9e3f7b1a44}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ApplicationDefinition Include="App.xaml">
+      <Filter>App</Filter>
+    </ApplicationDefinition>
+  </ItemGroup>
+  <ItemGroup>
+    <Page Include="MainWindow.xaml">
+      <Filter>Window</Filter>
+    </Page>
+  </ItemGroup>
+  <ItemGroup>
+    <Midl Include="MainWindow.idl">
+      <Filter>Window</Filter>
+    </Midl>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="pch.cpp">
+      <Filter>App</Filter>
+    </ClCompile>
+    <ClCompile Include="App.xaml.cpp">
+      <Filter>App</Filter>
+    </ClCompile>
+    <ClCompile Include="MainWindow.xaml.cpp">
+      <Filter>Window</Filter>
+    </ClCompile>
+    <ClCompile Include="EmacsHost.cpp">
+      <Filter>Emacs</Filter>
+    </ClCompile>
+    <ClCompile Include="HostApi.cpp">
+      <Filter>Emacs</Filter>
+    </ClCompile>
+    <ClCompile Include="HostCalls.cpp">
+      <Filter>Emacs</Filter>
+    </ClCompile>
+    <ClCompile Include="Composition.cpp">
+      <Filter>Input</Filter>
+    </ClCompile>
+    <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="pch.h">
+      <Filter>App</Filter>
+    </ClInclude>
+    <ClInclude Include="App.xaml.h">
+      <Filter>App</Filter>
+    </ClInclude>
+    <ClInclude Include="MainWindow.xaml.h">
+      <Filter>Window</Filter>
+    </ClInclude>
+    <ClInclude Include="EmacsHost.h">
+      <Filter>Emacs</Filter>
+    </ClInclude>
+    <ClInclude Include="HostApi.h">
+      <Filter>Emacs</Filter>
+    </ClInclude>
+    <ClInclude Include="HostCalls.h">
+      <Filter>Emacs</Filter>
+    </ClInclude>
+    <ClInclude Include="..\external\emacs\src\w32host.h">
+      <Filter>Emacs</Filter>
+    </ClInclude>
+    <ClInclude Include="Composition.h">
+      <Filter>Input</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Manifest Include="app.manifest">
+      <Filter>App</Filter>
+    </Manifest>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config">
+      <Filter>App</Filter>
+    </None>
+  </ItemGroup>
+</Project>

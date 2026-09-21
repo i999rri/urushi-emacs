@@ -1,7 +1,7 @@
 #pragma once
 
 // The interface itself, from the Emacs this application loads.
-#include "external/emacs/src/w32host.h"
+#include "../external/emacs/src/w32host.h"
 
 #include <functional>
 #include <mutex>
