@@ -9,6 +9,12 @@
 ;; is not shown until the init file has had its say about what it should
 ;; look like.
 ;;
+;; What the screen looks like is loaded only after the init file, so
+;; that the init file can have its own: a urusi-screen.el of your own,
+;; loaded from the init file or found first on `load-path', is the one
+;; used, and the one that comes with urusi is used only when there is no
+;; other.  The same goes for urusi-frame.el.
+;;
 ;; It does nothing at all in an Emacs that is not inside the host, so the
 ;; same installation is an ordinary Emacs when run as one.
 
@@ -83,12 +89,16 @@ program that never comes back is the first thing to know about."
 (defun urusi-site-start--show ()
   "Show the screen, once there is an Emacs to show."
   (urusi-site-start--trace nil)
-  (unless urusi-screen-mode
+  (unless (bound-and-true-p urusi-screen-mode)
     (condition-case error
         (progn
           (urusi--log "init %s read in %s, %d features"
                       (or user-init-file "(none)") (emacs-init-time)
                       (length features))
+          ;; Whichever the init file loaded, or the first on the path.
+          (require 'urusi-screen)
+          (require 'urusi-frame)
+          (urusi--log "screen from %s" (symbol-file 'urusi-screen-mode))
           (urusi-start)
           (urusi-screen-mode 1)
           (urusi-frame-mode 1))
@@ -96,8 +106,6 @@ program that never comes back is the first thing to know about."
 
 (when (and (fboundp 'w32-host-available-p) (w32-host-available-p))
   (require 'urusi)
-  (require 'urusi-screen)
-  (require 'urusi-frame)
 
   ;; How far Emacs got, for when it does not get all the way: the
   ;; screen is not there yet to say anything on, so the only account of
