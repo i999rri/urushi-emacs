@@ -1,6 +1,7 @@
 #pragma once
 
 #include "MainWindow.g.h"
+#include "Activation.h"
 #include "Composition.h"
 #include "EmacsHost.h"
 #include "HostApi.h"
@@ -68,6 +69,8 @@ namespace winrt::urusi_emacs::implementation
         void SizeFrame(Microsoft::UI::Xaml::FrameworkElement const& site, std::wstring const& id);
         void KeepFocus();
         void ResumeComposition();
+        void CheckDeactivation();
+        void Perform(urusi::Activation::Actions const& actions);
         bool IsForeground() const noexcept;
         void TraceFocus(char const* what);
         void SendHostEvent(winrt::hstring const& name,
@@ -100,7 +103,10 @@ namespace winrt::urusi_emacs::implementation
         // of its panel.
         std::map<std::wstring, SIZE> m_panelSizes;
         bool m_attached{ false };
-        bool m_active{ false };
+
+        // Whether the window is in front, and what to do as it comes
+        // and goes.
+        urusi::Activation m_activation;
 
         // The window itself, to ask Windows whether it is in front.
         HWND m_window{ nullptr };

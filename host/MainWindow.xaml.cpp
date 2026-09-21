@@ -162,50 +162,12 @@ namespace winrt::urusi_emacs::implementation
             {
                 self->TakeInputToEmacs();
                 self->KeepFocus();
-
-                // Only on coming back from another window. The window is
-                // also told it is active while it already is, as the
-                // input method's own windows come and go, and telling
-                // the input method again then ends what it is composing.
-                if (!self->m_active)
-                {
-                    self->ResumeComposition();
-                }
+                self->Perform(self->m_activation.Activated());
             }
             else
             {
-                // Told to have gone while still in front, as when a
-                // window of the input method comes and goes, and not
-                // told to have come back after. So it is believed only
-                // once Windows agrees, after what XAML is doing about it
-                // has been done.
-                self->m_dispatcher.TryEnqueue(
-                    Microsoft::UI::Dispatching::DispatcherQueuePriority::Low,
-                    [weak] {
-                        auto self = weak.get();
-                        if (!self)
-                        {
-                            return;
-                        }
-
-                        self->TraceFocus("deactivated, checked");
-                        if (self->IsForeground())
-                        {
-                            return;
-                        }
-
-                        // Said to have gone, so that coming back is news
-                        // to it: told only that the focus is here, while
-                        // it thinks it never left, it goes on talking to
-                        // the window it talked to meanwhile.
-                        self->m_composition.Focus(false);
-                        self->TellEmacsFocus(false);
-                        self->SendHostEvent(L"deactivated", JsonObject{});
-                    });
-                return;
+                self->Perform(self->m_activation.Deactivated());
             }
-            self->TellEmacsFocus(true);
-            self->SendHostEvent(L"activated", JsonObject{});
         });
 
         // Closing the window is Emacs's to decide, the way leaving Emacs
@@ -324,7 +286,7 @@ namespace winrt::urusi_emacs::implementation
 
         // The window may have come to the front before there was a
         // frame to tell.
-        if (m_active)
+        if (m_activation.Active())
         {
             TellEmacsFocus(true);
         }
@@ -339,7 +301,6 @@ namespace winrt::urusi_emacs::implementation
     // running the hooks that wait for the focus to change.
     void MainWindow::TellEmacsFocus(bool focused)
     {
-        m_active = focused;
         if (m_emacsWindow)
         {
             PostMessageW(m_emacsWindow, focused ? WM_SETFOCUS : WM_KILLFOCUS, 0, 0);
@@ -953,7 +914,7 @@ namespace winrt::urusi_emacs::implementation
 
         char text[256];
         sprintf_s(text, "%s: foreground %s, active %s, win32 focus %p, xaml focus %s\n",
-                  what, IsForeground() ? "yes" : "no", m_active ? "yes" : "no",
+                  what, IsForeground() ? "yes" : "no", m_activation.Active() ? "yes" : "no",
                   static_cast<void*>(GetFocus()), xaml.c_str());
         AppendLog("host", text);
     }
@@ -981,7 +942,7 @@ namespace winrt::urusi_emacs::implementation
             Microsoft::UI::Dispatching::DispatcherQueuePriority::Low,
             [weak] {
                 auto self = weak.get();
-                if (!self || !self->IsForeground())
+                if (!self)
                 {
                     return;
                 }
@@ -994,11 +955,54 @@ namespace winrt::urusi_emacs::implementation
 
                 self->KeepFocus();
                 self->TraceFocus("resumed");
-                if (Input::FocusManager::GetFocusedElement(root) == self->InputSink())
+                bool keysComeHere =
+                    Input::FocusManager::GetFocusedElement(root) == self->InputSink();
+                self->Perform(self->m_activation.ResumeChecked(self->IsForeground(),
+                                                              keysComeHere));
+            });
+    }
+
+    // Look again, once what XAML is doing about it has been done,
+    // whether the window really has gone.
+    void MainWindow::CheckDeactivation()
+    {
+        auto weak = get_weak();
+        m_dispatcher.TryEnqueue(
+            Microsoft::UI::Dispatching::DispatcherQueuePriority::Low,
+            [weak] {
+                if (auto self = weak.get())
                 {
-                    self->m_composition.Focus(true);
+                    self->TraceFocus("deactivated, checked");
+                    self->Perform(self->m_activation.DeactivationChecked(self->IsForeground()));
                 }
             });
+    }
+
+    // Do what urusi::Activation decided.
+    void MainWindow::Perform(urusi::Activation::Actions const& actions)
+    {
+        if (actions.checkLater)
+        {
+            CheckDeactivation();
+        }
+        if (actions.resumeLater)
+        {
+            ResumeComposition();
+        }
+        if (actions.leaveInputMethod)
+        {
+            m_composition.Focus(false);
+        }
+        if (actions.enterInputMethod)
+        {
+            m_composition.Focus(true);
+        }
+        if (actions.tellEmacsFocused || actions.tellEmacsUnfocused)
+        {
+            TellEmacsFocus(actions.tellEmacsFocused);
+            SendHostEvent(actions.tellEmacsFocused ? L"activated" : L"deactivated",
+                          JsonObject{});
+        }
     }
 
     // Tell Windows which parts of what Lisp drew are the title bar, when

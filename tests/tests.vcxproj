@@ -56,10 +56,12 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="test_activation.cpp" />
     <ClCompile Include="test_engagement.cpp" />
     <ClCompile Include="test_ime_buffer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\host\Activation.h" />
     <ClInclude Include="..\host\Engagement.h" />
     <ClInclude Include="..\host\ImeBuffer.h" />
   </ItemGroup>

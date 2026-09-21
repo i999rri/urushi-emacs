@@ -134,6 +134,7 @@
       <DependentUpon>MainWindow.xaml</DependentUpon>
     </ClInclude>
     <ClInclude Include="Composition.h" />
+    <ClInclude Include="Activation.h" />
     <ClInclude Include="Engagement.h" />
     <ClInclude Include="ImeBuffer.h" />
     <ClInclude Include="HostCalls.h" />
