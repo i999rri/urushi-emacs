@@ -6,7 +6,7 @@
 #include <functional>
 #include <string>
 
-namespace urusi::emacs
+namespace urusi::windows::emacs
 {
     // What Lisp can ask the host to do, besides draw.
     //

@@ -4,16 +4,16 @@
 
 #include <vector>
 
-using urusi::window::ParseSplitter;
-using urusi::input::PointerButton;
-using urusi::input::PointerEvent;
-using urusi::input::PointerKind;
-using urusi::window::Splitter;
+using urusi::core::window::ParseSplitter;
+using urusi::core::input::PointerButton;
+using urusi::core::input::PointerEvent;
+using urusi::core::input::PointerKind;
+using urusi::core::window::Splitter;
 
 namespace
 {
     // A pointer that says what was asked of it.
-    struct Pointer : urusi::input::IPointerInputDevice
+    struct Pointer : urusi::core::input::IPointerInputDevice
     {
         void Capture() override { captured = true; }
         void Release() override { captured = false; }
@@ -21,7 +21,7 @@ namespace
     };
 
     // The parts either side of a splitter, as a grid would have them.
-    struct Tracks : urusi::window::ISplitterTracks
+    struct Tracks : urusi::core::window::ISplitterTracks
     {
         double Length(bool before) const override { return before ? before_ : after_; }
         bool Shares(bool before) const override { return before ? beforeShares : afterShares; }

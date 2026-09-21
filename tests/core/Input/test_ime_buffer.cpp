@@ -2,7 +2,7 @@
 
 #include "Input/ImeBuffer.h"
 
-using urusi::input::ImeBuffer;
+using urusi::core::input::ImeBuffer;
 
 TEST(ImeBufferTest, CompositionGrowsAndIsSettledOnce)
 {

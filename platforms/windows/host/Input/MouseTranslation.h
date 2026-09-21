@@ -7,7 +7,7 @@
 #include <cmath>
 #include <optional>
 
-namespace urusi::input
+namespace urusi::windows::input
 {
     // The message the frame's window is to be posted, and what to do
     // with the pointer: take it while a button is down, so that a drag
@@ -30,7 +30,7 @@ namespace urusi::input
     // of a mouse message carry them. Emacs makes of them what it makes
     // of any mouse, a click that moves the point, a drag that selects, a
     // wheel that scrolls.
-    inline std::optional<MouseMessage> TranslatePointer(PointerEvent const& event,
+    inline std::optional<MouseMessage> TranslatePointer(core::input::PointerEvent const& event,
                                                         double scale) noexcept
     {
         int x = static_cast<int>(std::lround(event.x * scale));
@@ -49,33 +49,33 @@ namespace urusi::input
 
         switch (event.kind)
         {
-        case PointerKind::Pressed:
+        case core::input::PointerKind::Pressed:
             switch (event.button)
             {
-            case PointerButton::Left: out.message = WM_LBUTTONDOWN; break;
-            case PointerButton::Right: out.message = WM_RBUTTONDOWN; break;
-            case PointerButton::Middle: out.message = WM_MBUTTONDOWN; break;
+            case core::input::PointerButton::Left: out.message = WM_LBUTTONDOWN; break;
+            case core::input::PointerButton::Right: out.message = WM_RBUTTONDOWN; break;
+            case core::input::PointerButton::Middle: out.message = WM_MBUTTONDOWN; break;
             default: return std::nullopt;
             }
             out.capture = true;
             return out;
 
-        case PointerKind::Released:
+        case core::input::PointerKind::Released:
             switch (event.button)
             {
-            case PointerButton::Left: out.message = WM_LBUTTONUP; break;
-            case PointerButton::Right: out.message = WM_RBUTTONUP; break;
-            case PointerButton::Middle: out.message = WM_MBUTTONUP; break;
+            case core::input::PointerButton::Left: out.message = WM_LBUTTONUP; break;
+            case core::input::PointerButton::Right: out.message = WM_RBUTTONUP; break;
+            case core::input::PointerButton::Middle: out.message = WM_MBUTTONUP; break;
             default: return std::nullopt;
             }
             out.release = !event.AnyButton();
             return out;
 
-        case PointerKind::Moved:
+        case core::input::PointerKind::Moved:
             out.message = WM_MOUSEMOVE;
             return out;
 
-        case PointerKind::Wheel:
+        case core::input::PointerKind::Wheel:
             // A wheel message says where the pointer is on the screen
             // rather than on the window, and Emacs turns it into a place
             // on the frame from its own window. The frame's window is on
@@ -86,7 +86,7 @@ namespace urusi::input
                                     static_cast<WORD>(static_cast<short>(event.wheel)));
             return out;
 
-        case PointerKind::CaptureLost:
+        case core::input::PointerKind::CaptureLost:
             return std::nullopt;
         }
         return std::nullopt;

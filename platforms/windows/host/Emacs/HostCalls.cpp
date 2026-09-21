@@ -16,7 +16,7 @@ using namespace Windows::Data::Json;
 
 namespace
 {
-    using Reply = urusi::emacs::HostCalls::Reply;
+    using Reply = urusi::windows::emacs::HostCalls::Reply;
     using Method = void (*)(Window const&, JsonObject const&, Reply const&);
 
     void Done(Reply const& reply)
@@ -152,7 +152,7 @@ namespace
     }
 }
 
-namespace urusi::emacs
+namespace urusi::windows::emacs
 {
     void HostCalls::Call(Window const& window, std::wstring const& method,
                          JsonObject const& args, Reply reply)

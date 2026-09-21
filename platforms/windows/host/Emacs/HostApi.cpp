@@ -5,17 +5,17 @@ namespace
 {
     void HostPost(char const* message)
     {
-        urusi::emacs::HostApi::Instance().Deliver(message);
+        urusi::windows::emacs::HostApi::Instance().Deliver(message);
     }
 
     void HostOnEvent(w32_host_event_fn fn, void* data)
     {
-        urusi::emacs::HostApi::Instance().SetSink(fn, data);
+        urusi::windows::emacs::HostApi::Instance().SetSink(fn, data);
     }
 
     void* HostWindow()
     {
-        return urusi::emacs::HostApi::Instance().Window();
+        return urusi::windows::emacs::HostApi::Instance().Window();
     }
 
     constexpr w32_host_api kApi{ W32_HOST_API_VERSION, HostPost, HostOnEvent, HostWindow };
@@ -27,7 +27,7 @@ extern "C" __declspec(dllexport) w32_host_api const* w32_host_get_api(unsigned v
     return version == W32_HOST_API_VERSION ? &kApi : nullptr;
 }
 
-namespace urusi::emacs
+namespace urusi::windows::emacs
 {
     HostApi& HostApi::Instance()
     {

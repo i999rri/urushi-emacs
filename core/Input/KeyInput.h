@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace urusi::input
+namespace urusi::core::input
 {
     // One key, pressed or let go, in the terms Windows would have put it
     // to a window of its own.

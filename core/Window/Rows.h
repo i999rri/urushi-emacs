@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-namespace urusi::window
+namespace urusi::core::window
 {
     // A row of a screen as Lisp sends it: its key, and whether it comes
     // with XAML of its own to be built, or is one the host already has.

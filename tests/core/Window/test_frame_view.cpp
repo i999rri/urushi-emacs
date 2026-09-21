@@ -4,24 +4,24 @@
 
 #include <vector>
 
-using urusi::window::FrameSizes;
-using urusi::window::FrameView;
-using urusi::window::PixelSize;
-using urusi::input::PointerButton;
-using urusi::input::PointerKind;
+using urusi::core::window::FrameSizes;
+using urusi::core::window::FrameView;
+using urusi::core::window::PixelSize;
+using urusi::core::input::PointerButton;
+using urusi::core::input::PointerKind;
 
 namespace
 {
-    struct Pointer : urusi::input::IPointerInputDevice
+    struct Pointer : urusi::core::input::IPointerInputDevice
     {
         void Capture() override { captured = true; }
         void Release() override { captured = false; }
         bool captured{ false };
     };
 
-    struct Frame : urusi::window::IFrameWindow
+    struct Frame : urusi::core::window::IFrameWindow
     {
-        void PostPointer(urusi::input::PointerEvent const& event, double) override
+        void PostPointer(urusi::core::input::PointerEvent const& event, double) override
         {
             posted.push_back(event.kind);
         }

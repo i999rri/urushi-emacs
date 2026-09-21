@@ -1,6 +1,6 @@
 #pragma once
 
-namespace urusi::input
+namespace urusi::core::input
 {
     // What to tell the input method about whether the keys come here.
     //

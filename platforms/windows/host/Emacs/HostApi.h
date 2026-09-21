@@ -7,7 +7,7 @@
 #include <mutex>
 #include <string>
 
-namespace urusi::emacs
+namespace urusi::windows::emacs
 {
     // This application's side of w32host.h.
     //

@@ -42,7 +42,7 @@ namespace
     }
 }
 
-namespace urusi::emacs
+namespace urusi::windows::emacs
 {
     EmacsHost& EmacsHost::Instance()
     {

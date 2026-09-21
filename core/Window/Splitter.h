@@ -7,7 +7,7 @@
 #include <optional>
 #include <string>
 
-namespace urusi::window
+namespace urusi::core::window
 {
     // A splitter Lisp put between two parts of a layout. It is named
     // urusi-splitter:DIRECTION:BEFORE:AFTER, DIRECTION being h for one

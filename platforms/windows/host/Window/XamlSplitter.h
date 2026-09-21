@@ -8,7 +8,7 @@
 
 #include <memory>
 
-namespace urusi::window
+namespace urusi::windows::window
 {
     // A Splitter on a XAML element: what the pointer does over the
     // element goes to the Splitter, and the Splitter's parts are the
@@ -16,19 +16,19 @@ namespace urusi::window
     //
     // UI thread only. The element's handlers keep this alive, and it
     // holds the element only weakly, so that the two go together.
-    class XamlSplitter : public input::IPointerInputDevice, public ISplitterTracks,
+    class XamlSplitter : public core::input::IPointerInputDevice, public core::window::ISplitterTracks,
                          public std::enable_shared_from_this<XamlSplitter>
     {
     public:
         // A splitter for ELEMENT, if it is named as one, told EVENTS.
         static std::shared_ptr<XamlSplitter> Attach(
             winrt::Microsoft::UI::Xaml::FrameworkElement const& element,
-            Splitter::Events events);
+            core::window::Splitter::Events events);
 
         XamlSplitter(winrt::Microsoft::UI::Xaml::FrameworkElement const& element,
-                     SplitterName name, Splitter::Events events);
+                     core::window::SplitterName name, core::window::Splitter::Events events);
 
-        Splitter const& Model() const noexcept { return m_splitter; }
+        core::window::Splitter const& Model() const noexcept { return m_splitter; }
 
         // IPointerInputDevice
         void Capture() override;
@@ -41,13 +41,13 @@ namespace urusi::window
 
     private:
         void Listen();
-        void Pass(input::PointerKind kind,
+        void Pass(core::input::PointerKind kind,
                   winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& args);
         winrt::Microsoft::UI::Xaml::Controls::Grid Grid() const;
         int Index() const;
 
         winrt::weak_ref<winrt::Microsoft::UI::Xaml::FrameworkElement> m_element;
         winrt::Microsoft::UI::Xaml::Input::Pointer m_captured{ nullptr };
-        Splitter m_splitter;
+        core::window::Splitter m_splitter;
     };
 }

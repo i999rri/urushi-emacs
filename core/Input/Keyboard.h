@@ -11,7 +11,7 @@
 #include <functional>
 #include <string>
 
-namespace urusi::input
+namespace urusi::core::input
 {
     // What the keyboard tells the window it is in: the things that
     // touch Windows, or Emacs.

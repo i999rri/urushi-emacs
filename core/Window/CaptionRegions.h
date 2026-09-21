@@ -5,7 +5,7 @@
 #include <optional>
 #include <vector>
 
-namespace urusi::window
+namespace urusi::core::window
 {
     // Where something is on the window, in XAML's units, from the corner
     // of the window's client area.

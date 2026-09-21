@@ -4,10 +4,10 @@
 using namespace winrt;
 using namespace Windows::UI::Text::Core;
 
-namespace urusi::input
+namespace urusi::windows::input
 {
     void Composition::Start(winrt::Microsoft::UI::Xaml::FrameworkElement const& element,
-                            Keyboard& keyboard)
+                            core::input::Keyboard& keyboard)
     {
         m_keyboard = &keyboard;
 

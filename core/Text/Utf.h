@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <string>
 
-namespace urusi::text
+namespace urusi::core::text
 {
     // UTF-16 and UTF-8, the one to the other, without Windows: the code
     // that uses them is tested where there is none. What is not a

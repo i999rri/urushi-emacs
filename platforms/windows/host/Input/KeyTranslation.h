@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <optional>
 
-namespace urusi::input
+namespace urusi::windows::input
 {
     // The message Emacs's frame is to be posted for a key.
     struct KeyMessage
@@ -59,7 +59,7 @@ namespace urusi::input
     // carries the repeat count, the scan code, whether it is an extended
     // key, whether Alt is held, whether it was down, and whether it is
     // being released, where Emacs reads them.
-    inline std::optional<KeyMessage> TranslateKey(KeyEvent const& key) noexcept
+    inline std::optional<KeyMessage> TranslateKey(core::input::KeyEvent const& key) noexcept
     {
         if (key.key == 0 || IsInputMethodKey(key.key))
         {

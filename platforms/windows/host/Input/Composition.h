@@ -5,7 +5,7 @@
 
 #include "Input/Keyboard.h"
 
-namespace urusi::input
+namespace urusi::windows::input
 {
     // The input method's side of the window.
     //
@@ -21,14 +21,14 @@ namespace urusi::input
     // tells the context what the Keyboard asks.
     //
     // UI thread only.
-    class Composition : public IKeyInputDevice
+    class Composition : public core::input::IKeyInputDevice
     {
     public:
         // ELEMENT is what holds the focus while typing; the context is
         // made for the window it is in. KEYBOARD hears everything the
         // context says, and outlives this.
         void Start(winrt::Microsoft::UI::Xaml::FrameworkElement const& element,
-                   Keyboard& keyboard);
+                   core::input::Keyboard& keyboard);
 
         // IKeyInputDevice
         void NotifyFocusEnter() override;
@@ -42,7 +42,7 @@ namespace urusi::input
         void Bind();
 
         winrt::Windows::UI::Text::Core::CoreTextEditContext m_context{ nullptr };
-        Keyboard* m_keyboard{ nullptr };
+        core::input::Keyboard* m_keyboard{ nullptr };
         winrt::Windows::Foundation::Rect m_caret{ 0, 0, 2, 16 };
     };
 }

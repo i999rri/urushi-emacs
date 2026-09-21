@@ -6,7 +6,7 @@
 #include <optional>
 #include <string>
 
-namespace urusi::window
+namespace urusi::core::window
 {
     // XAML counts in 96ths of an inch, and Emacs and Windows in the
     // pixels of the screen; SCALE is how many of those make one of

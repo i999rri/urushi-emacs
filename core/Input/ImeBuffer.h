@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <string>
 
-namespace urusi::input
+namespace urusi::core::input
 {
     // What the input method is turning over, and where it is, as the
     // input method counts.

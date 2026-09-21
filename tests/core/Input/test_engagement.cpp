@@ -2,7 +2,7 @@
 
 #include "Input/Engagement.h"
 
-using urusi::input::Engagement;
+using urusi::core::input::Engagement;
 using Action = Engagement::Action;
 
 TEST(EngagementTest, WishBeforeContextIsToldOnceThereIsOne)

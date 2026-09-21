@@ -6,11 +6,11 @@
 using namespace winrt;
 using namespace Microsoft::UI::Xaml;
 
-namespace urusi::window
+namespace urusi::windows::window
 {
     std::shared_ptr<XamlFrameView> XamlFrameView::Attach(FrameworkElement const& element,
                                                          std::wstring id, Frame frame,
-                                                         FrameSizes& sizes)
+                                                         core::window::FrameSizes& sizes)
     {
         auto view = std::make_shared<XamlFrameView>(element, std::move(id), std::move(frame),
                                                      sizes);
@@ -19,7 +19,7 @@ namespace urusi::window
     }
 
     XamlFrameView::XamlFrameView(FrameworkElement const& element, std::wstring id, Frame frame,
-                                 FrameSizes& sizes)
+                                 core::window::FrameSizes& sizes)
         : m_element(element), m_frame(std::move(frame)),
           m_view(std::move(id), *this, *this, sizes)
     {
@@ -32,22 +32,22 @@ namespace urusi::window
         auto element = m_element.get();
         auto self = shared_from_this();
         element.PointerPressed([self](IInspectable const&, Input::PointerRoutedEventArgs const& args) {
-            self->Pass(input::PointerKind::Pressed, args);
+            self->Pass(core::input::PointerKind::Pressed, args);
         });
         element.PointerReleased([self](IInspectable const&, Input::PointerRoutedEventArgs const& args) {
-            self->Pass(input::PointerKind::Released, args);
+            self->Pass(core::input::PointerKind::Released, args);
         });
         element.PointerMoved([self](IInspectable const&, Input::PointerRoutedEventArgs const& args) {
-            self->Pass(input::PointerKind::Moved, args);
+            self->Pass(core::input::PointerKind::Moved, args);
         });
         element.PointerWheelChanged([self](IInspectable const&, Input::PointerRoutedEventArgs const& args) {
-            self->Pass(input::PointerKind::Wheel, args);
+            self->Pass(core::input::PointerKind::Wheel, args);
         });
     }
 
     // Tell the view what the pointer did, counted from the corner of the
     // element.
-    void XamlFrameView::Pass(input::PointerKind kind, Input::PointerRoutedEventArgs const& args)
+    void XamlFrameView::Pass(core::input::PointerKind kind, Input::PointerRoutedEventArgs const& args)
     {
         using Microsoft::UI::Input::PointerUpdateKind;
         using winrt::Windows::System::VirtualKeyModifiers;
@@ -62,7 +62,7 @@ namespace urusi::window
         auto properties = point.Properties();
         auto modifiers = args.KeyModifiers();
 
-        input::PointerEvent event;
+        core::input::PointerEvent event;
         event.kind = kind;
         event.x = point.Position().X;
         event.y = point.Position().Y;
@@ -77,15 +77,15 @@ namespace urusi::window
         {
         case PointerUpdateKind::LeftButtonPressed:
         case PointerUpdateKind::LeftButtonReleased:
-            event.button = input::PointerButton::Left;
+            event.button = core::input::PointerButton::Left;
             break;
         case PointerUpdateKind::RightButtonPressed:
         case PointerUpdateKind::RightButtonReleased:
-            event.button = input::PointerButton::Right;
+            event.button = core::input::PointerButton::Right;
             break;
         case PointerUpdateKind::MiddleButtonPressed:
         case PointerUpdateKind::MiddleButtonReleased:
-            event.button = input::PointerButton::Middle;
+            event.button = core::input::PointerButton::Middle;
             break;
         default:
             break;
@@ -131,7 +131,7 @@ namespace urusi::window
 
     // The frame's window is posted the message Windows would have sent it
     // for the mouse.
-    void XamlFrameView::PostPointer(input::PointerEvent const& event, double scale)
+    void XamlFrameView::PostPointer(core::input::PointerEvent const& event, double scale)
     {
         HWND window = m_frame.window ? m_frame.window() : nullptr;
         auto message = input::TranslatePointer(event, scale);
@@ -141,7 +141,7 @@ namespace urusi::window
         }
     }
 
-    void XamlFrameView::TellSize(PixelSize size)
+    void XamlFrameView::TellSize(core::window::PixelSize size)
     {
         if (m_frame.tellSize)
         {

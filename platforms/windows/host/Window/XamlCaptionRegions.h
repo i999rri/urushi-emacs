@@ -6,13 +6,13 @@
 #include <winrt/Microsoft.UI.Windowing.h>
 #include <winrt/Microsoft.UI.Xaml.h>
 
-namespace urusi::window
+namespace urusi::windows::window
 {
     // The CaptionRegions of a window, found in its XAML and told to
     // Windows through the window's non-client pointer source.
     //
     // UI thread only.
-    class XamlCaptionRegions : public INonClientRegions
+    class XamlCaptionRegions : public core::window::INonClientRegions
     {
     public:
         explicit XamlCaptionRegions(winrt::Microsoft::UI::Windowing::AppWindow const& window);
@@ -24,11 +24,11 @@ namespace urusi::window
         void Update(winrt::Microsoft::UI::Xaml::FrameworkElement const& titlebar);
 
         // INonClientRegions
-        void Set(PixelRect caption, std::vector<PixelRect> const& passthrough) override;
+        void Set(core::window::PixelRect caption, std::vector<core::window::PixelRect> const& passthrough) override;
         void Clear() override;
 
     private:
         winrt::Microsoft::UI::Windowing::AppWindow m_window{ nullptr };
-        CaptionRegions m_regions{ *this };
+        core::window::CaptionRegions m_regions{ *this };
     };
 }

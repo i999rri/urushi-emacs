@@ -1,6 +1,6 @@
 #pragma once
 
-namespace urusi::input
+namespace urusi::core::input
 {
     // What to do as the window comes to the front and goes behind.
     //

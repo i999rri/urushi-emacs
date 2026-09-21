@@ -2,8 +2,8 @@
 
 #include "Input/KeyTranslation.h"
 
-using urusi::input::KeyEvent;
-using urusi::input::TranslateKey;
+using urusi::core::input::KeyEvent;
+using urusi::windows::input::TranslateKey;
 
 TEST(KeyTranslationTest, KeyIsTheMessageWindowsWouldHaveSent)
 {

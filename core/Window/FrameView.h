@@ -5,7 +5,7 @@
 
 #include <string>
 
-namespace urusi::window
+namespace urusi::core::window
 {
     // An Emacs frame, as what shows it can reach it.
     struct IFrameWindow

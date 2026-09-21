@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-namespace urusi::emacs
+namespace urusi::windows::emacs
 {
     // Runs Emacs inside this process, from libemacs.dll.
     //

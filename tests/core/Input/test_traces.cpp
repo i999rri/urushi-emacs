@@ -27,10 +27,10 @@
 namespace
 {
     namespace fs = std::filesystem;
-    using urusi::text::FromUtf8;
-    using urusi::text::ToUtf8;
+    using urusi::core::text::FromUtf8;
+    using urusi::core::text::ToUtf8;
 
-    struct Recorded : urusi::input::KeyboardEvents, urusi::input::IKeyInputDevice
+    struct Recorded : urusi::core::input::KeyboardEvents, urusi::core::input::IKeyInputDevice
     {
         void CheckLater() override {}
         void ResumeLater() override {}
@@ -61,7 +61,7 @@ namespace
     }
 
     // Play LINE back into KEYBOARD; say what went wrong, or nothing.
-    std::string Play(trace::Line const& line, urusi::input::Keyboard& keyboard)
+    std::string Play(trace::Line const& line, urusi::core::input::Keyboard& keyboard)
     {
         auto event = Get<std::string>(line, "e", "");
 
@@ -101,7 +101,7 @@ namespace
 TEST(TraceTest, WhatIsWrittenPlaysBackTheSame)
 {
     Recorded original;
-    urusi::input::Keyboard keyboard{ original, original };
+    urusi::core::input::Keyboard keyboard{ original, original };
     std::vector<std::string> lines;
     keyboard.Record([&](std::string const& line) { lines.push_back(line); });
 
@@ -117,7 +117,7 @@ TEST(TraceTest, WhatIsWrittenPlaysBackTheSame)
     keyboard.DeactivationChecked(false);
 
     Recorded played;
-    urusi::input::Keyboard playback{ played, played };
+    urusi::core::input::Keyboard playback{ played, played };
     for (auto const& text : lines)
     {
         trace::Line line;
@@ -139,7 +139,7 @@ TEST(TraceTest, WhatIsWrittenPlaysBackTheSame)
 TEST(TraceTest, NothingIsMadeWithoutARecorder)
 {
     Recorded effects;
-    urusi::input::Keyboard keyboard{ effects, effects };
+    urusi::core::input::Keyboard keyboard{ effects, effects };
     std::vector<std::string> lines;
     keyboard.Record([&](std::string const& line) { lines.push_back(line); });
     keyboard.Record({});
@@ -164,7 +164,7 @@ TEST(TraceTest, EveryTracePlaysBackToWhatItExpects)
         ++played;
 
         Recorded effects;
-        urusi::input::Keyboard keyboard{ effects, effects };
+        urusi::core::input::Keyboard keyboard{ effects, effects };
         std::ifstream file{ entry.path(), std::ios::binary };
         std::string text;
         int number = 0;

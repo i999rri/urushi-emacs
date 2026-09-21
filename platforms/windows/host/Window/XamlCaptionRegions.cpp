@@ -9,7 +9,7 @@
 using namespace winrt;
 using namespace Microsoft::UI::Xaml;
 
-namespace urusi::window
+namespace urusi::windows::window
 {
     XamlCaptionRegions::XamlCaptionRegions(Microsoft::UI::Windowing::AppWindow const& window)
         : m_window(window)
@@ -29,10 +29,10 @@ namespace urusi::window
         // which is where XAML's root is.
         auto area = [](FrameworkElement const& element) {
             auto corner = element.TransformToVisual(nullptr).TransformPoint({ 0, 0 });
-            return Area{ corner.X, corner.Y, element.ActualWidth(), element.ActualHeight() };
+            return core::window::Area{ corner.X, corner.Y, element.ActualWidth(), element.ActualHeight() };
         };
 
-        std::vector<Area> controls;
+        std::vector<core::window::Area> controls;
         std::function<void(DependencyObject const&)> collect = [&](DependencyObject const& parent) {
             int count = Media::VisualTreeHelper::GetChildrenCount(parent);
             for (int i = 0; i < count; ++i)
@@ -54,11 +54,11 @@ namespace urusi::window
         m_regions.Update(area(titlebar), controls, titlebar.XamlRoot().RasterizationScale());
     }
 
-    void XamlCaptionRegions::Set(PixelRect caption, std::vector<PixelRect> const& passthrough)
+    void XamlCaptionRegions::Set(core::window::PixelRect caption, std::vector<core::window::PixelRect> const& passthrough)
     {
         using Microsoft::UI::Input::NonClientRegionKind;
 
-        auto rect = [](PixelRect const& r) {
+        auto rect = [](core::window::PixelRect const& r) {
             return winrt::Windows::Graphics::RectInt32{ r.x, r.y, r.width, r.height };
         };
 

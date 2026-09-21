@@ -9,7 +9,7 @@
 #include <functional>
 #include <memory>
 
-namespace urusi::window
+namespace urusi::windows::window
 {
     // A FrameView on a XAML element: what the pointer does over the
     // element goes to the view, and the view's frame is reached through
@@ -17,7 +17,7 @@ namespace urusi::window
     //
     // UI thread only. The element's handlers keep this alive, and it
     // holds the element only weakly, so that the two go together.
-    class XamlFrameView : public input::IPointerInputDevice, public IFrameWindow,
+    class XamlFrameView : public core::input::IPointerInputDevice, public core::window::IFrameWindow,
                           public std::enable_shared_from_this<XamlFrameView>
     {
     public:
@@ -29,16 +29,16 @@ namespace urusi::window
             std::function<HWND()> window;
 
             // Tell the frame ID its size.
-            std::function<void(std::wstring const& id, PixelSize size)> tellSize;
+            std::function<void(std::wstring const& id, core::window::PixelSize size)> tellSize;
         };
 
         // A view of the frame ID in ELEMENT.
         static std::shared_ptr<XamlFrameView> Attach(
             winrt::Microsoft::UI::Xaml::FrameworkElement const& element, std::wstring id,
-            Frame frame, FrameSizes& sizes);
+            Frame frame, core::window::FrameSizes& sizes);
 
         XamlFrameView(winrt::Microsoft::UI::Xaml::FrameworkElement const& element,
-                      std::wstring id, Frame frame, FrameSizes& sizes);
+                      std::wstring id, Frame frame, core::window::FrameSizes& sizes);
 
         std::wstring const& Id() const noexcept { return m_view.Id(); }
 
@@ -50,17 +50,17 @@ namespace urusi::window
         void Release() override;
 
         // IFrameWindow
-        void PostPointer(input::PointerEvent const& event, double scale) override;
-        void TellSize(PixelSize size) override;
+        void PostPointer(core::input::PointerEvent const& event, double scale) override;
+        void TellSize(core::window::PixelSize size) override;
 
     private:
         void Listen();
-        void Pass(input::PointerKind kind,
+        void Pass(core::input::PointerKind kind,
                   winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& args);
 
         winrt::weak_ref<winrt::Microsoft::UI::Xaml::FrameworkElement> m_element;
         winrt::Microsoft::UI::Xaml::Input::Pointer m_pointer{ nullptr };
         Frame m_frame;
-        FrameView m_view;
+        core::window::FrameView m_view;
     };
 }

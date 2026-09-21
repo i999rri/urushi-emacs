@@ -5,9 +5,9 @@
 #include <string>
 #include <vector>
 
-using urusi::window::Arrange;
-using urusi::window::PlanRows;
-using urusi::window::RowItem;
+using urusi::core::window::Arrange;
+using urusi::core::window::PlanRows;
+using urusi::core::window::RowItem;
 
 namespace
 {

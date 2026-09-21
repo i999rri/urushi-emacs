@@ -6,12 +6,12 @@
 using namespace winrt;
 using namespace Microsoft::UI::Xaml;
 
-namespace urusi::window
+namespace urusi::windows::window
 {
     std::shared_ptr<XamlSplitter> XamlSplitter::Attach(FrameworkElement const& element,
-                                                       Splitter::Events events)
+                                                       core::window::Splitter::Events events)
     {
-        auto name = ParseSplitter(std::wstring{ element.Name() });
+        auto name = core::window::ParseSplitter(std::wstring{ element.Name() });
         if (!name)
         {
             return nullptr;
@@ -22,8 +22,8 @@ namespace urusi::window
         return splitter;
     }
 
-    XamlSplitter::XamlSplitter(FrameworkElement const& element, SplitterName name,
-                               Splitter::Events events)
+    XamlSplitter::XamlSplitter(FrameworkElement const& element, core::window::SplitterName name,
+                               core::window::Splitter::Events events)
         : m_element(element), m_splitter(std::move(name), *this, *this, std::move(events))
     {
     }
@@ -43,22 +43,22 @@ namespace urusi::window
 
         auto self = shared_from_this();
         element.PointerPressed([self](winrt::Windows::Foundation::IInspectable const&, Input::PointerRoutedEventArgs const& args) {
-            self->Pass(input::PointerKind::Pressed, args);
+            self->Pass(core::input::PointerKind::Pressed, args);
         });
         element.PointerMoved([self](winrt::Windows::Foundation::IInspectable const&, Input::PointerRoutedEventArgs const& args) {
-            self->Pass(input::PointerKind::Moved, args);
+            self->Pass(core::input::PointerKind::Moved, args);
         });
         element.PointerReleased([self](winrt::Windows::Foundation::IInspectable const&, Input::PointerRoutedEventArgs const& args) {
-            self->Pass(input::PointerKind::Released, args);
+            self->Pass(core::input::PointerKind::Released, args);
         });
         element.PointerCaptureLost([self](winrt::Windows::Foundation::IInspectable const&, Input::PointerRoutedEventArgs const& args) {
-            self->Pass(input::PointerKind::CaptureLost, args);
+            self->Pass(core::input::PointerKind::CaptureLost, args);
         });
     }
 
     // Tell the Splitter what the pointer did, counted from the corner of
     // the grid.
-    void XamlSplitter::Pass(input::PointerKind kind, Input::PointerRoutedEventArgs const& args)
+    void XamlSplitter::Pass(core::input::PointerKind kind, Input::PointerRoutedEventArgs const& args)
     {
         auto grid = Grid();
         if (!grid || Index() < 1)
@@ -70,16 +70,16 @@ namespace urusi::window
         auto position = point.Position();
         auto properties = point.Properties();
 
-        input::PointerEvent event;
+        core::input::PointerEvent event;
         event.kind = kind;
         event.x = position.X;
         event.y = position.Y;
         event.left = properties.IsLeftButtonPressed();
-        event.button = kind == input::PointerKind::Pressed && event.left ? input::PointerButton::Left
-                                                                   : input::PointerButton::None;
-        if (kind == input::PointerKind::Released)
+        event.button = kind == core::input::PointerKind::Pressed && event.left ? core::input::PointerButton::Left
+                                                                   : core::input::PointerButton::None;
+        if (kind == core::input::PointerKind::Released)
         {
-            event.button = input::PointerButton::Left;
+            event.button = core::input::PointerButton::Left;
         }
 
         m_captured = args.Pointer();
