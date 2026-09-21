@@ -122,6 +122,12 @@ Each takes the message, as a plist.")
   "Functions to run when the host has lost track of what it shows.
 Whatever is drawing has to draw the whole of it again.")
 
+(defvar urusi-after-event-hook nil
+  "Functions to run after a handler has run for an event from the host.
+A handler runs from a timer and not as a command, so what it changed
+is not followed by `post-command-hook', and whatever shows the changes
+waits for one unless it is told here.")
+
 (defvar urusi--seen nil
   "Kinds of message the host has sent, so each is only remarked on once.")
 
@@ -143,6 +149,19 @@ Whatever is drawing has to draw the whole of it again.")
     ("stale" (urusi-forget) (run-hooks 'urusi-stale-hook))
     ("error" (message "urusi: %s" (plist-get message :message)))
     (_ (run-hook-with-args 'urusi-message-hook message))))
+
+(defun urusi-when-idle (function)
+  "Call FUNCTION as soon as Emacs is next waiting for input.
+Return the timer that will.
+
+An idle timer for no time at all runs when Emacs next becomes idle, so
+one set while Emacs already is waits until something has been typed and
+Emacs becomes idle again.  Handlers of the host's events and a prompt
+they open are run from a timer, which is while Emacs is idle; for them
+the next chance is the next time timers run."
+  (if (current-idle-time)
+      (run-at-time 0 nil function)
+    (run-with-idle-timer 0 nil function)))
 
 ;;;; Asking the host
 
@@ -251,7 +270,8 @@ method that waits on the person using the application."
         (if (eql (cdr (func-arity handler)) 0)
             (funcall handler)
           (funcall handler args))
-      (error (message "urusi: Handler failed: %S" err)))))
+      (error (message "urusi: Handler failed: %S" err)))
+    (run-hooks 'urusi-after-event-hook)))
 
 ;;;; Tree to XAML
 

@@ -71,8 +71,12 @@
                              [(:name "urusi1" :event "Click" :id 1)])))
             ;; The host reports the click; the id arrives as a JSON number.
             (push "{\"type\":\"event\",\"id\":1,\"args\":{}}" from-host)
-            (urusi--take)
-            (should clicked))
+            (let* ((after nil)
+                   (urusi-after-event-hook (list (lambda () (setq after clicked)))))
+              (urusi--take)
+              (should clicked)
+              ;; After the handler, so that what it changed can be shown.
+              (should after)))
         (urusi-stop)))))
 
 (ert-deftest urusi-call-gets-its-answer ()

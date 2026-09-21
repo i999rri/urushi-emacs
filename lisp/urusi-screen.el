@@ -562,12 +562,12 @@ Long enough to see what a keystroke costs, and then quiet."
   "Show the screen once what is happening now has finished happening."
   (unless urusi-screen--pending
     (setq urusi-screen--pending
-          (run-with-idle-timer
-           0 nil (lambda ()
-                   (setq urusi-screen--pending nil)
-                   (condition-case err
-                       (urusi-screen-render)
-                     (error (urusi--log "screen: %S" err))))))))
+          (urusi-when-idle
+           (lambda ()
+             (setq urusi-screen--pending nil)
+             (condition-case err
+                 (urusi-screen-render)
+               (error (urusi--log "screen: %S" err))))))))
 
 ;;;###autoload
 (define-minor-mode urusi-screen-mode
@@ -576,6 +576,7 @@ Long enough to see what a keystroke costs, and then quiet."
   (if urusi-screen-mode
       (progn
         (add-hook 'post-command-hook #'urusi-screen--after-command)
+        (add-hook 'urusi-after-event-hook #'urusi-screen--after-command)
         (add-hook 'urusi-stale-hook #'urusi-screen-render)
         (add-hook 'urusi-message-hook #'urusi-screen--message)
         (add-hook 'urusi-host-event-functions #'urusi-screen--window-changed)
@@ -585,6 +586,7 @@ Long enough to see what a keystroke costs, and then quiet."
         (urusi-screen--after-command)
         (urusi--log "screen mode on"))
     (remove-hook 'post-command-hook #'urusi-screen--after-command)
+    (remove-hook 'urusi-after-event-hook #'urusi-screen--after-command)
     (remove-hook 'urusi-stale-hook #'urusi-screen-render)
     (remove-hook 'urusi-message-hook #'urusi-screen--message)
     (remove-hook 'urusi-host-event-functions #'urusi-screen--window-changed)))

@@ -67,12 +67,12 @@ about first and the answer may be not to leave at all."
   "Pass the frame on once what is happening now has finished happening."
   (unless urusi-frame--pending
     (setq urusi-frame--pending
-          (run-with-idle-timer
-           0 nil (lambda ()
-                   (setq urusi-frame--pending nil)
-                   (condition-case err
-                       (urusi-frame--sync)
-                     (error (urusi--log "frame: %S" err))))))))
+          (urusi-when-idle
+           (lambda ()
+             (setq urusi-frame--pending nil)
+             (condition-case err
+                 (urusi-frame--sync)
+               (error (urusi--log "frame: %S" err))))))))
 
 ;;;###autoload
 (define-minor-mode urusi-frame-mode
@@ -83,9 +83,11 @@ about first and the answer may be not to leave at all."
         (setq urusi-frame--title nil
               urusi-frame--state nil)
         (add-hook 'post-command-hook #'urusi-frame--after-command)
+        (add-hook 'urusi-after-event-hook #'urusi-frame--after-command)
         (add-hook 'urusi-host-event-functions #'urusi-frame--close)
         (urusi-frame--after-command))
     (remove-hook 'post-command-hook #'urusi-frame--after-command)
+    (remove-hook 'urusi-after-event-hook #'urusi-frame--after-command)
     (remove-hook 'urusi-host-event-functions #'urusi-frame--close)))
 
 (provide 'urusi-frame)
