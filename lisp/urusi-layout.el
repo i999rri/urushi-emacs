@@ -282,10 +282,25 @@ It takes the room the other components leave."
 
 ;;;; Changing it
 
+(defun urusi-layout--frame-in (node)
+  "Return non-nil if the selected frame is the frame of a panel in NODE."
+  (let ((selected (frame-parameter (selected-frame) 'urusi-panel)))
+    (and selected
+         (or (eq (plist-get (urusi-layout--properties node) :id) selected)
+             (and (not (eq (urusi-layout--kind node) 'panel))
+                  (cl-some #'urusi-layout--frame-in (urusi-layout--children node)))))))
+
 (defun urusi-layout--set (id property value)
-  "Set PROPERTY of the part whose :id is ID to VALUE, and show the change."
-  (unless (urusi-layout--find id)
-    (user-error "urusi-layout: No part is called %s" id))
+  "Set PROPERTY of the part whose :id is ID to VALUE, and show the change.
+A part hidden while the frame of a panel in it is selected leaves the
+root frame selected: what is typed next is not to go somewhere that
+cannot be seen."
+  (let ((node (urusi-layout--find id)))
+    (unless node
+      (user-error "urusi-layout: No part is called %s" id))
+    (when (and (eq property :hidden) value (urusi-layout--frame-in node))
+      (select-frame (urusi-root-frame) 'norecord)
+      (redirect-frame-focus (urusi-root-frame) nil)))
   (puthash id (plist-put (gethash id urusi-layout--state) property value)
            urusi-layout--state)
   (urusi-screen--after-command))
