@@ -88,8 +88,8 @@ namespace
         return {};
     }
 
-    // Beside the directory of this file: MSBuild compiles it by its
-    // whole path, which is what __FILE__ then is.
+    // tests/traces, two directories up from this file: MSBuild compiles
+    // it by its whole path, which is what __FILE__ then is.
     fs::path Traces()
     {
         return fs::path{ __FILE__ }.parent_path().parent_path().parent_path() / "traces";

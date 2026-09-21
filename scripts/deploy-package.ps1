@@ -1,7 +1,8 @@
 # Lays the package out as Visual Studio does on F5, and registers it, so
 # that the application can be run without Visual Studio: every file the
-# build of platforms\windows\package\Package.wapproj put in the package, copied to where
-# the package has it, under platforms\windows\package\bin\<Platform>\<Configuration>\AppX.
+# build of platforms\windows\package\Package.wapproj put in the
+# package, copied to where the package has it, under
+# platforms\windows\package\bin\<Platform>\<Configuration>\AppX.
 #
 #   msbuild platforms\windows\package\Package.wapproj /restore /p:Configuration=Debug /p:Platform=x64
 #   scripts\deploy-package.ps1 [-Configuration Debug] [-Platform x64]
