@@ -4,6 +4,7 @@
 #include <winrt/Windows.UI.Text.Core.h>
 
 #include "Engagement.h"
+#include "ImeBuffer.h"
 
 #include <functional>
 #include <string>
@@ -53,13 +54,13 @@ namespace urusi
 
         // Whether a composition is under way, so that keys belonging to
         // it are not passed on as keys.
-        bool Composing() const noexcept { return m_composing; }
+        bool Composing() const noexcept { return m_buffer.Composing(); }
 
     private:
         void Bind();
         void Perform(Engagement::Action action);
         void Settle();
-        void Reset();
+        void Forget();
         void Say(std::string const& what);
 
         winrt::Windows::UI::Text::Core::CoreTextEditContext m_context{ nullptr };
@@ -71,10 +72,10 @@ namespace urusi
         // that a day's typing fills a disk.
         int m_said{ 0 };
 
-        // What the input method is turning over. It is the whole of
-        // the text this context holds: Emacs keeps everything else.
-        std::wstring m_text;
-        bool m_composing{ false };
+        // What the input method is turning over, where it counts it
+        // to be. It is the whole of the text this context holds: Emacs
+        // keeps everything else.
+        ImeBuffer m_buffer;
 
         // What the context has been told of the focus, and what the
         // window wants it told.

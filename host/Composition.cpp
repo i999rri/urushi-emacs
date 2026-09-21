@@ -43,6 +43,8 @@ namespace urusi
         switch (action)
         {
         case Engagement::Action::Enter:
+            // The input method counts from nothing again once told.
+            Forget();
             m_context.NotifyFocusEnter();
             Say("focus enter");
             break;
@@ -76,40 +78,34 @@ namespace urusi
         }
     }
 
-    // Hand on what the input method settled on, and start afresh.
+    // Hand on what the input method settled on. The input method is
+    // told nothing: it counts on from where this ends, and so does the
+    // buffer.
     void Composition::Settle()
     {
-        Say("settle " + to_string(hstring{ m_text }));
+        auto settled = m_buffer.Settle();
 
-        if (!m_text.empty() && m_commit)
+        Say("settle " + to_string(hstring{ settled }));
+        if (!settled.empty() && m_commit)
         {
-            m_commit(m_text);
+            m_commit(settled);
         }
-
-        Reset();
-    }
-
-    // Empty the text, on both sides.
-    //
-    // The context keeps a count of its own of where in the text things
-    // are, and goes on counting from where the last composition ended.
-    // Emptying the text without saying so leaves it counting from a
-    // place that no longer exists, and the next composition arrives as
-    // a replacement of a range that is not there.
-    void Composition::Reset()
-    {
-        auto length = static_cast<int32_t>(m_text.size());
-
-        m_text.clear();
         if (m_composing_changed)
         {
-            m_composing_changed(m_text);
+            m_composing_changed(std::wstring{});
         }
+    }
 
-        if (m_context && length > 0)
+    // Drop what is being composed and start counting from nothing, as
+    // the input method does when the focus comes or is taken away.
+    void Composition::Forget()
+    {
+        bool drawn = m_buffer.Composing() || !m_buffer.Composed().empty();
+
+        m_buffer.Reset();
+        if (drawn && m_composing_changed)
         {
-            m_context.NotifyTextChanged({ 0, length }, 0, { 0, 0 });
-            m_context.NotifySelectionChanged({ 0, 0 });
+            m_composing_changed(std::wstring{});
         }
     }
 
@@ -117,26 +113,23 @@ namespace urusi
     {
         // What this context holds is the composition and nothing else:
         // the text Emacs has is Emacs's own, and telling the input
-        // method about it would only invite it to change it.
+        // method about it would only invite it to change it. What was
+        // handed on is answered with spaces, where the input method
+        // counts it to be.
         m_context.TextRequested([this](CoreTextEditContext const&,
                                        CoreTextTextRequestedEventArgs const& args) {
             auto request = args.Request();
             auto range = request.Range();
-            auto size = static_cast<int32_t>(m_text.size());
-            auto start = std::clamp(range.StartCaretPosition, 0, size);
-            auto end = std::clamp(range.EndCaretPosition, start, size);
 
-            // The range asked for is the range answered: it is not
-            // ours to change.
-            request.Text(hstring{ m_text.substr(static_cast<size_t>(start),
-                                                static_cast<size_t>(end - start)) });
+            request.Text(hstring{ m_buffer.Text(range.StartCaretPosition,
+                                                range.EndCaretPosition) });
             Say("requested " + std::to_string(range.StartCaretPosition) + ".."
                 + std::to_string(range.EndCaretPosition));
         });
 
         m_context.SelectionRequested([this](CoreTextEditContext const&,
                                             CoreTextSelectionRequestedEventArgs const& args) {
-            auto caret = static_cast<int32_t>(m_text.size());
+            auto caret = m_buffer.Caret();
 
             args.Request().Selection({ caret, caret });
         });
@@ -144,27 +137,24 @@ namespace urusi
         m_context.TextUpdating([this](CoreTextEditContext const&,
                                       CoreTextTextUpdatingEventArgs const& args) {
             auto range = args.Range();
-            auto size = static_cast<int32_t>(m_text.size());
-            auto start = std::clamp(range.StartCaretPosition, 0, size);
-            auto end = std::clamp(range.EndCaretPosition, start, size);
 
-            m_text.replace(static_cast<size_t>(start),
-                           static_cast<size_t>(end - start),
-                           std::wstring{ args.Text() });
+            m_buffer.Update(range.StartCaretPosition, range.EndCaretPosition,
+                            std::wstring{ args.Text() });
             args.Result(CoreTextTextUpdatingResult::Succeeded);
             Say("updating " + std::to_string(range.StartCaretPosition) + ".."
                 + std::to_string(range.EndCaretPosition) + " \""
-                + to_string(args.Text()) + "\" -> \"" + to_string(hstring{ m_text })
-                + "\", composing " + (m_composing ? "yes" : "no"));
+                + to_string(args.Text()) + "\" -> \""
+                + to_string(hstring{ m_buffer.Composed() })
+                + "\", composing " + (m_buffer.Composing() ? "yes" : "no"));
 
             // Outside a composition there is nothing to turn over: what
             // arrives is what was meant, as when a key is typed with
             // the input method open but idle.
-            if (m_composing)
+            if (m_buffer.Composing())
             {
                 if (m_composing_changed)
                 {
-                    m_composing_changed(m_text);
+                    m_composing_changed(m_buffer.Composed());
                 }
             }
             else
@@ -181,13 +171,12 @@ namespace urusi
 
         m_context.CompositionStarted([this](CoreTextEditContext const&,
                                             CoreTextCompositionStartedEventArgs const&) {
-            m_composing = true;
+            m_buffer.Started();
             Say("started");
         });
 
         m_context.CompositionCompleted([this](CoreTextEditContext const&,
                                               CoreTextCompositionCompletedEventArgs const&) {
-            m_composing = false;
             Say("completed");
             Settle();
         });
@@ -202,11 +191,12 @@ namespace urusi
 
         m_context.FocusRemoved([this](CoreTextEditContext const&, auto&&) {
             // Taken away by the input method, not by us: the next focus
-            // there is to be told of again.
+            // there is to be told of again, and it starts counting from
+            // nothing then. What was half composed is dropped rather
+            // than left drawn.
             m_engagement.Removed();
-            m_composing = false;
             Say("focus removed");
-            Reset();
+            Forget();
         });
     }
 }
