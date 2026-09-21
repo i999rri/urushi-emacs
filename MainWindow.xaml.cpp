@@ -403,6 +403,35 @@ namespace winrt::urusi_emacs::implementation
         // shows it once the init file has.
         std::vector<std::string> args{ "emacs" };
 
+        // What this process was started with, before any of it is
+        // changed. It depends on what started the application, and
+        // Emacs hands it on to every program it runs.
+        auto describe = [](DWORD which) {
+            HANDLE handle = GetStdHandle(which);
+            if (!handle || handle == INVALID_HANDLE_VALUE)
+            {
+                return std::string{ "none" };
+            }
+
+            DWORD flags = 0;
+            GetHandleInformation(handle, &flags);
+            char const* kinds[] = { "unknown", "disk", "char", "pipe" };
+            DWORD kind = GetFileType(handle) & ~FILE_TYPE_REMOTE;
+            return std::string{ kind < 4 ? kinds[kind] : "other" }
+                + ((flags & HANDLE_FLAG_INHERIT) ? ", inheritable" : "");
+        };
+        AppendLog("host", "started with stdin " + describe(STD_INPUT_HANDLE)
+                  + ", stdout " + describe(STD_OUTPUT_HANDLE)
+                  + ", stderr " + describe(STD_ERROR_HANDLE) + "\n");
+
+        // And whether whatever started it handed over a C runtime's
+        // table of open files, which the runtime Emacs uses reads as
+        // its own descriptors as it starts.
+        STARTUPINFOW startup{ sizeof(startup) };
+        GetStartupInfoW(&startup);
+        AppendLog("host", "startup info flags 0x" + std::to_string(startup.dwFlags)
+                  + ", runtime table " + std::to_string(startup.cbReserved2) + " bytes\n");
+
         std::string error;
         bool started = urusi::EmacsHost::Instance().Start(
             urusi::EmacsHost::DefaultDll(),
