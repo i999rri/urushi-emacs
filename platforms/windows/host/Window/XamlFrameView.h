@@ -30,6 +30,12 @@ namespace urusi::windows::window
 
             // Tell the frame ID its size.
             std::function<void(std::wstring const& id, core::window::PixelSize size)> tellSize;
+
+            // Give the frame ID what the pointer did, for an Emacs that
+            // takes the pointer as messages and has no window to post it
+            // to. Without it, the pointer is posted to the window.
+            std::function<void(std::wstring const& id, core::input::PointerEvent const& event,
+                               double scale)> sendPointer;
         };
 
         // A view of the frame ID in ELEMENT.

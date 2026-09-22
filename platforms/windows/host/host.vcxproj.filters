@@ -54,6 +54,9 @@
     <ClInclude Include="Input\KeyNames.h">
       <Filter>Input</Filter>
     </ClInclude>
+    <ClInclude Include="Input\KeyboardLayout.h">
+      <Filter>Input</Filter>
+    </ClInclude>
     <ClInclude Include="Input\PointerMessage.h">
       <Filter>Input</Filter>
     </ClInclude>
@@ -67,6 +70,9 @@
       <Filter>Emacs</Filter>
     </ClInclude>
     <ClInclude Include="Emacs\RemoteCommand.h">
+      <Filter>Emacs</Filter>
+    </ClInclude>
+    <ClInclude Include="Emacs\InputMessages.h">
       <Filter>Emacs</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\external\emacs\libemacs\src\host.h">
@@ -110,10 +116,16 @@
     <ClCompile Include="Emacs\HostApi.cpp">
       <Filter>Emacs</Filter>
     </ClCompile>
+    <ClCompile Include="Input\KeyboardLayout.cpp">
+      <Filter>Input</Filter>
+    </ClCompile>
     <ClCompile Include="Emacs\InProcessEmacs.cpp">
       <Filter>Emacs</Filter>
     </ClCompile>
     <ClCompile Include="Emacs\EmacsProcess.cpp">
+      <Filter>Emacs</Filter>
+    </ClCompile>
+    <ClCompile Include="Emacs\InputMessages.cpp">
       <Filter>Emacs</Filter>
     </ClCompile>
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />

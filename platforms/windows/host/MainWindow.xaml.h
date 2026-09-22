@@ -42,6 +42,8 @@ namespace winrt::urusi_emacs::implementation
         // The Emacs frame is a window of Emacs's own, on no screen at
         // all: it is there to be posted to. Emacs says when it exists;
         // how big the frame is is this window's business from then on.
+        // An Emacs of its own process has no window, and its frame is
+        // there once it has said hello.
         void TakeEmacsWindow(HWND window);
         void EmacsExited();
         void TakeInputToEmacs();
@@ -96,6 +98,7 @@ namespace winrt::urusi_emacs::implementation
         std::string m_log;
         std::set<std::wstring> m_seen;
         HWND m_emacsWindow{ nullptr };
+        bool m_hasFrame{ false };
 
         // How big each frame was last told it is, so that it is only
         // told when that changes.

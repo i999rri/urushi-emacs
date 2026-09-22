@@ -1,6 +1,8 @@
 #include "pch.h"
 #include "MainWindow.xaml.h"
 #include "Emacs/HostApi.h"
+#include "Emacs/InputMessages.h"
+#include "Input/KeyboardLayout.h"
 #if __has_include("MainWindow.g.cpp")
 #include "MainWindow.g.cpp"
 #endif
@@ -276,6 +278,7 @@ namespace winrt::urusi_emacs::implementation
     void MainWindow::TakeEmacsWindow(HWND window)
     {
         m_emacsWindow = window;
+        m_hasFrame = true;
         ShowStatus(L"");
         SizeEmacsFrame();
         TakeInputToEmacs();
@@ -295,9 +298,18 @@ namespace winrt::urusi_emacs::implementation
     // same messages are sent to it instead, and Emacs does with them
     // what it does for any frame, from how the cursor is drawn to
     // running the hooks that wait for the focus to change.
+    //
+    // An Emacs that takes its input as messages is told in one.
     void MainWindow::TellEmacsFocus(bool focused)
     {
-        if (m_emacsWindow)
+        if (m_emacs->InputAsMessages())
+        {
+            if (m_hasFrame)
+            {
+                m_emacs->Send(urusi::windows::emacs::FocusMessage(focused));
+            }
+        }
+        else if (m_emacsWindow)
         {
             PostMessageW(m_emacsWindow, focused ? WM_SETFOCUS : WM_KILLFOCUS, 0, 0);
         }
@@ -413,7 +425,7 @@ namespace winrt::urusi_emacs::implementation
     // runs.
     void MainWindow::TypeIntoEmacs(std::wstring const& text)
     {
-        if (!m_emacsWindow)
+        if (!m_hasFrame)
         {
             return;
         }
@@ -423,9 +435,11 @@ namespace winrt::urusi_emacs::implementation
         // All at once, not a character at a time: each character sent
         // as a key is a command of its own, drawn after, and the text
         // appears as though it were being typed again. Lisp puts the
-        // whole of it before any other input.
+        // whole of it before any other input, or, for an Emacs that
+        // takes its input as messages, its C does, in the order of the
+        // keys around it.
         JsonObject message;
-        message.SetNamedValue(L"type", String(L"commit"));
+        message.SetNamedValue(L"type", String(m_emacs->InputAsMessages() ? L"text" : L"commit"));
         message.SetNamedValue(L"text", String(hstring{ text }));
         m_emacs->Send(message);
     }
@@ -464,9 +478,12 @@ namespace winrt::urusi_emacs::implementation
     // Emacs turns it into a character itself, from the state of the
     // keyboard, which is this thread's as well now that the two input
     // queues are one.
+    //
+    // An Emacs that takes its input as messages has no layout of its own
+    // to read the key with, and is sent what the layout makes of it.
     void MainWindow::ForwardKey(Input::KeyRoutedEventArgs const& args, bool down)
     {
-        if (!m_emacsWindow)
+        if (!m_hasFrame)
         {
             return;
         }
@@ -482,6 +499,16 @@ namespace winrt::urusi_emacs::implementation
             .down = down,
         };
         m_keyboard.Key(key);
+        if (m_emacs->InputAsMessages())
+        {
+            if (auto typed = urusi::windows::input::ReadKey(key))
+            {
+                m_emacs->Send(urusi::windows::emacs::KeyMessage(*typed));
+                args.Handled(true);
+            }
+            return;
+        }
+
         auto message = urusi::windows::input::TranslateKey(key);
         if (!message)
         {
@@ -551,7 +578,8 @@ namespace winrt::urusi_emacs::implementation
         // A view of each frame shown: the one the window shows, in the
         // element named urusi-frame, and those of panels, in elements
         // named urusi-frame:ID, whose Tag is the number of the frame's
-        // window.
+        // window. An Emacs that takes its input as messages is sent the
+        // pointer instead, as it has no windows.
         m_frameViews.clear();
         urusi::windows::window::XamlFrameView::Frame root{
             .window = [weak]() -> HWND {
@@ -565,6 +593,18 @@ namespace winrt::urusi_emacs::implementation
                 }
             },
         };
+        if (m_emacs->InputAsMessages())
+        {
+            root.sendPointer = [weak](std::wstring const& id,
+                                      urusi::core::input::PointerEvent const& event, double scale) {
+                auto self = weak.get();
+                auto pointer = urusi::windows::input::PointerForEmacs(event, scale);
+                if (self && pointer)
+                {
+                    self->m_emacs->Send(urusi::windows::emacs::PointerMessage(id, *pointer));
+                }
+            };
+        }
 
         if (auto site = Named(L"urusi-frame"))
         {
@@ -942,6 +982,13 @@ namespace winrt::urusi_emacs::implementation
             m_emacs->Hello(m_debug, Content() && Content().XamlRoot()
                                         ? Content().XamlRoot().RasterizationScale()
                                         : 1.0);
+
+            // An Emacs of its own process says nothing of its frame,
+            // which has no window: it made it before it said hello.
+            if (m_emacs->InputAsMessages())
+            {
+                TakeEmacsWindow(nullptr);
+            }
         }
         else if (type == L"screen")
         {
