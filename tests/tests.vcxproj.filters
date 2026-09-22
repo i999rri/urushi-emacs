@@ -48,6 +48,12 @@
     <ClCompile Include="windows\Input\test_mouse_translation.cpp">
       <Filter>windows\Input</Filter>
     </ClCompile>
+    <ClCompile Include="windows\Input\test_key_names.cpp">
+      <Filter>windows\Input</Filter>
+    </ClCompile>
+    <ClCompile Include="windows\Input\test_pointer_message.cpp">
+      <Filter>windows\Input</Filter>
+    </ClCompile>
     <ClCompile Include="core\Window\test_rows.cpp">
       <Filter>core\Window</Filter>
     </ClCompile>
@@ -61,6 +67,12 @@
       <Filter>windows\host</Filter>
     </ClInclude>
     <ClInclude Include="..\platforms\windows\host\Input\MouseTranslation.h">
+      <Filter>windows\host</Filter>
+    </ClInclude>
+    <ClInclude Include="..\platforms\windows\host\Input\KeyNames.h">
+      <Filter>windows\host</Filter>
+    </ClInclude>
+    <ClInclude Include="..\platforms\windows\host\Input\PointerMessage.h">
       <Filter>windows\host</Filter>
     </ClInclude>
     <ClInclude Include="TraceReader.h" />

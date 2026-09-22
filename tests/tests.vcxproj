@@ -67,6 +67,8 @@
     <ClCompile Include="core\Input\test_ime_buffer.cpp" />
     <ClCompile Include="windows\Input\test_key_translation.cpp" />
     <ClCompile Include="windows\Input\test_mouse_translation.cpp" />
+    <ClCompile Include="windows\Input\test_key_names.cpp" />
+    <ClCompile Include="windows\Input\test_pointer_message.cpp" />
     <ClCompile Include="core\Window\test_rows.cpp" />
     <ClCompile Include="core\Window\test_splitter.cpp" />
     <ClCompile Include="core\Input\test_traces.cpp" />
@@ -74,6 +76,8 @@
   <ItemGroup>
     <ClInclude Include="..\platforms\windows\host\Input\KeyTranslation.h" />
     <ClInclude Include="..\platforms\windows\host\Input\MouseTranslation.h" />
+    <ClInclude Include="..\platforms\windows\host\Input\KeyNames.h" />
+    <ClInclude Include="..\platforms\windows\host\Input\PointerMessage.h" />
     <ClInclude Include="TraceReader.h" />
   </ItemGroup>
   <ItemGroup>

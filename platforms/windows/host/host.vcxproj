@@ -149,6 +149,8 @@
     <ClInclude Include="Emacs\HostCalls.h" />
     <ClInclude Include="Emacs\EmacsHost.h" />
     <ClInclude Include="Emacs\HostApi.h" />
+    <ClInclude Include="Input\KeyNames.h" />
+    <ClInclude Include="Input\PointerMessage.h" />
     <ClInclude Include="..\..\..\external\emacs\libemacs\src\host.h" />
   </ItemGroup>
   <ItemGroup>
