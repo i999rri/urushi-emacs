@@ -820,8 +820,19 @@ Building it has Emacs redisplay first, and that is not a change to show.")
 What changes the screen is not always a command: a timer shows a popup,
 the output of a process arrives in a buffer that is being shown.  Emacs
 says which windows it is about to redisplay, and nil when there are
-none, which is how often it is asked to with nothing to show for it."
-  (when (and windows (not urusi-screen--rendering))
+none, which is how often it is asked to with nothing to show for it.
+
+A window on a frame that is not visible is left out: nothing on the
+screen changes with it.  Building the screen marks such a window, the
+minibuffer window of a hidden frame, when it selects a window on
+another frame to read its tabs, and drawing again for it would build
+the screen again, and mark it again, for as long as Emacs is idle."
+  (when (and windows
+             (not urusi-screen--rendering)
+             (or (eq windows t)
+                 (seq-some (lambda (window)
+                             (eq (frame-visible-p (window-frame window)) t))
+                           windows)))
     (urusi-screen--after-command)))
 
 (defun urusi-screen--cursor-shown (&rest _)
