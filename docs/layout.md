@@ -14,12 +14,13 @@ A layout is a tree, written in Lisp, in the variable `urusi-layout`. It is put o
         urusi-layout-component))
 ```
 
-The tree is made of three things:
+The tree is made of four things:
 
 | Node | What it is |
 | --- | --- |
 | `(row PART...)` | Its parts side by side. |
 | `(column PART...)` | Its parts one above another. |
+| `(layer PART...)` | Its parts on top of one another, in the same room. |
 | `(panel :content CONTENT)` | Something on the screen. |
 
 Each part of a row or a column takes `:size` pixels (in the pixels XAML counts in), or shares what the parts with no size leave, in proportion to its `:weight`, which is 1 unless it says otherwise. A part with an `:id` can be shown, hidden and resized from Lisp.
@@ -34,7 +35,23 @@ What a panel holds is its `:content`:
 | a function | Called with the frame, returning a tree for `urusi-render`. |
 | a tree | Put there as it is. |
 
-A panel's own `:background`, `:padding`, `:margin` and `:corner-radius` are the panel's.
+A panel's own `:background`, `:padding`, `:margin`, `:corner-radius`, `:border-brush` and `:border-thickness` are the panel's. Each is a value as XAML writes it, or a function called with the frame that returns one: a colour taken from a face that way follows the theme.
+
+## Layers
+
+A part of a `layer` is drawn over the parts before it, unless its `:z-index` says otherwise; the higher one is on top. Where a part draws nothing, the part under it shows through, and the mouse goes to that part. So a panel that floats over Emacs, rather than taking room from it, is a column with a space above it:
+
+```elisp
+(setq urusi-layout
+      '(layer
+        (panel :id editor :content emacs)
+        (column
+         (panel :content nil)
+         (panel :id output :size 220 :hidden t
+                :content frame :buffer "*compilation*"))))
+```
+
+The output covers the bottom of Emacs while it is shown, and Emacs stays the size it was. Its splitter drags as any other.
 
 ## Buffers in panels
 
@@ -75,7 +92,7 @@ Between two parts that are shown is a splitter, which can be dragged. The part w
 
 What is changed is remembered apart from the layout as written: `urusi-layout` itself is never changed, and Emacs started again starts from it.
 
-A row or a column whose parts are all hidden is hidden with them.
+A row, a column or a layer whose parts are all hidden is hidden with them.
 
 ## Examples
 
@@ -118,6 +135,22 @@ Emacs kept small in the top left corner, and the rest left to other things:
         (row (panel :id editor :size 640 :content emacs)
              (panel :content my-dashboard))
         (panel :weight 2 :content my-output)))
+```
+
+An output that floats over the bottom of Emacs, with a line along its top in the colour of the current tab:
+
+```elisp
+(defun my-accent (_frame)
+  (urusi-screen-color (face-attribute 'tab-line-tab-current :background nil t)))
+
+(setq urusi-layout
+      '(layer
+        (panel :id editor :content emacs)
+        (column
+         (panel :content nil)
+         (panel :id output :size 220 :hidden t
+                :content frame :buffer "*compilation*"
+                :border-brush my-accent :border-thickness "0,1,0,0"))))
 ```
 
 A space for the sake of a space, between Emacs and the edge of the window:

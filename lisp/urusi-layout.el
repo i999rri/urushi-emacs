@@ -16,8 +16,8 @@
 ;;
 ;;   (setq urusi-screen-components '(my-titlebar urusi-layout-component))
 ;;
-;; A `row' puts what is in it side by side and a `column' one above the
-;; next.  Each part of either has a :size, in the pixels XAML counts in,
+;; A `row' puts what is in it side by side, a `column' one above the
+;; next, and a `layer' one on top of the next, all in the same room.  Each part of either has a :size, in the pixels XAML counts in,
 ;; or shares what the parts with none leave, in proportion to its
 ;; :weight, which is 1 unless it says otherwise.  A part can have an :id,
 ;; which is how it is shown, hidden and resized once the layout is on
@@ -40,8 +40,20 @@
 ;;   a function  called with the frame, returning a tree for `urusi-render'
 ;;   a tree      put there as it is
 ;;
-;; and :background, :padding, :margin and :corner-radius, if it has
-;; them, are the panel's own.
+;; and :background, :padding, :margin, :corner-radius, :border-brush and
+;; :border-thickness, if it has them, are the panel's own.  Each is a
+;; value as XAML writes it, or a function called with the frame that
+;; returns one, for a colour taken from a face as the screen is drawn.
+;;
+;; A part of a `layer' is drawn over the ones before it, unless its
+;; :z-index says otherwise; the higher one is on top.  Where nothing is
+;; drawn, the part under it shows through and has the mouse, so an
+;; output that floats over Emacs is a column with a space above it:
+;;
+;;   (layer
+;;    (panel :id editor :content emacs)
+;;    (column (panel :content nil)
+;;            (panel :id output :size 200 :hidden t :content my-output)))
 ;;
 ;; A panel with a frame of its own is where a buffer can be sent, with
 ;; `urusi-layout-display-in-panel' in `display-buffer-alist':
@@ -85,10 +97,10 @@ written is left alone, so that setting it again starts from it.")
 ;;;; Reading the tree
 
 (defun urusi-layout--kind (node)
-  "Return what NODE is: `row', `column' or `panel'."
+  "Return what NODE is: `row', `column', `layer' or `panel'."
   (let ((kind (car-safe node)))
-    (unless (memq kind '(row column panel))
-      (error "urusi-layout: Not a row, a column or a panel: %S" node))
+    (unless (memq kind '(row column layer panel))
+      (error "urusi-layout: Not a row, a column, a layer or a panel: %S" node))
     kind))
 
 (defun urusi-layout--properties (node)
@@ -100,7 +112,7 @@ written is left alone, so that setting it again starts from it.")
     properties))
 
 (defun urusi-layout--children (node)
-  "Return the parts of NODE, a row or a column."
+  "Return the parts of NODE, a row, a column or a layer."
   (let ((rest (cdr node)))
     (while (keywordp (car rest))
       (setq rest (cddr rest)))
@@ -118,7 +130,7 @@ The state is kept by :id, so a part with none is as it is written."
 
 (defun urusi-layout--shown-p (node)
   "Return non-nil if NODE is on the screen.
-A row or a column is, unless it is hidden or all its parts are."
+A row, a column or a layer is, unless it is hidden or all its parts are."
   (and (not (urusi-layout--get node :hidden))
        (or (eq (urusi-layout--kind node) 'panel)
            (cl-some #'urusi-layout--shown-p (urusi-layout--children node)))))
@@ -212,14 +224,23 @@ ID is the :id of the panel, which a frame of its own is known by."
    ((and (consp content) (symbolp (car content))) content)
    (t (error "urusi-layout: Cannot put %S in a panel" content))))
 
+(defconst urusi-layout--panel-properties
+  '((:background :Background)
+    (:padding :Padding)
+    (:margin :Margin)
+    (:corner-radius :CornerRadius)
+    (:border-brush :BorderBrush)
+    (:border-thickness :BorderThickness))
+  "The properties of a panel that are the element around it, and their names in XAML.")
+
 (defun urusi-layout--panel (node frame)
-  "Return NODE, a panel, as a tree, for FRAME."
+  "Return NODE, a panel, as a tree, for FRAME.
+A property that is a function is called with FRAME for its value, so
+that a colour taken from a face follows the theme."
   (let ((properties (urusi-layout--properties node)))
-    `(Border ,@(cl-loop for (key xaml) in '((:background :Background)
-                                            (:padding :Padding)
-                                            (:margin :Margin)
-                                            (:corner-radius :CornerRadius))
-                        for value = (plist-get properties key)
+    `(Border ,@(cl-loop for (key xaml) in urusi-layout--panel-properties
+                        for value = (let ((value (plist-get properties key)))
+                                      (if (functionp value) (funcall value frame) value))
                         when value append (list xaml value))
              ,(urusi-layout--content (plist-get properties :content) frame
                                      (plist-get properties :id)))))
@@ -237,12 +258,14 @@ what the host needs to drag it and to say where it was let go."
            ,(if horizontal :Grid.Column :Grid.Row) ,position
            :Background "Transparent"))
 
+(defun urusi-layout--with (tree &rest properties)
+  "Return TREE with PROPERTIES, a plist, on its element."
+  (cons (car tree) (append properties (cdr tree))))
+
 (defun urusi-layout--in-cell (tree horizontal position)
   "Return TREE placed at POSITION of the grid around it.
 HORIZONTAL is non-nil if the grid puts its parts side by side."
-  (cons (car tree)
-        (append (list (if horizontal :Grid.Column :Grid.Row) position)
-                (cdr tree))))
+  (urusi-layout--with tree (if horizontal :Grid.Column :Grid.Row) position))
 
 (defun urusi-layout--group (node frame)
   "Return NODE, a row or a column, as a grid, for FRAME.
@@ -271,11 +294,24 @@ splitter in a cell of its own."
             ,@(nreverse definitions))
            ,@(nreverse cells))))
 
+(defun urusi-layout--layer (node frame)
+  "Return NODE, a layer, as a grid, for FRAME.
+The parts it shows are all in its one cell, each over the one before
+unless a :z-index says otherwise."
+  `(Grid ,@(cl-loop for child in (urusi-layout--children node)
+                    when (urusi-layout--shown-p child)
+                    collect (let ((tree (urusi-layout--node child frame))
+                                  (z-index (urusi-layout--get child :z-index)))
+                              (if z-index
+                                  (urusi-layout--with tree :Canvas.ZIndex z-index)
+                                tree)))))
+
 (defun urusi-layout--node (node frame)
   "Return NODE, a part of the layout, as a tree, for FRAME."
-  (if (eq (urusi-layout--kind node) 'panel)
-      (urusi-layout--panel node frame)
-    (urusi-layout--group node frame)))
+  (pcase (urusi-layout--kind node)
+    ('panel (urusi-layout--panel node frame))
+    ('layer (urusi-layout--layer node frame))
+    (_ (urusi-layout--group node frame))))
 
 (defun urusi-layout-component (frame)
   "Return `urusi-layout' as a tree, for `urusi-screen-components'.

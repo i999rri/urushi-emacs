@@ -93,4 +93,41 @@
     (should (string-match-p "Background=\"#101010\" Padding=\"8\">"
                             (urusi-layout-test--xaml)))))
 
+(ert-deftest urusi-layout-panel-border-from-a-function ()
+  "A panel's border is its own, and a function gives its value as it is drawn."
+  (urusi-layout-test--with `(panel :id only
+                                   :border-brush ,(lambda (_frame) "#FF8000")
+                                   :border-thickness "0,1,0,0"
+                                   :content (TextBlock :Text "x"))
+    (should (string-match-p "BorderBrush=\"#FF8000\" BorderThickness=\"0,1,0,0\">"
+                            (urusi-layout-test--xaml)))))
+
+(defconst urusi-layout-test--floating
+  '(layer (panel :id editor :content emacs)
+          (column (panel :content nil)
+                  (panel :id output :size 200 :content (TextBlock :Text "out"))))
+  "An output that floats over Emacs, at the bottom.")
+
+(ert-deftest urusi-layout-layer-puts-parts-over-each-other ()
+  "A layer's parts share its one cell, the later over the earlier."
+  (urusi-layout-test--with urusi-layout-test--floating
+    (let ((xaml (urusi-layout-test--xaml)))
+      (should (string-match-p "\\`<Grid [^>]*><Border><Grid x:Name=\"urusi-frame\" />" xaml))
+      (should-not (string-match-p "urusi-frame\" Grid\\.Row" xaml))
+      (should (string-match-p (concat "<RowDefinition Height=\"1\\*\" />"
+                                      "<RowDefinition Height=\"4\" />"
+                                      "<RowDefinition Height=\"200\" />")
+                              xaml))
+      (should (string-match-p "urusi-splitter:v:-:output" xaml)))))
+
+(ert-deftest urusi-layout-layer-z-index-and-hiding ()
+  "A part of a layer can say how high it is, and hidden it is not there."
+  (urusi-layout-test--with '(layer (panel :id top :z-index 1 :content (TextBlock :Text "top"))
+                                   (panel :id under :content (TextBlock :Text "under")))
+    (should (string-match-p "<Border Canvas.ZIndex=\"1\"" (urusi-layout-test--xaml)))
+    (urusi-layout-hide 'top)
+    (should-not (string-match-p "top" (urusi-layout-test--xaml)))
+    (urusi-layout-hide 'under)
+    (should (equal (urusi-layout-test--xaml) (car (urusi--compile '(Border)))))))
+
 ;;; urusi-layout-test.el ends here
