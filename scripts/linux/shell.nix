@@ -20,4 +20,11 @@ pkgs.mkShell {
     python3
     git
   ];
+
+  # Fonts for the host build of Emacs to measure text with: it reads
+  # font files itself, from the XDG data directories among others,
+  # and NixOS in WSL has none installed.
+  shellHook = ''
+    export XDG_DATA_DIRS=${pkgs.dejavu_fonts}/share''${XDG_DATA_DIRS:+:$XDG_DATA_DIRS}
+  '';
 }
