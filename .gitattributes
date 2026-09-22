@@ -1,0 +1,5 @@
+# Run on Linux (WSL) from this same tree, where a carriage return at the
+# end of a line is part of the command.
+*.sh text eol=lf
+*.nix text eol=lf
+*.py text eol=lf
