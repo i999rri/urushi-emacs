@@ -64,11 +64,22 @@ class EmacsHost:
             self.process.stdin.write(line.encode('utf-8'))
             self.process.stdin.flush()
 
+    # How long Emacs may take to say anything at all.  The first start
+    # of an Emacs just built has taken over 20 s on Windows, where the
+    # starts after it take under one.
+    STARTUP_TIMEOUT = 180
+
     def wait_for(self, kind, test=None, timeout=20):
         """The next message of type KIND for which TEST, if given, is true.
 
         Messages of other types, or that TEST turns down, are passed
-        over; all of them are kept in self.seen either way."""
+        over; all of them are kept in self.seen either way.  TIMEOUT
+        counts from Emacs's first message, or from now once there has
+        been one."""
+        if not self.seen:
+            end = time.monotonic() + self.STARTUP_TIMEOUT
+            while not self.seen and time.monotonic() < end:
+                time.sleep(0.05)
         end = time.monotonic() + timeout
         while True:
             left = end - time.monotonic()
