@@ -43,6 +43,7 @@ namespace winrt::urusi_emacs::implementation
         // all: it is there to be posted to. Emacs says when it exists;
         // how big the frame is is this window's business from then on.
         void TakeEmacsWindow(HWND window);
+        void EmacsExited();
         void TakeInputToEmacs();
         void TellEmacsFocus(bool focused);
         void StartComposition();

@@ -57,6 +57,18 @@
     <ClInclude Include="Input\PointerMessage.h">
       <Filter>Input</Filter>
     </ClInclude>
+    <ClInclude Include="Emacs\EmacsConnection.h">
+      <Filter>Emacs</Filter>
+    </ClInclude>
+    <ClInclude Include="Emacs\InProcessEmacs.h">
+      <Filter>Emacs</Filter>
+    </ClInclude>
+    <ClInclude Include="Emacs\EmacsProcess.h">
+      <Filter>Emacs</Filter>
+    </ClInclude>
+    <ClInclude Include="Emacs\RemoteCommand.h">
+      <Filter>Emacs</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\..\external\emacs\libemacs\src\host.h">
       <Filter>Emacs</Filter>
     </ClInclude>
@@ -96,6 +108,12 @@
       <Filter>Emacs</Filter>
     </ClCompile>
     <ClCompile Include="Emacs\HostApi.cpp">
+      <Filter>Emacs</Filter>
+    </ClCompile>
+    <ClCompile Include="Emacs\InProcessEmacs.cpp">
+      <Filter>Emacs</Filter>
+    </ClCompile>
+    <ClCompile Include="Emacs\EmacsProcess.cpp">
       <Filter>Emacs</Filter>
     </ClCompile>
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />

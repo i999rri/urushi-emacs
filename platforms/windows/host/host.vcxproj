@@ -151,6 +151,10 @@
     <ClInclude Include="Emacs\HostApi.h" />
     <ClInclude Include="Input\KeyNames.h" />
     <ClInclude Include="Input\PointerMessage.h" />
+    <ClInclude Include="Emacs\EmacsConnection.h" />
+    <ClInclude Include="Emacs\InProcessEmacs.h" />
+    <ClInclude Include="Emacs\EmacsProcess.h" />
+    <ClInclude Include="Emacs\RemoteCommand.h" />
     <ClInclude Include="..\..\..\external\emacs\libemacs\src\host.h" />
   </ItemGroup>
   <ItemGroup>
@@ -176,6 +180,8 @@
     <ClCompile Include="Emacs\HostCalls.cpp" />
     <ClCompile Include="Emacs\EmacsHost.cpp" />
     <ClCompile Include="Emacs\HostApi.cpp" />
+    <ClCompile Include="Emacs\InProcessEmacs.cpp" />
+    <ClCompile Include="Emacs\EmacsProcess.cpp" />
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
   </ItemGroup>
   <ItemGroup>

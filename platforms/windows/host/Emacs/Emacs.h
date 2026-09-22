@@ -1,9 +1,12 @@
 #pragma once
 
+#include "Emacs/EmacsConnection.h"
+
 #include <winrt/Windows.Data.Json.h>
 
 #include <chrono>
 #include <functional>
+#include <memory>
 #include <set>
 #include <string>
 
@@ -11,6 +14,11 @@ namespace urusi::windows::emacs
 {
     // Emacs, as the window talks to it: starting it, the messages that
     // go to it and come from it, and whether it can answer yet.
+    //
+    // Which Emacs it is is chosen as this is made: the one loaded into
+    // this process, unless %USERPROFILE%\.urusi-emacs-remote names a
+    // command that starts one as a process of its own
+    // (docs/remote.md).
     //
     // What a message asks for is the window's to do; this only reads
     // it, and says what it has to say back. Send, SendEvent,
@@ -31,10 +39,20 @@ namespace urusi::windows::emacs
 
         explicit Emacs(Events events);
 
-        // Start Emacs in this process, the user's Emacs with the user's
-        // init file. OUTPUT is what it writes before it can send
-        // messages, and is called on a thread of Emacs's.
-        void Start(std::function<void(std::string)> output);
+        // Where the messages from Emacs go, a line of JSON each. Called
+        // on a thread of Emacs's; set before Start.
+        void OnMessage(EmacsConnection::MessageFn fn);
+
+        // Start Emacs, the user's Emacs with the user's init file.
+        // OUTPUT is given what it writes before it can send messages,
+        // and what goes wrong in starting it, and EXITED is called if it
+        // goes; both on a thread that is not the window's.
+        void Start(EmacsConnection::OutputFn output, EmacsConnection::ExitFn exited);
+
+        // Whether the keys, the pointer and the focus go to Emacs as
+        // messages: an Emacs of its own process has no windows to post
+        // them to, and no frame window to say it has made a frame.
+        bool InputAsMessages() const noexcept { return m_connection->InputAsMessages(); }
 
         // The message LINE is, or null if it is not one, which Emacs is
         // told.
@@ -45,6 +63,9 @@ namespace urusi::windows::emacs
         // how many pixels of the screen go to one of XAML's.
         void Hello(bool debug, double scale);
         bool Ready() const noexcept { return m_ready; }
+
+        // Emacs has gone, and cannot be asked anything again.
+        void Exited() noexcept { m_ready = false; }
 
         // Whether closing the window is to wait for Emacs, which is then
         // asked to close it: it asks about the buffers that are not
@@ -69,6 +90,10 @@ namespace urusi::windows::emacs
         void Log(char const* source, std::string const& text) const;
 
         Events m_events;
+        std::shared_ptr<EmacsConnection> m_connection;
+        // The command the Emacs of its own process is started with, or
+        // empty for the one in this process.
+        std::string m_command;
         bool m_ready{ false };
         std::set<std::wstring> m_seen;
         std::chrono::steady_clock::time_point m_lastHeard{};

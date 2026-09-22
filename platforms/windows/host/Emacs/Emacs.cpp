@@ -1,8 +1,8 @@
 #include "pch.h"
 #include "Emacs/Emacs.h"
 
-#include "Emacs/EmacsHost.h"
-#include "Emacs/HostApi.h"
+#include "Emacs/EmacsProcess.h"
+#include "Emacs/InProcessEmacs.h"
 
 using namespace winrt;
 using namespace Windows::Data::Json;
@@ -13,61 +13,33 @@ namespace
     {
         return JsonValue::CreateStringValue(text);
     }
-
-    // What the standard handle WHICH of this process is: none, or what
-    // kind of thing, and whether a child is handed it.
-    std::string DescribeHandle(DWORD which)
-    {
-        HANDLE handle = GetStdHandle(which);
-        if (!handle || handle == INVALID_HANDLE_VALUE)
-        {
-            return "none";
-        }
-
-        DWORD flags = 0;
-        GetHandleInformation(handle, &flags);
-        char const* kinds[] = { "unknown", "disk", "char", "pipe" };
-        DWORD kind = GetFileType(handle) & ~FILE_TYPE_REMOTE;
-        return std::string{ kind < 4 ? kinds[kind] : "other" }
-            + ((flags & HANDLE_FLAG_INHERIT) ? ", inheritable" : "");
-    }
 }
 
 namespace urusi::windows::emacs
 {
-    Emacs::Emacs(Events events) : m_events(std::move(events))
+    Emacs::Emacs(Events events)
+        : m_events(std::move(events)), m_command(EmacsProcess::ConfiguredCommand())
     {
+        if (m_command.empty())
+        {
+            m_connection = std::make_shared<InProcessEmacs>();
+        }
+        else
+        {
+            m_connection = std::make_shared<EmacsProcess>(std::wstring{ to_hstring(m_command) });
+        }
     }
 
-    void Emacs::Start(std::function<void(std::string)> output)
+    void Emacs::OnMessage(EmacsConnection::MessageFn fn)
     {
-        // No -Q: this is the user's Emacs, and it reads the user's init
-        // file like any other. Nothing is said here about the screen:
-        // site-start.el brings urusi up before the init file, so that
-        // the init file can say what the screen should look like, and
-        // shows it once the init file has.
-        std::vector<std::string> args{ "emacs" };
+        m_connection->OnMessage(std::move(fn));
+    }
 
-        // What this process was started with, before any of it is
-        // changed. It depends on what started the application, and
-        // Emacs hands it on to every program it runs.
-        Log("host", "started with stdin " + DescribeHandle(STD_INPUT_HANDLE)
-            + ", stdout " + DescribeHandle(STD_OUTPUT_HANDLE)
-            + ", stderr " + DescribeHandle(STD_ERROR_HANDLE) + "\n");
-
-        // And whether whatever started it handed over a C runtime's
-        // table of open files, which the runtime Emacs uses reads as
-        // its own descriptors as it starts.
-        STARTUPINFOW startup{ sizeof(startup) };
-        GetStartupInfoW(&startup);
-        Log("host", "startup info flags 0x" + std::to_string(startup.dwFlags)
-            + ", runtime table " + std::to_string(startup.cbReserved2) + " bytes\n");
-
-        std::string error;
-        if (!EmacsHost::Instance().Start(EmacsHost::DefaultDll(), args, std::move(output), error))
-        {
-            Log("host", error + "\n");
-        }
+    void Emacs::Start(EmacsConnection::OutputFn output, EmacsConnection::ExitFn exited)
+    {
+        Log("host", m_command.empty() ? std::string{ "Emacs in this process\n" }
+                                      : "Emacs as a process of its own: " + m_command + "\n");
+        m_connection->Start(std::move(output), std::move(exited));
     }
 
     JsonObject Emacs::Receive(std::string const& line)
@@ -131,7 +103,7 @@ namespace urusi::windows::emacs
 
     void Emacs::Send(JsonObject const& message) const
     {
-        HostApi::Instance().Send(to_string(message.Stringify()));
+        m_connection->Send(to_string(message.Stringify()));
     }
 
     void Emacs::SendEvent(hstring const& id, JsonObject const& args) const

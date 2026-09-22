@@ -135,7 +135,7 @@ namespace winrt::urusi_emacs::implementation
 
         // Emacs posts from its own thread, and the window may only be
         // touched from this one.
-        urusi::windows::emacs::HostApi::Instance().OnMessage([weak, dispatcher](std::string message) {
+        m_emacs->OnMessage([weak, dispatcher](std::string message) {
             dispatcher.TryEnqueue([weak, message = std::move(message)] {
                 if (auto self = weak.get())
                 {
@@ -890,14 +890,41 @@ namespace winrt::urusi_emacs::implementation
         auto weak = get_weak();
         auto dispatcher = m_dispatcher;
 
-        m_emacs->Start([weak, dispatcher](std::string text) {
-            dispatcher.TryEnqueue([weak, text = std::move(text)] {
-                if (auto self = weak.get())
-                {
-                    self->AppendLog("emacs", text);
-                }
+        m_emacs->Start(
+            [weak, dispatcher](char const* source, std::string text) {
+                dispatcher.TryEnqueue([weak, source, text = std::move(text)] {
+                    if (auto self = weak.get())
+                    {
+                        self->AppendLog(source, text);
+                    }
+                });
+            },
+            [weak, dispatcher] {
+                dispatcher.TryEnqueue([weak] {
+                    if (auto self = weak.get())
+                    {
+                        self->EmacsExited();
+                    }
+                });
             });
-        });
+    }
+
+    // An Emacs of its own process has gone. Leaving Emacs leaves the
+    // application, as it does when Emacs is in this process and ends
+    // it; but an Emacs that went before it said anything leaves the
+    // window, and the log in it, to say what went wrong.
+    void MainWindow::EmacsExited()
+    {
+        bool running = m_emacs->Ready();
+        m_emacs->Exited();
+        if (running)
+        {
+            Close();
+            return;
+        }
+
+        ShowStatus(L"Emacs exited");
+        ShowWhenReady();
     }
 
     void MainWindow::OnMessage(std::string const& line)

@@ -19,6 +19,9 @@
     <Filter Include="windows\Input">
       <UniqueIdentifier>{1f5b62b7-31e2-5f2b-af4f-96c25fbfab10}</UniqueIdentifier>
     </Filter>
+    <Filter Include="windows\Emacs">
+      <UniqueIdentifier>{6a0e3c1d-2b4f-5e8a-9c7d-1f3b5a7c9e21}</UniqueIdentifier>
+    </Filter>
     <Filter Include="windows\host">
       <UniqueIdentifier>{b4ce6fba-4d08-562d-afdf-670a272ed5ad}</UniqueIdentifier>
     </Filter>
@@ -54,6 +57,9 @@
     <ClCompile Include="windows\Input\test_pointer_message.cpp">
       <Filter>windows\Input</Filter>
     </ClCompile>
+    <ClCompile Include="windows\Emacs\test_remote_command.cpp">
+      <Filter>windows\Emacs</Filter>
+    </ClCompile>
     <ClCompile Include="core\Window\test_rows.cpp">
       <Filter>core\Window</Filter>
     </ClCompile>
@@ -73,6 +79,9 @@
       <Filter>windows\host</Filter>
     </ClInclude>
     <ClInclude Include="..\platforms\windows\host\Input\PointerMessage.h">
+      <Filter>windows\host</Filter>
+    </ClInclude>
+    <ClInclude Include="..\platforms\windows\host\Emacs\RemoteCommand.h">
       <Filter>windows\host</Filter>
     </ClInclude>
     <ClInclude Include="TraceReader.h" />
