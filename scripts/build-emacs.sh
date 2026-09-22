@@ -103,8 +103,8 @@ make -C "$build/src" -j"$jobs" libemacs.dll
 # fingerprint.  w32dll-smoke.exe is that host, and is worth keeping: it
 # runs Emacs from the DLL without a window.
 echo "=== w32dll-smoke.exe"
-gcc -O2 -Wall -I"$src/src" -o "$build/src/w32dll-smoke.exe" \
-    "$src/nt/w32dll-smoke.c" -Wl,--stack,0x00800000
+gcc -O2 -Wall -I"$src/libemacs/src" -o "$build/src/w32dll-smoke.exe" \
+    "$src/libemacs/nt/w32dll-smoke.c" -Wl,--stack,0x00800000
 
 echo "=== libemacs.pdmp"
 cd "$build/src"
