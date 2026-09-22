@@ -48,6 +48,27 @@ namespace urusi::windows::input
         }
     }
 
+    // Whether KEY turns the input method on or off, rather than working
+    // its way through a conversion.
+    //
+    // It is the one key of those above the window has to know of: the
+    // input method leaves the composition it was holding where it is
+    // and says so to nobody, so nothing else would end it.
+    inline bool IsInputMethodSwitch(int key) noexcept
+    {
+        switch (key)
+        {
+        case VK_KANJI:          // the hankaku/zenkaku key, which Alt+` is sent as
+        case VK_IME_ON:
+        case VK_IME_OFF:
+        case VK_OEM_AUTO:       // hankaku and zenkaku where each is a key of its own
+        case VK_OEM_ENLW:
+            return true;
+        default:
+            return false;
+        }
+    }
+
     // What to post Emacs for KEY, or nothing.
     //
     // A key the input method is making something of is not a key: what

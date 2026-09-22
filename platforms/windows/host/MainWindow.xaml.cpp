@@ -499,6 +499,11 @@ namespace winrt::urusi_emacs::implementation
             .down = down,
         };
         m_keyboard.Key(key);
+        if (down && urusi::windows::input::IsInputMethodSwitch(key.key))
+        {
+            m_keyboard.InputMethodSwitched();
+        }
+
         if (m_emacs->InputAsMessages())
         {
             if (auto typed = urusi::windows::input::ReadKey(key))

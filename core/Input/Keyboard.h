@@ -167,6 +167,20 @@ namespace urusi::core::input
             Settle();
         }
 
+        // The input method was turned on or off: hand over what it was
+        // composing.
+        //
+        // It rewrites the composition with what it settled on just
+        // before the key arrives, and then says nothing more of it.
+        // Nothing else ends the composition, and what is typed after
+        // would be taken for more of it and stay undrawn until the next
+        // one ends.
+        void InputMethodSwitched()
+        {
+            Say(R"({"e":"input-method-switched"})");
+            Settle();
+        }
+
         // The input method took the focus away itself: it is to be told
         // again next time, and it counts from nothing then. What was
         // half composed is dropped rather than left drawn.
