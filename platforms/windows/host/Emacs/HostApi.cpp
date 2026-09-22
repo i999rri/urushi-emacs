@@ -8,7 +8,7 @@ namespace
         urusi::windows::emacs::HostApi::Instance().Deliver(message);
     }
 
-    void HostOnEvent(w32_host_event_fn fn, void* data)
+    void HostOnEvent(host_event_fn fn, void* data)
     {
         urusi::windows::emacs::HostApi::Instance().SetSink(fn, data);
     }
@@ -18,13 +18,13 @@ namespace
         return urusi::windows::emacs::HostApi::Instance().Window();
     }
 
-    constexpr w32_host_api kApi{ W32_HOST_API_VERSION, HostPost, HostOnEvent, HostWindow };
+    constexpr host_api kApi{ HOST_API_VERSION, HostPost, HostOnEvent, HostWindow };
 }
 
 // What Emacs looks for in this executable, and the only thing it does.
-extern "C" __declspec(dllexport) w32_host_api const* w32_host_get_api(unsigned version)
+extern "C" __declspec(dllexport) host_api const* host_get_api(unsigned version)
 {
-    return version == W32_HOST_API_VERSION ? &kApi : nullptr;
+    return version == HOST_API_VERSION ? &kApi : nullptr;
 }
 
 namespace urusi::windows::emacs
@@ -59,7 +59,7 @@ namespace urusi::windows::emacs
         }
     }
 
-    void HostApi::SetSink(w32_host_event_fn fn, void* data)
+    void HostApi::SetSink(host_event_fn fn, void* data)
     {
         std::lock_guard<std::mutex> held{ m_lock };
         m_sink = fn;
@@ -81,7 +81,7 @@ namespace urusi::windows::emacs
 
     void HostApi::Send(std::string const& message)
     {
-        w32_host_event_fn sink = nullptr;
+        host_event_fn sink = nullptr;
         void* data = nullptr;
         {
             std::lock_guard<std::mutex> held{ m_lock };

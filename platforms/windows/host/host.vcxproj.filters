@@ -51,7 +51,7 @@
     <ClInclude Include="Emacs\HostApi.h">
       <Filter>Emacs</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\external\emacs\src\w32host.h">
+    <ClInclude Include="..\..\..\external\emacs\libemacs\src\host.h">
       <Filter>Emacs</Filter>
     </ClInclude>
   </ItemGroup>

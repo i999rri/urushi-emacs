@@ -53,10 +53,10 @@
         (clicked nil))
     ;; Stand in for the host: these three are what libemacs.dll adds when
     ;; a host application loads it, and are missing in a plain Emacs.
-    (cl-letf (((symbol-function 'w32-host-available-p) (lambda () t))
-              ((symbol-function 'w32-host-post)
+    (cl-letf (((symbol-function 'host-available-p) (lambda () t))
+              ((symbol-function 'host-post)
                (lambda (message) (push message posted) t))
-              ((symbol-function 'w32-host-take-events)
+              ((symbol-function 'host-take-events)
                (lambda () (prog1 (nreverse from-host) (setq from-host nil)))))
       (unwind-protect
           (progn
@@ -84,10 +84,10 @@
   (let ((posted nil)
         (from-host nil)
         (answer 'none))
-    (cl-letf (((symbol-function 'w32-host-available-p) (lambda () t))
-              ((symbol-function 'w32-host-post)
+    (cl-letf (((symbol-function 'host-available-p) (lambda () t))
+              ((symbol-function 'host-post)
                (lambda (message) (push message posted) t))
-              ((symbol-function 'w32-host-take-events)
+              ((symbol-function 'host-take-events)
                (lambda () (prog1 (nreverse from-host) (setq from-host nil)))))
       (let* ((id (urusi-call "window.size" nil (lambda (value) (setq answer value))))
              (call (json-parse-string (car posted) :object-type 'plist)))
@@ -104,14 +104,14 @@
 (ert-deftest urusi-call-wait-signals-the-host-error ()
   "An error the host answers with is signalled where the call was made."
   (let ((from-host nil))
-    (cl-letf (((symbol-function 'w32-host-available-p) (lambda () t))
-              ((symbol-function 'w32-host-post)
+    (cl-letf (((symbol-function 'host-available-p) (lambda () t))
+              ((symbol-function 'host-post)
                (lambda (message)
                  (let ((id (plist-get (json-parse-string message :object-type 'plist) :id)))
                    (push (format "{\"type\":\"reply\",\"id\":%d,\"error\":\"no such method\"}" id)
                          from-host))
                  t))
-              ((symbol-function 'w32-host-take-events)
+              ((symbol-function 'host-take-events)
                (lambda () (prog1 (nreverse from-host) (setq from-host nil)))))
       (should-error (urusi-call-wait "window.nothing" nil 1)))))
 
@@ -119,9 +119,9 @@
   "Something that happens to the window reaches the functions waiting for it."
   (let ((from-host (list "{\"type\":\"host-event\",\"event\":\"theme\",\"dark\":true}"))
         (seen nil))
-    (cl-letf (((symbol-function 'w32-host-available-p) (lambda () t))
-              ((symbol-function 'w32-host-post) (lambda (_) t))
-              ((symbol-function 'w32-host-take-events)
+    (cl-letf (((symbol-function 'host-available-p) (lambda () t))
+              ((symbol-function 'host-post) (lambda (_) t))
+              ((symbol-function 'host-take-events)
                (lambda () (prog1 (nreverse from-host) (setq from-host nil)))))
       (let ((urusi-host-event-functions
              (list (lambda (event message)
@@ -132,8 +132,8 @@
 (ert-deftest urusi-sends-only-what-changed ()
   "Send a row again when it changes, and its name alone when it does not."
   (let ((posted nil))
-    (cl-letf (((symbol-function 'w32-host-available-p) (lambda () t))
-              ((symbol-function 'w32-host-post)
+    (cl-letf (((symbol-function 'host-available-p) (lambda () t))
+              ((symbol-function 'host-post)
                (lambda (message) (push message posted) t)))
       (unwind-protect
           (let ((screen (lambda (second)
@@ -179,8 +179,8 @@
   "A row brings the events of what is in it, by ids that say where it is."
   (let ((posted nil)
         (clicked nil))
-    (cl-letf (((symbol-function 'w32-host-available-p) (lambda () t))
-              ((symbol-function 'w32-host-post)
+    (cl-letf (((symbol-function 'host-available-p) (lambda () t))
+              ((symbol-function 'host-post)
                (lambda (message) (push message posted) t)))
       (unwind-protect
           (let ((screen (lambda (label)
@@ -212,8 +212,8 @@
 (ert-deftest urusi-forgets-when-the-host-is-stale ()
   "Send the whole screen again when the host says it has lost track."
   (let ((posted nil))
-    (cl-letf (((symbol-function 'w32-host-available-p) (lambda () t))
-              ((symbol-function 'w32-host-post)
+    (cl-letf (((symbol-function 'host-available-p) (lambda () t))
+              ((symbol-function 'host-post)
                (lambda (message) (push message posted) t)))
       (unwind-protect
           (progn
@@ -236,8 +236,8 @@
 (ert-deftest urusi-rows-inside-a-row ()
   "Rows inside a row go after it, and go whole whenever it does."
   (let ((posted nil))
-    (cl-letf (((symbol-function 'w32-host-available-p) (lambda () t))
-              ((symbol-function 'w32-host-post)
+    (cl-letf (((symbol-function 'host-available-p) (lambda () t))
+              ((symbol-function 'host-post)
                (lambda (message) (push message posted) t)))
       (unwind-protect
           (cl-flet ((sent (tree)

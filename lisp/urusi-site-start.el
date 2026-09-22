@@ -104,7 +104,7 @@ program that never comes back is the first thing to know about."
           (urusi-frame-mode 1))
       (error (urusi--log "startup: %S" error)))))
 
-(when (and (fboundp 'w32-host-available-p) (w32-host-available-p))
+(when (and (fboundp 'host-available-p) (host-available-p))
   (require 'urusi)
 
   ;; How far Emacs got, for when it does not get all the way: the

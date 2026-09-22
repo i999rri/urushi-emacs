@@ -114,4 +114,4 @@ mv -f emacs.pdmp libemacs.pdmp
 mv -f emacs.pdmp.exe emacs.pdmp
 
 ./w32dll-smoke.exe --batch \
-    --eval '(message "built %s, host bridge %S" emacs-version (fboundp (quote w32-host-post)))'
+    --eval '(message "built %s, host bridge %S" emacs-version (fboundp (quote host-post)))'

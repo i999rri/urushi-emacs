@@ -4,7 +4,7 @@
 
 ;; Builds the window of the urusi-emacs host, a WinUI 3 application that
 ;; loads Emacs into its own process.  Messages go by calling the host,
-;; with `w32-host-post' and `w32-host-take-events'; each one is a line of
+;; with `host-post' and `host-take-events'; each one is a line of
 ;; JSON.
 ;;
 ;; A UI is a tree of s-expressions:
@@ -28,9 +28,9 @@
 (require 'cl-lib)
 (require 'subr-x)
 
-(declare-function w32-host-available-p "w32host.c")
-(declare-function w32-host-post "w32host.c" (message))
-(declare-function w32-host-take-events "w32host.c")
+(declare-function host-available-p "w32host.c")
+(declare-function host-post "w32host.c" (message))
+(declare-function host-take-events "w32host.c")
 
 (defgroup urusi nil
   "Native WinUI 3 UI built from Emacs Lisp."
@@ -60,7 +60,7 @@ on reaching the handler of the same element in the screen after.")
 
 (defun urusi-available-p ()
   "Return non-nil if this Emacs runs inside the urusi-emacs host."
-  (and (fboundp 'w32-host-available-p) (w32-host-available-p)))
+  (and (fboundp 'host-available-p) (host-available-p)))
 
 (defun urusi-start ()
   "Start talking to the urusi-emacs host."
@@ -85,12 +85,12 @@ on reaching the handler of the same element in the screen after.")
 
 (defun urusi--send (message)
   "Send MESSAGE, a plist, to the host as one JSON object."
-  (unless (w32-host-post (json-serialize message))
+  (unless (host-post (json-serialize message))
     (user-error "urusi: This Emacs does not run inside the host")))
 
 (defun urusi--take ()
   "Handle the messages the host has sent since the last look."
-  (dolist (message (w32-host-take-events))
+  (dolist (message (host-take-events))
     (condition-case err
         (urusi--dispatch (json-parse-string message
                                             :object-type 'plist
@@ -108,7 +108,7 @@ writes there goes nowhere.  So this asks the host, the way everything
 else does."
   (let ((text (apply #'format format arguments)))
     (if (urusi-available-p)
-        (w32-host-post (json-serialize (list :type "log" :text text)))
+        (host-post (json-serialize (list :type "log" :text text)))
       (princ (concat "urusi: " text "\n") #'external-debugging-output))))
 
 (defvar urusi-scale 1.0

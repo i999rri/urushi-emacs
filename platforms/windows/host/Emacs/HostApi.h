@@ -1,7 +1,7 @@
 #pragma once
 
 // The interface itself, from the Emacs this application loads.
-#include "../../../../external/emacs/src/w32host.h"
+#include "../../../../external/emacs/libemacs/src/host.h"
 
 #include <functional>
 #include <mutex>
@@ -9,7 +9,7 @@
 
 namespace urusi::windows::emacs
 {
-    // This application's side of w32host.h.
+    // This application's side of host.h.
     //
     // Emacs asks for the interface as it starts, which is before the
     // window has anything to show, so the two sides find each other
@@ -38,16 +38,16 @@ namespace urusi::windows::emacs
         void SetWindow(HWND window);
         HWND Window() const;
 
-        // For w32_host_get_api, which is C and cannot reach the rest.
+        // For host_get_api, which is C and cannot reach the rest.
         void Deliver(char const* message);
-        void SetSink(w32_host_event_fn fn, void* data);
+        void SetSink(host_event_fn fn, void* data);
 
     private:
         HostApi() = default;
 
         std::mutex m_lock;
         MessageFn m_onMessage;
-        w32_host_event_fn m_sink{ nullptr };
+        host_event_fn m_sink{ nullptr };
         void* m_sinkData{ nullptr };
         HWND m_window{ nullptr };
     };
