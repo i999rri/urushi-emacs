@@ -68,10 +68,12 @@ on reaching the handler of the same element in the screen after.")
   (unless (urusi-available-p)
     (user-error "urusi: This Emacs does not run inside the host"))
   (urusi-stop)
-  ;; The frame is a child window of the host's, which Windows draws no
-  ;; menu bar above.
+  ;; The host draws the frame, with no menu bar or tool bar of Emacs's
+  ;; above it.  An Emacs built without a window system has no tool bar
+  ;; to turn off.
   (menu-bar-mode -1)
-  (tool-bar-mode -1)
+  (when (fboundp 'tool-bar-mode)
+    (tool-bar-mode -1))
   (setq urusi--timer
         (run-with-timer urusi-poll-interval urusi-poll-interval #'urusi--take))
   (urusi--send '(:type "hello" :version 1)))
