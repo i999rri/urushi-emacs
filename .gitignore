@@ -25,3 +25,6 @@ packages/
 # submodule under external/, so anchor this to the root)
 /emacs/
 /external/emacs-build/
+
+# Python
+__pycache__/
