@@ -31,6 +31,23 @@ def default_emacs():
     return os.path.join(REPO, 'external', 'emacs-build', 'src', name)
 
 
+def emacs_path():
+    """PATH for Emacs to start with.
+
+    On Windows, the Emacs of the build tree needs the DLLs of MSYS2's
+    mingw64 (GnuTLS and the rest), which a shell of MSYS2 has on PATH and
+    any other does not: started from PowerShell it does not start at
+    all.  The places are the ones scripts/refresh-emacs.cmd looks in."""
+    path = os.environ.get('PATH', '')
+    if sys.platform != 'win32':
+        return path
+    for msys in (os.path.expandvars(r'%USERPROFILE%\scoop\apps\msys2\current'), r'C:\msys64'):
+        bin_dir = os.path.join(msys, 'mingw64', 'bin')
+        if os.path.isdir(bin_dir):
+            return bin_dir + os.pathsep + path
+    return path
+
+
 class EmacsHost:
     """One Emacs, started with urusi and nothing of the user's.
 
@@ -46,7 +63,7 @@ class EmacsHost:
         self.messages = queue.Queue()
         self.seen = []
         self._lock = threading.Lock()
-        env = dict(os.environ, EMACS_HOST_PIPE='1')
+        env = dict(os.environ, EMACS_HOST_PIPE='1', PATH=emacs_path())
         command = [emacs or default_emacs(), '-Q', '-L', LISP,
                    '-l', os.path.join(LISP, 'urusi-site-start.el'), *args]
         self.process = subprocess.Popen(command, stdin=subprocess.PIPE,
@@ -64,10 +81,9 @@ class EmacsHost:
             self.process.stdin.write(line.encode('utf-8'))
             self.process.stdin.flush()
 
-    # How long Emacs may take to say anything at all.  The first start
-    # of an Emacs just built has taken over 20 s on Windows, where the
-    # starts after it take under one.
-    STARTUP_TIMEOUT = 180
+    # How long Emacs may take to say anything at all, more than a message
+    # takes once it is talking: it reads urusi's Lisp first.
+    STARTUP_TIMEOUT = 60
 
     def wait_for(self, kind, test=None, timeout=20):
         """The next message of type KIND for which TEST, if given, is true.
@@ -79,10 +95,13 @@ class EmacsHost:
         if not self.seen:
             end = time.monotonic() + self.STARTUP_TIMEOUT
             while not self.seen and time.monotonic() < end:
+                self._check_running()
                 time.sleep(0.05)
         end = time.monotonic() + timeout
         while True:
             left = end - time.monotonic()
+            if self.messages.empty():
+                self._check_running()
             if left <= 0:
                 kinds = [m.get('type') for m in self.seen[-20:]]
                 raise AssertionError(f'no {kind} in {timeout}s; last seen: {kinds}')
@@ -92,6 +111,14 @@ class EmacsHost:
                 continue
             if message.get('type') == kind and (test is None or test(message)):
                 return message
+
+    def _check_running(self):
+        """Fail at once if Emacs has exited: nothing more is coming.
+        The code says why, as 0xC0000135 says a DLL was not found."""
+        code = self.process.poll()
+        if code is not None and self.messages.empty():
+            raise AssertionError(f'Emacs exited with {code} (0x{code & 0xFFFFFFFF:08X}) '
+                                 f'after {len(self.seen)} messages')
 
     def logs(self):
         """The text of every log line Emacs has sent so far."""
