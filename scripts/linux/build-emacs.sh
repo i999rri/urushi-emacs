@@ -27,7 +27,9 @@ git -C "$src" pull --ff-only "$here/external/emacs" urusi
 
 mkdir -p "$build"
 cd "$build"
-[ -f Makefile ] || "$src/configure" --without-x --with-gnutls=ifavailable \
+# The host window system in place of X: its frames are the host's to
+# draw, and it needs no library of the desktop's.
+[ -f Makefile ] || "$src/configure" --with-host --without-x --with-gnutls=ifavailable \
     --without-native-compilation --without-pop --without-mailutils
 
 make -j"$(nproc)"
