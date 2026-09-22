@@ -842,15 +842,22 @@ no command between, so nothing else would draw it."
   (urusi-screen--after-command))
 
 (defun urusi-screen--after-command ()
-  "Show the screen once what is happening now has finished happening."
+  "Show the screen once what is happening now has finished happening.
+
+Not while there is more input waiting.  What the input method settled on
+arrives as its characters, each of them a command of its own, and a
+screen between them shows the text being typed again letter by letter.
+Each of those commands puts this back, so the screen is drawn once the
+last of them has run."
   (unless urusi-screen--pending
     (setq urusi-screen--pending
           (urusi-when-idle
            (lambda ()
              (setq urusi-screen--pending nil)
-             (condition-case err
-                 (urusi-screen-render)
-               (error (urusi--log "screen: %S" err))))))))
+             (unless (or unread-command-events (input-pending-p))
+               (condition-case err
+                   (urusi-screen-render)
+                 (error (urusi--log "screen: %S" err)))))))))
 
 ;;;###autoload
 (define-minor-mode urusi-screen-mode
