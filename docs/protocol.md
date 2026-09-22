@@ -16,7 +16,9 @@ The application loads Emacs as a library, and gives it a table of three things w
 
 A message belongs to whoever sends it and is not kept by whoever gets it. Only C types cross, because the application may be built with another compiler and another runtime than Emacs.
 
-**Today:** the table is `w32_host_api`, found by the name `w32_host_get_api`, and has a fourth field, `window`, the window Emacs makes its frames in. Messages to Emacs wait in a queue that Lisp looks at every 50 ms, so what is typed with the input method is 50 ms behind what is typed with keys.
+The table is `host_api`, in `libemacs/src/host.h` of Emacs, and the application exports `host_get_api` for Emacs to find it by.
+
+**Today:** the table has a fourth field, `window`, the window Emacs makes its frames in on Windows, which frames of the host's own will not need. Messages to Emacs wait in a queue that Lisp looks at every 50 ms, so what is typed with the input method is 50 ms behind what is typed with keys.
 
 ## Units
 
