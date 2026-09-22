@@ -2,8 +2,7 @@
 
 #include "MainWindow.g.h"
 #include "Input/Composition.h"
-#include "Emacs/EmacsHost.h"
-#include "Emacs/HostApi.h"
+#include "Emacs/Emacs.h"
 #include "Emacs/HostCalls.h"
 #include "Input/KeyTranslation.h"
 #include "Input/MouseTranslation.h"
@@ -11,6 +10,7 @@
 #include "Window/Rows.h"
 #include "Window/XamlCaptionRegions.h"
 #include "Window/XamlFrameView.h"
+#include "Window/XamlScreen.h"
 #include "Window/XamlSplitter.h"
 
 #include <chrono>
@@ -56,13 +56,6 @@ namespace winrt::urusi_emacs::implementation
         // Runs on the UI thread.
         void OnMessage(std::string const& line);
         void Screen(Windows::Data::Json::JsonObject const& message);
-        void Measure(Windows::Data::Json::JsonObject const& message);
-        Microsoft::UI::Xaml::Controls::Panel FindPanel(Microsoft::UI::Xaml::FrameworkElement const& root,
-                                                       winrt::hstring const& name);
-        void ReconcileRows(Microsoft::UI::Xaml::Controls::Panel const& panel,
-                           Windows::Data::Json::JsonArray const& items);
-        void AttachEvents(Microsoft::UI::Xaml::FrameworkElement const& root,
-                          Windows::Data::Json::JsonArray const& events);
 
         void Call(Windows::Data::Json::JsonObject const& message);
 
@@ -79,13 +72,6 @@ namespace winrt::urusi_emacs::implementation
         void CheckDeactivation();
         bool IsForeground() const noexcept;
         void TraceFocus(char const* what);
-        void SendHostEvent(winrt::hstring const& name,
-                           Windows::Data::Json::JsonObject const& details);
-
-        // Safe from any thread.
-        void SendEvent(winrt::hstring const& id, Windows::Data::Json::JsonObject const& args);
-        void SendError(winrt::hstring const& message);
-        void Send(Windows::Data::Json::JsonObject const& message);
 
         void ShowStatus(winrt::hstring const& text);
         // The window is not shown until Emacs has a screen to put in
@@ -98,6 +84,12 @@ namespace winrt::urusi_emacs::implementation
         void AppendLog(char const* source, std::string const& text);
 
         Microsoft::UI::Dispatching::DispatcherQueue m_dispatcher{ nullptr };
+
+        // Emacs, and the screen it builds in the window. Emacs is shared
+        // with what the screen's elements send it, which can outlive
+        // the window.
+        std::shared_ptr<urusi::windows::emacs::Emacs> m_emacs;
+        std::optional<urusi::windows::window::XamlScreen> m_screen;
         std::string m_log;
         std::set<std::wstring> m_seen;
         HWND m_emacsWindow{ nullptr };
@@ -128,13 +120,6 @@ namespace winrt::urusi_emacs::implementation
         // what it draws replaces the grid the splitter is in.
         bool m_splitting{ false };
         bool m_shown{ false };
-
-        // Whether Emacs can be asked yet, when it was last heard from,
-        // and when it was last asked to close: closing the window is
-        // Emacs's to decide only while it can decide.
-        bool m_emacsReady{ false };
-        std::chrono::steady_clock::time_point m_lastHeard{};
-        std::chrono::steady_clock::time_point m_closeAsked{};
 
         // How the window takes up the screen, as Lisp was last told.
         std::wstring m_windowState{ L"normal" };

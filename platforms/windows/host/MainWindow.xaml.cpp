@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "MainWindow.xaml.h"
+#include "Emacs/HostApi.h"
 #if __has_include("MainWindow.g.cpp")
 #include "MainWindow.g.cpp"
 #endif
@@ -120,6 +121,12 @@ namespace winrt::urusi_emacs::implementation
         m_dispatcher = Microsoft::UI::Dispatching::DispatcherQueue::GetForCurrentThread();
         auto weak = get_weak();
 
+        m_emacs = std::make_shared<urusi::windows::emacs::Emacs>(urusi::windows::emacs::Emacs::Events{
+            .log = [this](char const* source, std::string const& text) { AppendLog(source, text); },
+            .error = [this](hstring const& text) { ShowStatus(text); },
+        });
+        m_screen.emplace(Surface(), m_emacs);
+
         // Started under a debugger, as from Visual Studio, everything is
         // written down from the first key: whatever is being chased may
         // happen before there is a chance to ask for it.
@@ -179,32 +186,13 @@ namespace winrt::urusi_emacs::implementation
         });
 
         // Closing the window is Emacs's to decide, the way leaving Emacs
-        // always has been: it asks about the buffers that are not saved
-        // first, and may be told not to. Until Emacs can answer, or once
-        // it has gone quiet since it was asked, the window closes as any
-        // other window would, since one that cannot be closed is worse.
+        // always has been, while Emacs can decide.
         AppWindow().Closing([weak](Microsoft::UI::Windowing::AppWindow const&,
                                    Microsoft::UI::Windowing::AppWindowClosingEventArgs const& args) {
-            constexpr std::chrono::seconds kPatience{ 5 };
-
-            auto self = weak.get();
-            if (!self || !self->m_emacsReady)
+            if (auto self = weak.get(); self && self->m_emacs->AskToClose())
             {
-                return;
+                args.Cancel(true);
             }
-
-            auto now = std::chrono::steady_clock::now();
-            bool asked = self->m_closeAsked != std::chrono::steady_clock::time_point{};
-            bool silent = asked && self->m_lastHeard < self->m_closeAsked
-                && now - self->m_closeAsked > kPatience;
-            if (silent)
-            {
-                return;
-            }
-
-            args.Cancel(true);
-            self->m_closeAsked = now;
-            self->SendHostEvent(L"close", JsonObject{});
         });
 
         // How the window takes up the screen can change without Lisp
@@ -239,7 +227,7 @@ namespace winrt::urusi_emacs::implementation
                 self->m_windowState = state;
                 JsonObject details;
                 details.SetNamedValue(L"state", String(hstring{ state }));
-                self->SendHostEvent(L"state", details);
+                self->m_emacs->SendHostEvent(L"state", details);
             }
         });
 
@@ -254,7 +242,7 @@ namespace winrt::urusi_emacs::implementation
                     JsonObject details;
                     details.SetNamedValue(L"dark", JsonValue::CreateBooleanValue(
                         sender.ActualTheme() == ElementTheme::Dark));
-                    self->SendHostEvent(L"theme", details);
+                    self->m_emacs->SendHostEvent(L"theme", details);
                 }
             });
         }
@@ -402,7 +390,7 @@ namespace winrt::urusi_emacs::implementation
         JsonObject message;
         message.SetNamedValue(L"type", String(L"commit"));
         message.SetNamedValue(L"text", String(hstring{ text }));
-        Send(message);
+        m_emacs->Send(message);
     }
 
     // Where Emacs says the caret is, in the pixels of the screen, so
@@ -481,14 +469,7 @@ namespace winrt::urusi_emacs::implementation
     // The element of what Lisp built that is named NAME, or null.
     FrameworkElement MainWindow::Named(hstring const& name)
     {
-        if (Surface().Children().Size() == 0)
-        {
-            return nullptr;
-        }
-
-        auto root = Surface().Children().GetAt(0).try_as<FrameworkElement>();
-        auto found = root ? root.FindName(name) : nullptr;
-        return found ? found.try_as<FrameworkElement>() : nullptr;
+        return m_screen ? m_screen->Named(name) : nullptr;
     }
 
     // Where the Emacs frame goes, whose size is the frame's: the element
@@ -632,7 +613,7 @@ namespace winrt::urusi_emacs::implementation
                     details.SetNamedValue(L"name", JsonValue::CreateStringValue(name));
                     details.SetNamedValue(L"before", JsonValue::CreateNumberValue(std::round(before)));
                     details.SetNamedValue(L"after", JsonValue::CreateNumberValue(std::round(after)));
-                    self->SendHostEvent(L"splitter", details);
+                    self->m_emacs->SendHostEvent(L"splitter", details);
 
                     // The frame was left the size it was while the
                     // splitter moved, and is given the size it has now.
@@ -759,7 +740,7 @@ namespace winrt::urusi_emacs::implementation
     void MainWindow::Effects::TellEmacsFocus(bool focused)
     {
         window->TellEmacsFocus(focused);
-        window->SendHostEvent(focused ? L"activated" : L"deactivated", JsonObject{});
+        window->m_emacs->SendHostEvent(focused ? L"activated" : L"deactivated", JsonObject{});
     }
 
     void MainWindow::Effects::Composing(std::wstring const& text)
@@ -767,7 +748,7 @@ namespace winrt::urusi_emacs::implementation
         JsonObject message;
         message.SetNamedValue(L"type", String(L"composition"));
         message.SetNamedValue(L"text", String(hstring{ text }));
-        window->Send(message);
+        window->m_emacs->Send(message);
     }
 
     // Tell Windows which parts of what Lisp drew are the title bar, when
@@ -865,7 +846,7 @@ namespace winrt::urusi_emacs::implementation
         }
         message.SetNamedValue(L"width", JsonValue::CreateNumberValue(size.width));
         message.SetNamedValue(L"height", JsonValue::CreateNumberValue(size.height));
-        Send(message);
+        m_emacs->Send(message);
     }
 
     void MainWindow::StartEmacs()
@@ -873,95 +854,31 @@ namespace winrt::urusi_emacs::implementation
         auto weak = get_weak();
         auto dispatcher = m_dispatcher;
 
-        // No -Q: this is the user's Emacs, and it reads the user's init
-        // file like any other. Nothing is said here about the screen:
-        // site-start.el brings urusi up before the init file, so that
-        // the init file can say what the screen should look like, and
-        // shows it once the init file has.
-        std::vector<std::string> args{ "emacs" };
-
-        // What this process was started with, before any of it is
-        // changed. It depends on what started the application, and
-        // Emacs hands it on to every program it runs.
-        auto describe = [](DWORD which) {
-            HANDLE handle = GetStdHandle(which);
-            if (!handle || handle == INVALID_HANDLE_VALUE)
-            {
-                return std::string{ "none" };
-            }
-
-            DWORD flags = 0;
-            GetHandleInformation(handle, &flags);
-            char const* kinds[] = { "unknown", "disk", "char", "pipe" };
-            DWORD kind = GetFileType(handle) & ~FILE_TYPE_REMOTE;
-            return std::string{ kind < 4 ? kinds[kind] : "other" }
-                + ((flags & HANDLE_FLAG_INHERIT) ? ", inheritable" : "");
-        };
-        AppendLog("host", "started with stdin " + describe(STD_INPUT_HANDLE)
-                  + ", stdout " + describe(STD_OUTPUT_HANDLE)
-                  + ", stderr " + describe(STD_ERROR_HANDLE) + "\n");
-
-        // And whether whatever started it handed over a C runtime's
-        // table of open files, which the runtime Emacs uses reads as
-        // its own descriptors as it starts.
-        STARTUPINFOW startup{ sizeof(startup) };
-        GetStartupInfoW(&startup);
-        AppendLog("host", "startup info flags 0x" + std::to_string(startup.dwFlags)
-                  + ", runtime table " + std::to_string(startup.cbReserved2) + " bytes\n");
-
-        std::string error;
-        bool started = urusi::windows::emacs::EmacsHost::Instance().Start(
-            urusi::windows::emacs::EmacsHost::DefaultDll(),
-            args,
-            [weak, dispatcher](std::string text) {
-                dispatcher.TryEnqueue([weak, text = std::move(text)] {
-                    if (auto self = weak.get())
-                    {
-                        self->AppendLog("emacs", text);
-                    }
-                });
-            },
-            error);
-        if (!started)
-        {
-            AppendLog("host", error + "\n");
-        }
+        m_emacs->Start([weak, dispatcher](std::string text) {
+            dispatcher.TryEnqueue([weak, text = std::move(text)] {
+                if (auto self = weak.get())
+                {
+                    self->AppendLog("emacs", text);
+                }
+            });
+        });
     }
 
     void MainWindow::OnMessage(std::string const& line)
     {
-        JsonObject message{ nullptr };
-        if (!JsonObject::TryParse(to_hstring(line), message))
+        auto message = m_emacs->Receive(line);
+        if (!message)
         {
-            SendError(L"invalid JSON");
             return;
         }
 
         auto type = message.GetNamedString(L"type", L"");
-        m_lastHeard = std::chrono::steady_clock::now();
-
-        // The first of each kind, so that a message that never comes is
-        // as plain to see as one that fails.
-        if (m_seen.insert(std::wstring{ type }).second)
-        {
-            AppendLog("host", "first " + to_string(type) + ", " + std::to_string(line.size())
-                      + " bytes\n");
-        }
-
         if (type == L"hello")
         {
-            m_emacsReady = true;
             ShowStatus(L"");
-            JsonObject reply;
-            reply.SetNamedValue(L"type", String(L"hello"));
-            reply.SetNamedValue(L"host", String(L"urusi-emacs"));
-            reply.SetNamedValue(L"version", JsonValue::CreateNumberValue(1));
-            reply.SetNamedValue(L"debug", JsonValue::CreateBooleanValue(m_debug));
-            // Emacs measures in the pixels of the screen and XAML in
-            // 96ths of an inch, and this is what lies between them.
-            reply.SetNamedValue(L"scale", JsonValue::CreateNumberValue(
-                Content() && Content().XamlRoot() ? Content().XamlRoot().RasterizationScale() : 1.0));
-            Send(reply);
+            m_emacs->Hello(m_debug, Content() && Content().XamlRoot()
+                                        ? Content().XamlRoot().RasterizationScale()
+                                        : 1.0);
         }
         else if (type == L"screen")
         {
@@ -973,7 +890,7 @@ namespace winrt::urusi_emacs::implementation
         }
         else if (type == L"measure")
         {
-            Measure(message);
+            m_screen->Measure(message);
         }
         else if (type == L"log")
         {
@@ -996,319 +913,24 @@ namespace winrt::urusi_emacs::implementation
         }
         else
         {
-            SendError(L"unknown message type: " + type);
+            m_emacs->SendError(L"unknown message type: " + type);
         }
-    }
-
-    // Say how wide a character of a font is here. Emacs lays its text
-    // out on a grid of whole pixels and XAML does not, so the two
-    // drift apart across a line unless Emacs is told what to correct
-    // for.
-    void MainWindow::Measure(JsonObject const& message)
-    {
-        constexpr int kSample = 100;
-
-        auto family = message.GetNamedString(L"family", L"Consolas");
-        double size = message.GetNamedNumber(L"size", 14);
-
-        // One of each kind that Emacs counts differently: a character
-        // of one column and one of two. Emacs says which font a run is
-        // drawn in, so both are measured in the font asked about.
-        auto advance = [&](wchar_t sample) {
-            Controls::TextBlock block;
-            block.FontFamily(Media::FontFamily{ family });
-            block.FontSize(size);
-            block.Text(hstring{ std::wstring(kSample, sample) });
-            block.Measure({ std::numeric_limits<float>::infinity(),
-                            std::numeric_limits<float>::infinity() });
-            return block.DesiredSize().Width / kSample;
-        };
-
-        JsonObject reply;
-        reply.SetNamedValue(L"type", String(L"measured"));
-        reply.SetNamedValue(L"family", String(family));
-        reply.SetNamedValue(L"size", JsonValue::CreateNumberValue(size));
-        reply.SetNamedValue(L"narrow", JsonValue::CreateNumberValue(advance(L'0')));
-        // HIRAGANA LETTER A, spelled out: this file is read as bytes.
-        reply.SetNamedValue(L"wide", JsonValue::CreateNumberValue(advance(L'\x3042')));
-        Send(reply);
     }
 
     void MainWindow::Screen(JsonObject const& message)
     {
         ShowWhenReady();
 
-        // The XAML around the rows comes only when it has changed, and
-        // everything in it goes with it.
-        if (message.HasKey(L"xaml"))
+        if (m_screen->ShowChrome(message))
         {
-            UIElement root{ nullptr };
-            try
-            {
-                root = Markup::XamlReader::Load(message.GetNamedString(L"xaml", L"")).as<UIElement>();
-            }
-            catch (hresult_error const& e)
-            {
-                SendError(L"XAML: " + e.message());
-                return;
-            }
-
-            Surface().Children().Clear();
-            Surface().Children().Append(root);
             ShowStatus(L"");
-
-            if (auto element = root.try_as<FrameworkElement>())
-            {
-                AttachEvents(element, message.GetNamedArray(L"events", JsonArray{}));
-            }
 
             // Where Lisp put the frame and the title bar goes with the
             // XAML around the rows, and they are new elements now.
             FollowLayout();
             KeepFocus();
         }
-
-        auto root = Surface().Children().Size() ? Surface().Children().GetAt(0) : nullptr;
-        auto named = root ? root.try_as<FrameworkElement>() : nullptr;
-
-        for (auto const& value : message.GetNamedArray(L"rows", JsonArray{}))
-        {
-            auto group = value.GetObject();
-            auto name = group.GetNamedString(L"panel", L"");
-            auto target = named ? FindPanel(named, name) : nullptr;
-
-            if (auto panel = target ? target.try_as<Controls::Panel>() : nullptr)
-            {
-                ReconcileRows(panel, group.GetNamedArray(L"items", JsonArray{}));
-            }
-            else
-            {
-                SendError(L"no panel named " + name);
-            }
-        }
-    }
-
-    // The panel named NAME under ROOT. The XAML around the rows knows the
-    // names in it, but a row is read on its own and keeps its names to
-    // itself, so a panel inside a row is looked for among the rows.
-    // Rows come before the rows inside them, so it is there by now.
-    Controls::Panel MainWindow::FindPanel(FrameworkElement const& root, hstring const& name)
-    {
-        if (auto found = root.FindName(name))
-        {
-            return found.try_as<Controls::Panel>();
-        }
-
-        std::vector<UIElement> pending{ root };
-        while (!pending.empty())
-        {
-            auto element = pending.back();
-            pending.pop_back();
-
-            auto panel = element.try_as<Controls::Panel>();
-            if (panel && panel.Name() == name)
-            {
-                return panel;
-            }
-            if (panel)
-            {
-                for (auto const& child : panel.Children())
-                {
-                    pending.push_back(child);
-                }
-            }
-            else if (auto border = element.try_as<Controls::Border>(); border && border.Child())
-            {
-                pending.push_back(border.Child());
-            }
-        }
-        return nullptr;
-    }
-
-    // Put the rows of PANEL in the order ITEMS gives, building the ones
-    // that came with XAML of their own and keeping the ones that did
-    // not. A row is known by its key, which it carries in its Tag.
-    void MainWindow::ReconcileRows(Controls::Panel const& panel, JsonArray const& items)
-    {
-        auto children = panel.Children();
-
-        std::vector<std::wstring> existing;
-        existing.reserve(children.Size());
-        for (auto const& child : children)
-        {
-            auto element = child.try_as<FrameworkElement>();
-            existing.emplace_back(element ? unbox_value_or<hstring>(element.Tag(), L"") : L"");
-        }
-
-        std::vector<urusi::core::window::RowItem> rows;
-        rows.reserve(items.Size());
-        for (auto const& value : items)
-        {
-            auto item = value.GetObject();
-            rows.push_back({ std::wstring{ item.GetNamedString(L"key", L"") },
-                             item.HasKey(L"xaml") });
-        }
-
-        auto plan = urusi::core::window::PlanRows(existing, rows);
-        if (plan.stale)
-        {
-            // Emacs thinks this window shows something it does not. Ask
-            // for the whole screen again.
-            JsonObject stale;
-            stale.SetNamedValue(L"type", JsonValue::CreateStringValue(L"stale"));
-            Send(stale);
-            return;
-        }
-
-        std::vector<UIElement> wanted;
-        wanted.reserve(items.Size());
-        for (uint32_t i = 0; i < items.Size(); i++)
-        {
-            if (auto kept = plan.sources[i].kept)
-            {
-                wanted.push_back(children.GetAt(*kept));
-                continue;
-            }
-
-            auto item = items.GetObjectAt(i);
-            auto key = item.GetNamedString(L"key", L"");
-            UIElement row{ nullptr };
-            try
-            {
-                row = Markup::XamlReader::Load(item.GetNamedString(L"xaml", L"")).as<UIElement>();
-            }
-            catch (hresult_error const& e)
-            {
-                // One row that will not parse is one row missing, not a
-                // screen lost.
-                SendError(L"row " + key + L": " + e.message());
-                continue;
-            }
-            auto element = row.as<FrameworkElement>();
-            element.Tag(box_value(key));
-            // The row is read on its own, and its names are its own: only
-            // the row can find what its events are on.
-            AttachEvents(element, item.GetNamedArray(L"events", JsonArray{}));
-            wanted.push_back(row);
-        }
-
-        // The panel's children, in the few calls urusi::core::window::Arrange makes.
-        struct Children
-        {
-            Controls::UIElementCollection list;
-
-            uint32_t Size() const { return list.Size(); }
-            UIElement At(uint32_t i) const { return list.GetAt(i); }
-            bool IndexOf(UIElement const& x, uint32_t& at) const { return list.IndexOf(x, at); }
-            void RemoveAt(uint32_t i) { list.RemoveAt(i); }
-            void InsertAt(uint32_t i, UIElement const& x) { list.InsertAt(i, x); }
-            void RemoveAtEnd() { list.RemoveAtEnd(); }
-        } list{ children };
-        urusi::core::window::Arrange(list, wanted);
-    }
-
-    void MainWindow::AttachEvents(FrameworkElement const& root, JsonArray const& events)
-    {
-        using namespace Microsoft::UI::Xaml::Controls;
-
-        for (auto const& value : events)
-        {
-            auto entry = value.GetObject();
-            auto name = entry.GetNamedString(L"name", L"");
-            auto event = entry.GetNamedString(L"event", L"");
-            auto id = entry.GetNamedString(L"id", L"");
-
-            // An element may be the row itself, which FindName does not
-            // look at: it looks among what is inside.
-            IInspectable target = root.Name() == name ? IInspectable{ root } : root.FindName(name);
-            if (!target)
-            {
-                SendError(L"no element named " + name);
-                continue;
-            }
-
-            auto weak = get_weak();
-            if (event == L"Click")
-            {
-                if (auto button = target.try_as<Primitives::ButtonBase>())
-                {
-                    button.Click([weak, id](IInspectable const&, RoutedEventArgs const&) {
-                        if (auto self = weak.get())
-                        {
-                            self->SendEvent(id, JsonObject{});
-                        }
-                    });
-                    continue;
-                }
-            }
-            else if (event == L"TextChanged")
-            {
-                if (auto box = target.try_as<TextBox>())
-                {
-                    box.TextChanged([weak, id](IInspectable const& sender, TextChangedEventArgs const&) {
-                        if (auto self = weak.get())
-                        {
-                            JsonObject args;
-                            args.SetNamedValue(L"text", String(sender.as<TextBox>().Text()));
-                            self->SendEvent(id, args);
-                        }
-                    });
-                    continue;
-                }
-            }
-            else if (event == L"SelectionChanged")
-            {
-                if (auto selector = target.try_as<Primitives::Selector>())
-                {
-                    selector.SelectionChanged([weak, id](IInspectable const& sender, SelectionChangedEventArgs const&) {
-                        if (auto self = weak.get())
-                        {
-                            JsonObject args;
-                            args.SetNamedValue(L"index", JsonValue::CreateNumberValue(
-                                sender.as<Primitives::Selector>().SelectedIndex()));
-                            self->SendEvent(id, args);
-                        }
-                    });
-                    continue;
-                }
-            }
-            else if (event == L"Toggled")
-            {
-                if (auto toggle = target.try_as<ToggleSwitch>())
-                {
-                    toggle.Toggled([weak, id](IInspectable const& sender, RoutedEventArgs const&) {
-                        if (auto self = weak.get())
-                        {
-                            JsonObject args;
-                            args.SetNamedValue(L"on", JsonValue::CreateBooleanValue(sender.as<ToggleSwitch>().IsOn()));
-                            self->SendEvent(id, args);
-                        }
-                    });
-                    continue;
-                }
-            }
-
-            SendError(L"cannot attach " + event + L" to " + name);
-        }
-    }
-
-    void MainWindow::SendEvent(hstring const& id, JsonObject const& args)
-    {
-        JsonObject message;
-        message.SetNamedValue(L"type", String(L"event"));
-        message.SetNamedValue(L"id", String(id));
-        message.SetNamedValue(L"args", args);
-        Send(message);
-    }
-
-    void MainWindow::SendError(hstring const& text)
-    {
-        ShowStatus(text);
-        AppendLog("host", "error: " + to_string(text) + "\n");
-        JsonObject message;
-        message.SetNamedValue(L"type", String(L"error"));
-        message.SetNamedValue(L"message", String(text));
-        Send(message);
+        m_screen->ShowRows(message);
     }
 
     // Do what Lisp asked the host to do, and answer it: now, or when the
@@ -1321,44 +943,16 @@ namespace winrt::urusi_emacs::implementation
                 && message.GetNamedValue(L"args").ValueType() == JsonValueType::Object
             ? message.GetNamedObject(L"args")
             : JsonObject{};
-        auto weak = get_weak();
+        std::weak_ptr<urusi::windows::emacs::Emacs> emacs = m_emacs;
 
         urusi::windows::emacs::HostCalls::Call(
             get_strong().as<Window>(), method, args,
-            [weak, id](IJsonValue const& value, std::wstring const& error) {
-                auto self = weak.get();
-                if (!self)
+            [emacs, id](IJsonValue const& value, std::wstring const& error) {
+                if (auto self = emacs.lock())
                 {
-                    return;
+                    self->Reply(id, value, error);
                 }
-
-                JsonObject reply;
-                reply.SetNamedValue(L"type", String(L"reply"));
-                reply.SetNamedValue(L"id", JsonValue::CreateNumberValue(id));
-                if (error.empty())
-                {
-                    reply.SetNamedValue(L"value", value);
-                }
-                else
-                {
-                    reply.SetNamedValue(L"error", String(hstring{ error }));
-                }
-                self->Send(reply);
             });
-    }
-
-    // Tell Lisp that something happened to the window that it did not
-    // ask for, with what there is to know about it in DETAILS.
-    void MainWindow::SendHostEvent(hstring const& name, JsonObject const& details)
-    {
-        details.SetNamedValue(L"type", String(L"host-event"));
-        details.SetNamedValue(L"event", String(name));
-        Send(details);
-    }
-
-    void MainWindow::Send(JsonObject const& message)
-    {
-        urusi::windows::emacs::HostApi::Instance().Send(to_string(message.Stringify()));
     }
 
     void MainWindow::ShowStatus(hstring const& text)

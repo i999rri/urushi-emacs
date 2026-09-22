@@ -143,7 +143,9 @@
     <ClInclude Include="Input\MouseTranslation.h" />
     <ClInclude Include="Window\XamlCaptionRegions.h" />
     <ClInclude Include="Window\XamlFrameView.h" />
+    <ClInclude Include="Window\XamlScreen.h" />
     <ClInclude Include="Window\XamlSplitter.h" />
+    <ClInclude Include="Emacs\Emacs.h" />
     <ClInclude Include="Emacs\HostCalls.h" />
     <ClInclude Include="Emacs\EmacsHost.h" />
     <ClInclude Include="Emacs\HostApi.h" />
@@ -166,7 +168,9 @@
     <ClCompile Include="Input\Composition.cpp" />
     <ClCompile Include="Window\XamlCaptionRegions.cpp" />
     <ClCompile Include="Window\XamlFrameView.cpp" />
+    <ClCompile Include="Window\XamlScreen.cpp" />
     <ClCompile Include="Window\XamlSplitter.cpp" />
+    <ClCompile Include="Emacs\Emacs.cpp" />
     <ClCompile Include="Emacs\HostCalls.cpp" />
     <ClCompile Include="Emacs\EmacsHost.cpp" />
     <ClCompile Include="Emacs\HostApi.cpp" />
