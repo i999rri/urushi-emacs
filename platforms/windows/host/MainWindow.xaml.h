@@ -68,6 +68,8 @@ namespace winrt::urusi_emacs::implementation
         std::vector<Microsoft::UI::Xaml::FrameworkElement> PanelSites();
         void TellFrameSize(std::wstring const& id, urusi::core::window::PixelSize size);
         void KeepFocus();
+        void FocusMoved(winrt::Windows::Foundation::IInspectable const& focused);
+        static bool TakesText(winrt::Windows::Foundation::IInspectable const& element);
         void ResumeComposition();
         void CheckDeactivation();
         bool IsForeground() const noexcept;

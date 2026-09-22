@@ -24,11 +24,10 @@ namespace urusi::windows::input
     class Composition : public core::input::IKeyInputDevice
     {
     public:
-        // ELEMENT is what holds the focus while typing; the context is
-        // made for the window it is in. KEYBOARD hears everything the
-        // context says, and outlives this.
-        void Start(winrt::Microsoft::UI::Xaml::FrameworkElement const& element,
-                   core::input::Keyboard& keyboard);
+        // The context is made for the window of this thread. KEYBOARD
+        // hears everything the context says, and outlives this; whether
+        // the keys come here is the window's to tell it.
+        void Start(core::input::Keyboard& keyboard);
 
         // IKeyInputDevice
         void NotifyFocusEnter() override;

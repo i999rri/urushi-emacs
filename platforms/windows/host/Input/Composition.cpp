@@ -6,8 +6,7 @@ using namespace Windows::UI::Text::Core;
 
 namespace urusi::windows::input
 {
-    void Composition::Start(winrt::Microsoft::UI::Xaml::FrameworkElement const& element,
-                            core::input::Keyboard& keyboard)
+    void Composition::Start(core::input::Keyboard& keyboard)
     {
         m_keyboard = &keyboard;
 
@@ -20,14 +19,6 @@ namespace urusi::windows::input
         m_context.InputScope(CoreTextInputScope::Default);
         Bind();
         m_keyboard->ContextCreated();
-
-        // The input method only talks to a context that has the focus,
-        // and turning it on and off is part of that talk, from a key or
-        // from the taskbar alike. The focus the element has is the
-        // focus the context has.
-        element.Loaded([this](auto&&, auto&&) { m_keyboard->FocusGained(); });
-        element.GotFocus([this](auto&&, auto&&) { m_keyboard->FocusGained(); });
-        element.LostFocus([this](auto&&, auto&&) { m_keyboard->FocusLost(); });
     }
 
     void Composition::NotifyFocusEnter()

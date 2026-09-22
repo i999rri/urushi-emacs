@@ -106,9 +106,11 @@ namespace urusi::core::input
             });
         }
 
-        // ----- The element the keys go to -----
+        // ----- Where in the window the keys go -----
 
-        // It has the focus, or has lost it, as XAML says.
+        // They come to Emacs, or go to something in the window that
+        // takes them as text itself, with an input method of its own:
+        // wherever else the focus is, they still come to Emacs.
         void FocusGained()
         {
             Say(R"({"e":"focus-gained"})");

@@ -351,9 +351,46 @@ namespace winrt::urusi_emacs::implementation
     void MainWindow::StartComposition()
     {
         RecordKeyboard();
-        m_composition.Start(InputSink(), m_keyboard);
+        m_composition.Start(m_keyboard);
+
+        // The input method is the window's, not an element's: the keys
+        // go to Emacs wherever in the window the focus is, but for a box
+        // Lisp built to type in, which has an input method of its own.
+        // So what the focus is on is looked at as it moves, and the
+        // input method is left alone as it moves anywhere else, the log
+        // under the screen that XAML moves it to when what had it goes.
+        auto weak = get_weak();
+        Input::FocusManager::GotFocus([weak](IInspectable const&,
+                                             Input::FocusManagerGotFocusEventArgs const& args) {
+            if (auto self = weak.get())
+            {
+                self->FocusMoved(args.NewFocusedElement());
+            }
+        });
 
         InputSink().Focus(FocusState::Programmatic);
+    }
+
+    // Tell the keyboard whether the keys come to Emacs, now that the
+    // focus is on FOCUSED.
+    void MainWindow::FocusMoved(IInspectable const& focused)
+    {
+        if (TakesText(focused))
+        {
+            m_keyboard.FocusLost();
+        }
+        else
+        {
+            m_keyboard.FocusGained();
+        }
+    }
+
+    // Whether ELEMENT is one that takes the keys as text itself, with an
+    // input method of its own.
+    bool MainWindow::TakesText(IInspectable const& element)
+    {
+        return element && (element.try_as<Controls::TextBox>() || element.try_as<Controls::PasswordBox>()
+                           || element.try_as<Controls::RichEditBox>());
     }
 
     // Everything that happens to the keyboard's side of the window,
@@ -710,8 +747,7 @@ namespace winrt::urusi_emacs::implementation
 
                 self->KeepFocus();
                 self->TraceFocus("resumed");
-                bool keysComeHere =
-                    Input::FocusManager::GetFocusedElement(root) == self->InputSink();
+                bool keysComeHere = !TakesText(Input::FocusManager::GetFocusedElement(root));
                 self->m_keyboard.ResumeChecked(self->IsForeground(), keysComeHere);
             });
     }
