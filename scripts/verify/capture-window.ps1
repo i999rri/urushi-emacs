@@ -1,104 +1,69 @@
-# What the window actually looks like, since the screen it draws is
-# built in Lisp and the only way to tell whether it came out right is
-# to look at it.
+# Saves a picture of the application's window without bringing it to
+# the front:
 #
-#   pwsh -File scripts/verify/capture-window.ps1 -Out shot.png [-Title title] [-FromScreen]
+#   scripts\verify\capture-window.ps1 [-Path shot.png]
 #
-# Without -Title, the window of the running urusi-emacs, whatever its
-# title is: Emacs names it. The window draws itself into the picture,
-# so one lying over it is not in the picture; -FromScreen copies what is
-# on the screen instead, which is what a person sees, other windows and
-# all.
+# A screenshot taken the usual way puts another window in front, and
+# what is being looked at often goes with it: the input method settles
+# what it was composing when the keys leave, and the line the cursor is
+# on is drawn differently once the window is not the one in use. This
+# asks the window to draw itself into a bitmap instead, which leaves it
+# where it is, with the keys and the focus it had.
 
 param(
-    [string] $Title,
-    [Parameter(Mandatory = $true)] [string] $Out,
-    [switch] $FromScreen
+    [string] $Path = 'urusi-emacs.png',
+    [string] $Process = 'urusi_emacs'
 )
 
-Add-Type -AssemblyName System.Drawing
+$ErrorActionPreference = 'Stop'
 
+Add-Type -AssemblyName System.Drawing
 Add-Type @'
 using System;
 using System.Runtime.InteropServices;
 
-public static class Capture
+public static class WindowShot
 {
-    [StructLayout(LayoutKind.Sequential)]
-    public struct RECT { public int Left, Top, Right, Bottom; }
-
-    [DllImport("user32.dll", SetLastError = true)]
-    public static extern IntPtr FindWindowW(string className, string windowName);
-
-    [DllImport("dwmapi.dll")]
-    public static extern int DwmGetWindowAttribute(IntPtr window, int attribute, out RECT value, int size);
-
-    [DllImport("user32.dll")]
-    public static extern bool GetWindowRect(IntPtr window, out RECT rect);
-
-    [DllImport("user32.dll")]
-    public static extern bool SetForegroundWindow(IntPtr window);
-
     [DllImport("user32.dll")]
     public static extern bool PrintWindow(IntPtr window, IntPtr dc, uint flags);
 
-    // What the window is drawn with, DirectX included, and not only
-    // what GDI would draw of it.
-    public const uint RenderFullContent = 2;
+    [DllImport("user32.dll")]
+    public static extern bool GetWindowRect(IntPtr window, out Rect bounds);
 
-    // The frame a window is drawn in, which is smaller than the one it
-    // is placed in: the rest is the shadow.
-    public const int ExtendedFrameBounds = 9;
+    [StructLayout(LayoutKind.Sequential)]
+    public struct Rect { public int Left, Top, Right, Bottom; }
+
+    // Draw everything the window shows, including what the desktop
+    // composes for it: without this a window drawn that way comes out
+    // blank.
+    public const uint RenderFullContent = 2;
 }
 '@
 
-# By the process rather than by FindWindow: a WinUI window answers to a
-# class of its own and the title is set after it is made.
-if ($Title) {
-    $owner = Get-Process | Where-Object { $_.MainWindowTitle -eq $Title } | Select-Object -First 1
-} else {
-    $owner = Get-Process urusi_emacs -ErrorAction SilentlyContinue |
-        Where-Object MainWindowHandle -ne 0 | Select-Object -First 1
-}
-if (-not $owner) {
-    throw "no window titled '$Title'"
+$window = (Get-Process -Name $Process -ErrorAction Stop | Select-Object -First 1).MainWindowHandle
+if ($window -eq [IntPtr]::Zero) {
+    throw "$Process has no window to draw"
 }
 
-$window = $owner.MainWindowHandle
-
-$bounds = New-Object Capture+RECT
-$size = [Runtime.InteropServices.Marshal]::SizeOf($bounds)
-if ([Capture]::DwmGetWindowAttribute($window, [Capture]::ExtendedFrameBounds, [ref] $bounds, $size) -ne 0) {
-    [Capture]::GetWindowRect($window, [ref] $bounds) | Out-Null
+$bounds = New-Object WindowShot+Rect
+if (-not [WindowShot]::GetWindowRect($window, [ref] $bounds)) {
+    throw 'the window would not say where it is'
 }
 
 $width = $bounds.Right - $bounds.Left
 $height = $bounds.Bottom - $bounds.Top
+$bitmap = New-Object System.Drawing.Bitmap $width, $height
+$graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+$dc = $graphics.GetHdc()
+$drawn = [WindowShot]::PrintWindow($window, $dc, [WindowShot]::RenderFullContent)
+$graphics.ReleaseHdc($dc)
+$graphics.Dispose()
 
-if ($FromScreen) {
-    [Capture]::SetForegroundWindow($window) | Out-Null
-    Start-Sleep -Milliseconds 300
-    $shot = New-Object Drawing.Bitmap $width, $height
-    $canvas = [Drawing.Graphics]::FromImage($shot)
-    $canvas.CopyFromScreen($bounds.Left, $bounds.Top, 0, 0, $shot.Size)
-    $canvas.Dispose()
-} else {
-    # PrintWindow draws the whole window, shadow and all, from its own
-    # corner; the frame it is drawn in starts that far in.
-    $placed = New-Object Capture+RECT
-    [Capture]::GetWindowRect($window, [ref] $placed) | Out-Null
-    $whole = New-Object Drawing.Bitmap ($placed.Right - $placed.Left), ($placed.Bottom - $placed.Top)
-    $canvas = [Drawing.Graphics]::FromImage($whole)
-    $dc = $canvas.GetHdc()
-    [Capture]::PrintWindow($window, $dc, [Capture]::RenderFullContent) | Out-Null
-    $canvas.ReleaseHdc($dc)
-    $canvas.Dispose()
-    $area = New-Object Drawing.Rectangle ($bounds.Left - $placed.Left), ($bounds.Top - $placed.Top), $width, $height
-    $shot = $whole.Clone($area, $whole.PixelFormat)
-    $whole.Dispose()
+if (-not $drawn) {
+    $bitmap.Dispose()
+    throw 'the window would not draw itself'
 }
 
-$shot.Save($Out, [Drawing.Imaging.ImageFormat]::Png)
-$shot.Dispose()
-
-Write-Output "$Out ($width x $height)"
+$bitmap.Save($Path, [System.Drawing.Imaging.ImageFormat]::Png)
+$bitmap.Dispose()
+"$width x $height saved to $Path"
