@@ -702,6 +702,42 @@ namespace urusi::windows::input
         m_threads = nullptr;
     }
 
+    bool TextServices::TakesKey(core::input::KeyEvent const& key)
+    {
+        com_ptr<ITfKeystrokeMgr> keys;
+
+        if (!m_threads || key.key == 0 || !(keys = m_threads.try_as<ITfKeystrokeMgr>()))
+        {
+            return false;
+        }
+
+        // The lParam Windows would have sent, which is where the text
+        // services read the scan code and the rest of it.
+        WPARAM wParam = static_cast<WPARAM>(key.key);
+        LPARAM lParam = static_cast<LPARAM>(key.repeat & 0xFFFF)
+            | (static_cast<LPARAM>(key.scanCode & 0xFF) << 16)
+            | (key.extended ? (LPARAM{ 1 } << 24) : 0)
+            | (key.menuDown ? (LPARAM{ 1 } << 29) : 0)
+            | (key.wasDown ? (LPARAM{ 1 } << 30) : 0)
+            | (key.down ? 0 : (LPARAM{ 1 } << 31));
+
+        // Asked first, and only given the key if it says it wants it:
+        // a key handed over that it turns down is a key it has seen
+        // twice.
+        BOOL wanted = FALSE;
+        HRESULT asked = key.down ? keys->TestKeyDown(wParam, lParam, &wanted)
+                                 : keys->TestKeyUp(wParam, lParam, &wanted);
+        if (FAILED(asked) || !wanted)
+        {
+            return false;
+        }
+
+        BOOL taken = FALSE;
+        HRESULT given = key.down ? keys->KeyDown(wParam, lParam, &taken)
+                                 : keys->KeyUp(wParam, lParam, &taken);
+        return SUCCEEDED(given) && taken;
+    }
+
     void TextServices::FlushComposition()
     {
         if (m_owner)

@@ -54,6 +54,12 @@ namespace urusi::windows::input
 
         bool Started() const noexcept { return m_document != nullptr; }
 
+        // Offer KEY to the input method, and say whether it took it.
+        //
+        // A key they take is theirs: it is what turns them on and off
+        // and works a conversion through, and Emacs is not to see it.
+        bool TakesKey(core::input::KeyEvent const& key);
+
         // Read what the input method has settled on, if it has not been
         // read yet, before a key goes to Emacs: the reading waits its
         // turn while the key does not, and the return that settled a

@@ -570,10 +570,33 @@ namespace winrt::urusi_emacs::implementation
         // round, and the key is Emacs's at once.
         m_composition.FlushComposition();
 
+        // Who the key belongs to, in order: the input method, then
+        // Windows, then Emacs.
+        //
+        // The input method looks first, as it would have if this were a
+        // window of Windows's own: the window reads its keys where what
+        // draws it hands them over, which is past the point where they
+        // would have been offered.
+        if (m_composition.TakesKey(key))
+        {
+            args.Handled(true);
+            return;
+        }
+
         if (down && urusi::windows::input::IsInputMethodSwitch(key.key))
         {
             m_composition.EndComposition();
             AppendLog("host", "input method switched: " + InputMethodState(GetFocus()) + "\n");
+        }
+
+        // Then Windows: turning the input method on and off is its
+        // arrangement with the keyboard, and no part of it is Emacs's,
+        // whether or not the input method took the key.
+        if (urusi::windows::input::IsInputMethodChord(
+                key, ImmIsIME(GetKeyboardLayout(0)) != FALSE))
+        {
+            args.Handled(true);
+            return;
         }
 
         if (m_emacs->InputAsMessages())

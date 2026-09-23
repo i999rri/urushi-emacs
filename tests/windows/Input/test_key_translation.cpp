@@ -55,3 +55,31 @@ TEST(KeyTranslationTest, InputMethodKeysAreNotPassedOn)
     }
     EXPECT_FALSE(TranslateKey({ .key = 0 }));
 }
+
+// The key that turns the input method on and off belongs to Windows,
+// and reaches the window only where the input method turned it down.
+TEST(KeyTranslationTest, TheChordThatSwitchesTheInputMethodIsNotEmacs)
+{
+    using urusi::windows::input::IsInputMethodChord;
+    urusi::core::input::KeyEvent chord{
+        .key = VK_OEM_3, .scanCode = 0x29, .menuDown = true, .down = true,
+    };
+
+    EXPECT_TRUE(IsInputMethodChord(chord, true));
+    // The same keys on a keyboard with no input method are Alt and a
+    // character, which Emacs reads as one of its own.
+    EXPECT_FALSE(IsInputMethodChord(chord, false));
+
+    // Alt and anything else is Emacs's either way.
+    urusi::core::input::KeyEvent other{
+        .key = 0x58, .scanCode = 0x2D, .menuDown = true, .down = true,
+    };
+    EXPECT_FALSE(IsInputMethodChord(other, true));
+
+    // And the key alone, without Alt, is the input method's own to
+    // answer rather than a chord.
+    urusi::core::input::KeyEvent alone{
+        .key = VK_OEM_3, .scanCode = 0x29, .menuDown = false, .down = true,
+    };
+    EXPECT_FALSE(IsInputMethodChord(alone, true));
+}

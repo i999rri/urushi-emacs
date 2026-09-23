@@ -69,6 +69,24 @@ namespace urusi::windows::input
         }
     }
 
+    // The key to the left of 1, which is `~ on a keyboard with no input
+    // method and the one that turns it on and off on a keyboard with.
+    // Windows names it differently on each, and the same on both here.
+    constexpr uint32_t kInputMethodScanCode = 0x29;
+
+    // Whether KEY is the chord that turns the input method on and off.
+    //
+    // INSTALLED says whether the keyboard has an input method at all:
+    // without one this is Alt and a character, which is Emacs's.
+    //
+    // It reaches the window only where the input method has turned it
+    // down, and passing it on then would type it into Emacs, where the
+    // same chord opens the menu bar.
+    inline bool IsInputMethodChord(core::input::KeyEvent const& key, bool installed) noexcept
+    {
+        return installed && key.menuDown && key.scanCode == kInputMethodScanCode;
+    }
+
     // What to post Emacs for KEY, or nothing.
     //
     // A key the input method is making something of is not a key: what
