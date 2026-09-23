@@ -177,15 +177,6 @@ namespace urusi::core::input
             Forget();
         }
 
-        // What the input method asks: the text, where it counts it to
-        // be, and the caret.
-        std::wstring TextRequested(int32_t start, int32_t end) const
-        {
-            return m_buffer.Text(start, end);
-        }
-
-        int32_t SelectionRequested() const noexcept { return m_buffer.Caret(); }
-
         bool Composing() const noexcept { return m_buffer.Composing(); }
         bool Active() const noexcept { return m_activation.Active(); }
 
