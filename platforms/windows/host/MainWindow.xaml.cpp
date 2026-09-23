@@ -543,10 +543,15 @@ namespace winrt::urusi_emacs::implementation
             wanted = InputSystemCursorShape::SizeNortheastSouthwest;
         }
 
+        // Set on the element the pointer is actually over, which is
+        // where the screen is drawn: EditorSite is behind it, the
+        // pointer never reaches it, and a shape set there is never
+        // shown. Children take it from here unless they set their own.
+        //
         // The property is the element's own to set, and is reached
         // through the interface that carries what an element keeps to
         // itself.
-        if (auto site = EditorSite().try_as<IUIElementProtected>())
+        if (auto site = Surface().try_as<IUIElementProtected>())
         {
             site.ProtectedCursor(InputSystemCursor::Create(wanted));
         }
