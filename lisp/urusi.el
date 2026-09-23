@@ -528,6 +528,12 @@ is slower than it should be."
                (total 0))
     (urusi--send
      (nconc (list :type "screen")
+            ;; What the pointer is over decides its shape, which the
+            ;; host draws: it has the pointer, and Emacs only says what
+            ;; it is to look like.
+            (when-let* (((fboundp 'frame-screen-pointer))
+                        (shape (frame-screen-pointer)))
+              (list :pointer (symbol-name shape)))
             (unless same-chrome (list :xaml xaml :events (vconcat events)))
             (list :rows
                   (vconcat

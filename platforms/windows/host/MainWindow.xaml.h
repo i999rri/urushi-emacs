@@ -52,6 +52,7 @@ namespace winrt::urusi_emacs::implementation
         void RecordKeyboard();
         void TypeIntoEmacs(std::wstring const& text);
         void Caret(Windows::Data::Json::JsonObject const& message);
+        void ShowPointer(winrt::hstring const& shape);
         void ForwardKey(Microsoft::UI::Xaml::Input::KeyRoutedEventArgs const& args,
                         bool down);
         void SizeEmacsFrame();
@@ -120,6 +121,9 @@ namespace winrt::urusi_emacs::implementation
         // down: from the start under a debugger, or once urusi-debug-mode
         // asks. A day of it is a large file.
         bool m_debug{ false };
+
+        // The shape Emacs last asked the pointer to take.
+        winrt::hstring m_pointerShape;
 
         // Whether a splitter is being dragged. The frame is not resized
         // while it is: resizing it has Emacs lay out and draw again, and

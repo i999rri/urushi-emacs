@@ -904,7 +904,12 @@ urusi-frame:NAME, which the host sizes it by in the same way.  The
 element carries the number of the frame's window, which the host sends
 the mouse to."
   (if (not name)
+      ;; A background, transparent though it is, is what makes XAML
+      ;; count the pointer as being over the frame: without one it is
+      ;; over the letters alone, and what the frame is told of the
+      ;; pointer is what is told to Emacs.
       `(Grid :Name "urusi-frame"
+             :Background "Transparent"
              ,@(urusi-screen--echo-area-margin frame)
              ,(urusi-screen-windows frame))
     (puthash name frame urusi-screen--sites)
@@ -1136,7 +1141,12 @@ chosen for a light window when Windows has turned dark."
          (urusi-screen--after-command)
        (urusi-screen-render)))
     ("commit"
-     (urusi-screen--commit (or (plist-get message :text) "")))))
+     (urusi-screen--commit (or (plist-get message :text) "")))
+    ;; What the pointer is over is worked out in C, and redisplay draws
+    ;; it as it draws rather than leaving it in the glyph matrix: the
+    ;; screen is built from the matrix, so it is built again instead.
+    ("redraw"
+     (urusi-screen--after-command))))
 
 (defun urusi-screen--commit (text)
   "Take TEXT, what the input method settled on, as typed.

@@ -502,6 +502,55 @@ namespace winrt::urusi_emacs::implementation
 
     // Where Emacs says the caret is, in the pixels of the screen, so
     // that the candidates appear beside it.
+    // Show the pointer the shape Emacs asked for.
+    //
+    // Emacs has no pointer of its own here: it works out what is under
+    // this one as it moves and says what it should look like, and the
+    // window is the one that has it.
+    void MainWindow::ShowPointer(hstring const& shape)
+    {
+        using Microsoft::UI::Input::InputCursor;
+        using Microsoft::UI::Input::InputSystemCursor;
+        using Microsoft::UI::Input::InputSystemCursorShape;
+
+        if (shape == m_pointerShape)
+        {
+            return;
+        }
+        m_pointerShape = shape;
+
+        InputSystemCursorShape wanted = InputSystemCursorShape::Arrow;
+        if (shape == L"text") { wanted = InputSystemCursorShape::IBeam; }
+        else if (shape == L"hand") { wanted = InputSystemCursorShape::Hand; }
+        else if (shape == L"busy") { wanted = InputSystemCursorShape::Wait; }
+        else if (shape == L"horizontal-drag") { wanted = InputSystemCursorShape::SizeWestEast; }
+        else if (shape == L"vertical-drag") { wanted = InputSystemCursorShape::SizeNorthSouth; }
+        else if (shape == L"left-edge" || shape == L"right-edge")
+        {
+            wanted = InputSystemCursorShape::SizeWestEast;
+        }
+        else if (shape == L"top-edge" || shape == L"bottom-edge")
+        {
+            wanted = InputSystemCursorShape::SizeNorthSouth;
+        }
+        else if (shape == L"top-left-corner" || shape == L"bottom-right-corner")
+        {
+            wanted = InputSystemCursorShape::SizeNorthwestSoutheast;
+        }
+        else if (shape == L"top-right-corner" || shape == L"bottom-left-corner")
+        {
+            wanted = InputSystemCursorShape::SizeNortheastSouthwest;
+        }
+
+        // The property is the element's own to set, and is reached
+        // through the interface that carries what an element keeps to
+        // itself.
+        if (auto site = EditorSite().try_as<IUIElementProtected>())
+        {
+            site.ProtectedCursor(InputSystemCursor::Create(wanted));
+        }
+    }
+
     void MainWindow::Caret(JsonObject const& message)
     {
         HWND window = nullptr;
@@ -1118,6 +1167,10 @@ namespace winrt::urusi_emacs::implementation
         }
         else if (type == L"screen")
         {
+            if (message.HasKey(L"pointer"))
+            {
+                ShowPointer(message.GetNamedString(L"pointer"));
+            }
             Screen(message);
         }
         else if (type == L"caret")
