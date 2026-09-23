@@ -11,6 +11,11 @@
 // there is a host here at all.
 #include <microsoft.ui.xaml.window.h>
 
+// For what Windows has of an input method for the window, which the
+// window itself never asks for and only writes down.
+#include <imm.h>
+#pragma comment(lib, "imm32.lib")
+
 #include <algorithm>
 #include <chrono>
 #include <limits>
@@ -31,44 +36,22 @@ namespace
     constexpr size_t kLogLimit = 16384;
 
 
-    // The log, again, where it can be read without a debugger: beside
-    // the application, emptied when it starts, so that what is in it is
-    // this run and not the last one.
-    void WriteToLogFile(std::string const& line)
+    // Empty a file to write, letting anything read it: nothing may look
+    // at a log while it runs, which is the only time it is worth
+    // looking at.
+    HANDLE OpenToWrite(std::string const& path)
     {
-        static HANDLE file = [] {
-            char path[MAX_PATH]{};
-            DWORD length = GetModuleFileNameA(nullptr, path, ARRAYSIZE(path));
-            if (length == 0 || length == ARRAYSIZE(path))
-            {
-                return INVALID_HANDLE_VALUE;
-            }
-
-            std::string name{ path, length };
-            auto slash = name.find_last_of('\\');
-            if (slash == std::string::npos)
-            {
-                return INVALID_HANDLE_VALUE;
-            }
-
-            // FILE_SHARE_READ, or nothing may look at it while it runs,
-            // which is the only time it is worth looking at.
-            return CreateFileA((name.substr(0, slash) + "\\urusi-emacs.log").c_str(),
-                               GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_DELETE, nullptr,
-                               CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-        }();
-
-        if (file == INVALID_HANDLE_VALUE)
-        {
-            return;
-        }
-
-        DWORD written = 0;
-        WriteFile(file, line.data(), static_cast<DWORD>(line.size()), &written, nullptr);
-        FlushFileBuffers(file);
+        return CreateFileA(path.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_DELETE,
+                           nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
     }
 
-    // A file beside the log, emptied when the application starts.
+    // A file beside the application, emptied when it starts, so that
+    // what is in it is this run and not the last one.
+    //
+    // Under the number of the process if NAME cannot be had: the run
+    // before keeps the file a moment after it has gone from the task
+    // manager, and starting the application again then would otherwise
+    // leave it with nothing written down at all.
     HANDLE OpenBesideTheApplication(char const* name)
     {
         char path[MAX_PATH]{};
@@ -85,9 +68,53 @@ namespace
             return INVALID_HANDLE_VALUE;
         }
 
-        return CreateFileA((full.substr(0, slash + 1) + name).c_str(),
-                           GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_DELETE, nullptr,
-                           CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+        std::string directory = full.substr(0, slash + 1);
+        HANDLE file = OpenToWrite(directory + name);
+        if (file != INVALID_HANDLE_VALUE)
+        {
+            return file;
+        }
+        return OpenToWrite(directory + std::to_string(GetCurrentProcessId()) + "-" + name);
+    }
+
+    // What Windows has of an input method for the window the keys go to,
+    // for the log: whether it has one at all, and whether it is turned
+    // on. A key that turns it on and off does nothing when it has none,
+    // and the keys arrive as the letters on them.
+    std::string InputMethodState(HWND window)
+    {
+        if (!window)
+        {
+            return "no window has the keys";
+        }
+
+        HIMC context = ImmGetContext(window);
+        if (!context)
+        {
+            return "no input method";
+        }
+
+        bool open = ImmGetOpenStatus(context) != FALSE;
+        DWORD conversion = 0;
+        DWORD sentence = 0;
+        ImmGetConversionStatus(context, &conversion, &sentence);
+        ImmReleaseContext(window, context);
+        return std::string{ open ? "on" : "off" } + ", conversion " + std::to_string(conversion);
+    }
+
+    // The log, again, where it can be read without a debugger.
+    void WriteToLogFile(std::string const& line)
+    {
+        static HANDLE file = OpenBesideTheApplication("urusi-emacs.log");
+
+        if (file == INVALID_HANDLE_VALUE)
+        {
+            return;
+        }
+
+        DWORD written = 0;
+        WriteFile(file, line.data(), static_cast<DWORD>(line.size()), &written, nullptr);
+        FlushFileBuffers(file);
     }
 
     // What the keyboard's side of the window saw, one line of JSON to a
@@ -502,6 +529,7 @@ namespace winrt::urusi_emacs::implementation
         if (down && urusi::windows::input::IsInputMethodSwitch(key.key))
         {
             m_keyboard.InputMethodSwitched();
+            AppendLog("host", "input method switched: " + InputMethodState(GetFocus()) + "\n");
         }
 
         if (m_emacs->InputAsMessages())
