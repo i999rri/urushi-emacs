@@ -291,6 +291,7 @@ namespace winrt::urusi_emacs::implementation
                     self->ForwardKey(args, false);
                 }
             });
+
         }
 
         // Once the window's content is in the tree, and not before: the
