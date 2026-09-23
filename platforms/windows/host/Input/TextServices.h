@@ -54,6 +54,18 @@ namespace urusi::windows::input
 
         bool Started() const noexcept { return m_document != nullptr; }
 
+        // Offer KEY to the input method, and say whether it took it.
+        //
+        // Nothing else offers it: the window reads its keys where what
+        // draws it hands them over, which is past the point where a
+        // window of Windows's own would have let the text services look
+        // first. A key they take is theirs, and says nothing to Emacs.
+        bool TakesKey(core::input::KeyEvent const& key);
+
+        // Settle what is being composed, as turning the input method
+        // off is to.
+        void EndComposition();
+
         // IKeyInputDevice
         void NotifyFocusEnter() override;
         void NotifyFocusLeave() override;
@@ -65,6 +77,9 @@ namespace urusi::windows::input
     private:
         struct Owner;
 
+        bool Ensure();
+        void FindTheKeys();
+
         winrt::com_ptr<Owner> m_owner;
         winrt::com_ptr<ITfThreadMgrEx> m_threads;
         winrt::com_ptr<ITfDocumentMgr> m_document;
@@ -74,6 +89,10 @@ namespace urusi::windows::input
         TfEditCookie m_editCookie{ TF_INVALID_COOKIE };
         DWORD m_ownerCookie{ TF_INVALID_COOKIE };
         DWORD m_editSinkCookie{ TF_INVALID_COOKIE };
-        HWND m_window{ nullptr };
+        // The window Windows knows this one by, which is where the
+        // search for the one the keys go to begins and ends.
+        HWND m_frame{ nullptr };
+        core::input::Keyboard* m_keyboard{ nullptr };
+        Logger m_log;
     };
 }

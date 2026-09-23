@@ -560,9 +560,20 @@ namespace winrt::urusi_emacs::implementation
             .down = down,
         };
         m_keyboard.Key(key);
+
+        // The input method looks first, as it would have if this were a
+        // window of Windows's own. What it takes it answers itself, in
+        // the conversation it holds with the window; the key is not
+        // Emacs's to see.
+        if (m_composition.TakesKey(key))
+        {
+            args.Handled(true);
+            return;
+        }
+
         if (down && urusi::windows::input::IsInputMethodSwitch(key.key))
         {
-            m_keyboard.InputMethodSwitched();
+            m_composition.EndComposition();
             AppendLog("host", "input method switched: " + InputMethodState(GetFocus()) + "\n");
         }
 

@@ -83,7 +83,6 @@ namespace
                                  FromUtf8(Get<std::string>(line, "text", "")));
         else if (event == "composition-started") keyboard.CompositionStarted();
         else if (event == "composition-completed") keyboard.CompositionCompleted();
-        else if (event == "input-method-switched") keyboard.InputMethodSwitched();
         else if (event == "focus-removed") keyboard.FocusRemoved();
         else return "an event that is not known: " + event;
         return {};
