@@ -350,6 +350,28 @@ beside the text rather than in a corner.")
       (setq urusi-screen--caret caret)
       (urusi--send (list :type "caret" :x x :y y :width width :height height)))))
 
+(defun urusi-screen--face-background (face frame)
+  "Return the background FACE gives on FRAME, or nil where it gives none.
+FACE is what `get-char-property' hands back: a face, a list of faces, or
+a list of attributes."
+  (cond ((null face) nil)
+        ((keywordp (car-safe face)) (urusi-screen-color (plist-get face :background)))
+        ((proper-list-p face)
+         (seq-some (lambda (one) (urusi-screen--face-background one frame)) face))
+        ((facep face) (urusi-screen-color (face-attribute face :background frame)))))
+
+(defun urusi-screen--line-background (window)
+  "Return the colour of the line WINDOW's cursor is on.
+What is being composed is drawn over that line, so a box of the frame's
+own background would cover what an overlay put there: the line
+`hl-line-mode' marks would be the colour of every other one from the
+first character being composed onwards."
+  (let ((frame (window-frame window)))
+    (or (urusi-screen--face-background
+         (get-char-property (window-point window) 'face (window-buffer window))
+         frame)
+        (urusi-screen-color (face-attribute 'default :background frame t)))))
+
 (defun urusi-screen-cursor (window)
   "Return the cursor of WINDOW, to be laid over its text.
 It is laid over rather than put in a line, so that moving it leaves
@@ -390,8 +412,7 @@ it blinks; what is being composed is drawn all the same."
                    ;; else.
                    `((Border :Canvas.Left ,left
                              :Canvas.Top ,top
-                             :Background ,(urusi-screen-color
-                                           (face-attribute 'default :background frame t))
+                             :Background ,(urusi-screen--line-background window)
                              (TextBlock :Text ,(urusi-literal urusi-screen--composing)
                                         :FontFamily ,(urusi-screen-font-family)
                                         :FontSize ,(urusi-screen-font-size)
