@@ -1173,11 +1173,11 @@ namespace winrt::urusi_emacs::implementation
         }
         else if (type == L"screen")
         {
-            if (message.HasKey(L"pointer"))
-            {
-                ShowPointer(message.GetNamedString(L"pointer"));
-            }
             Screen(message);
+        }
+        else if (type == L"pointer")
+        {
+            ShowPointer(message.GetNamedString(L"shape"));
         }
         else if (type == L"caret")
         {

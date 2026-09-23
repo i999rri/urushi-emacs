@@ -1142,11 +1142,24 @@ chosen for a light window when Windows has turned dark."
        (urusi-screen-render)))
     ("commit"
      (urusi-screen--commit (or (plist-get message :text) "")))
-    ;; What the pointer is over is worked out in C, and redisplay draws
-    ;; it as it draws rather than leaving it in the glyph matrix: the
-    ;; screen is built from the matrix, so it is built again instead.
+    ;; Said whenever redisplay settled on a shape for the pointer, which
+    ;; it does as it works out what the pointer is over.
     ("redraw"
-     (urusi-screen--after-command))))
+     (urusi-screen--tell-pointer))))
+
+(defvar urusi-screen--pointer nil
+  "The shape the host was last told the pointer is to take.")
+
+(defun urusi-screen--tell-pointer ()
+  "Tell the host what shape the pointer is to take, if it has changed.
+Said on its own rather than with the screen: the rows the host has are
+the ones it shows what is under the pointer with, and sending them
+again would take away the very elements it is showing it on."
+  (when-let* (((fboundp 'frame-screen-pointer))
+              (shape (frame-screen-pointer)))
+    (unless (eq shape urusi-screen--pointer)
+      (setq urusi-screen--pointer shape)
+      (urusi--send (list :type "pointer" :shape (symbol-name shape))))))
 
 (defun urusi-screen--commit (text)
   "Take TEXT, what the input method settled on, as typed.
