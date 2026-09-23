@@ -87,23 +87,21 @@ namespace urusi::windows::input
     // What the text services ask of the window, and what they tell it.
     struct TextServices::Owner : implements<Owner, ITfContextOwner,
                                             ITfContextOwnerCompositionSink,
-                                            ITfTextEditSink>
+                                            ITfTextEditSink, ITfEditSession>
     {
         core::input::Keyboard* keyboard{ nullptr };
         HWND window{ nullptr };
         RECT caret{ 0, 0, 2, 16 };
         com_ptr<ITfContext> context;
-        // What is being composed, which is the only part of the
-        // document that is this window's to read.
-        com_ptr<ITfCompositionView> composition;
+        TfClientId client{ TF_CLIENTID_NULL };
+        // How many compositions the input method has open, which is how
+        // it says whether what it is doing has finished.
         int compositions{ 0 };
-        // How long what was composed was when it was last read, which is
-        // what the next reading replaces.
+        // How long what was being composed was when it was last read,
+        // which is what the next reading replaces.
         int32_t composed{ 0 };
-        // The composition ended while there was no way to read what it
-        // ended with: the edit it ended in has still to be finished, and
-        // what it says is the answer.
-        bool ending{ false };
+        // A reading was asked for and has still to happen.
+        bool pending{ false };
         TextServices::Logger log;
 
         void Say(std::string const& line) const
@@ -114,33 +112,193 @@ namespace urusi::windows::input
             }
         }
 
-        // Hand on what is being composed.
+        // What the document holds now: what the input method has
+        // settled on, at the start of it, and what it is still turning
+        // over after that.
         //
-        // What the composition covers, and not what the document holds:
-        // the document is not emptied of what a composition settled on,
-        // and reading the whole of it would hand the text before this
-        // one over again with it.
-        void Take(TfEditCookie cookie)
+        // Worked out from the document each time rather than remembered,
+        // so that it is right however the edits and the compositions
+        // fell out. GUID_PROP_COMPOSING says of each stretch which of
+        // the two it is. What is settled is taken from the start alone:
+        // text between two compositions cannot be un-settled once it has
+        // gone to Emacs, so it is left where it is until the composition
+        // before it has gone.
+        void Read(TfEditCookie cookie, std::wstring& settled, std::wstring& composing)
         {
-            com_ptr<ITfRange> range;
+            com_ptr<ITfRange> whole;
+            com_ptr<ITfReadOnlyProperty> properties;
+            com_ptr<IEnumTfRanges> ranges;
+            GUID const* wanted[] = { &GUID_PROP_COMPOSING };
+            LONG shifted = 0;
 
-            if (!composition || FAILED(composition->GetRange(range.put())) || !range)
+            if (!context
+                || FAILED(context->GetStart(cookie, whole.put()))
+                || FAILED(whole->ShiftEnd(cookie, LONG_MAX, &shifted, nullptr))
+                || FAILED(context->TrackProperties(wanted, ARRAYSIZE(wanted), nullptr, 0,
+                                                   properties.put()))
+                || FAILED(properties->EnumRanges(cookie, ranges.put(), whole.get())))
             {
                 return;
             }
 
-            std::wstring text = ReadRange(range.get(), cookie);
+            bool composingFound = false;
+            for (;;)
+            {
+                com_ptr<ITfRange> range;
+                ULONG got = 0;
 
-            // A composition the text services have open is one the
-            // keyboard is to be turning over rather than handing on.
-            // Out of step, every reading would be handed to Emacs as
-            // though it had been settled on.
+                if (FAILED(ranges->Next(1, range.put(), &got)) || got == 0)
+                {
+                    break;
+                }
+
+                composingFound = composingFound
+                    || IsComposing(properties.get(), range.get(), cookie);
+                (composingFound ? composing : settled) += ReadRange(range.get(), cookie);
+            }
+        }
+
+        // Whether the input method is still turning RANGE over.
+        static bool IsComposing(ITfReadOnlyProperty* properties, ITfRange* range,
+                                TfEditCookie cookie)
+        {
+            VARIANT value{};
+            com_ptr<IEnumTfPropertyValue> each;
+            bool composing = false;
+
+            if (FAILED(properties->GetValue(cookie, range, &value)))
+            {
+                return false;
+            }
+            if (value.vt == VT_UNKNOWN && value.punkVal
+                && SUCCEEDED(value.punkVal->QueryInterface(IID_PPV_ARGS(each.put()))))
+            {
+                TF_PROPERTYVAL one{};
+
+                while (each->Next(1, &one, nullptr) == S_OK)
+                {
+                    if (IsEqualGUID(one.guidId, GUID_PROP_COMPOSING))
+                    {
+                        composing = one.varValue.vt == VT_I4 && one.varValue.lVal != 0;
+                    }
+                    VariantClear(&one.varValue);
+                }
+            }
+            VariantClear(&value);
+            return composing;
+        }
+
+        // Give the keyboard what the document came to: what was settled
+        // on goes to Emacs as typed, and what is still being turned over
+        // is drawn at the cursor.
+        void Deliver(std::wstring const& settled, std::wstring const& composing)
+        {
+            if (!settled.empty())
+            {
+                if (!keyboard->Composing())
+                {
+                    keyboard->CompositionStarted();
+                }
+                keyboard->TextUpdating(0, composed, settled);
+                composed = 0;
+                keyboard->CompositionCompleted();
+            }
+
+            if (composing.empty())
+            {
+                if (keyboard->Composing())
+                {
+                    keyboard->TextUpdating(0, composed, std::wstring{});
+                    composed = 0;
+                }
+                return;
+            }
+
             if (!keyboard->Composing())
             {
                 keyboard->CompositionStarted();
             }
-            keyboard->TextUpdating(0, composed, text);
-            composed = static_cast<int32_t>(text.size());
+            keyboard->TextUpdating(0, composed, composing);
+            composed = static_cast<int32_t>(composing.size());
+        }
+
+        // Take what was settled on out of the document.
+        //
+        // It has gone to Emacs, and a document that kept it would offer
+        // it again with everything composed after it: what is settled
+        // is read from the start, and the start is where it stays.
+        void Erase(TfEditCookie cookie, size_t settled)
+        {
+            com_ptr<ITfRange> range;
+            LONG shifted = 0;
+
+            if (settled == 0 || !context
+                || FAILED(context->GetStart(cookie, range.put()))
+                || FAILED(range->ShiftEnd(cookie, static_cast<LONG>(settled), &shifted, nullptr)))
+            {
+                return;
+            }
+            range->SetText(cookie, 0, nullptr, 0);
+        }
+
+        // Ask to read the document.
+        //
+        // Asked for rather than read: this runs inside an edit session
+        // of the input method's, and a session that may write cannot be
+        // taken inside one that may not. One waiting is enough, since
+        // the reading takes the document as it finds it.
+        void AskToRead()
+        {
+            HRESULT session = S_OK;
+
+            if (!context || pending)
+            {
+                return;
+            }
+
+            pending = true;
+            if (FAILED(context->RequestEditSession(client, this,
+                                                   TF_ES_READWRITE | TF_ES_ASYNC, &session))
+                || FAILED(session))
+            {
+                pending = false;
+            }
+        }
+
+        // Read it now, before a key goes to Emacs.
+        //
+        // The reading waits its turn while the key does not: the return
+        // that settled a word would reach Emacs before the word did.
+        void ReadNow()
+        {
+            HRESULT session = S_OK;
+
+            if (!context || compositions > 0 || !pending)
+            {
+                return;
+            }
+
+            // The one waiting is left to run as well; it takes the
+            // document as it is by then, and finds nothing more to say.
+            context->RequestEditSession(client, this, TF_ES_READWRITE | TF_ES_SYNC, &session);
+        }
+
+        // ----- ITfEditSession -----
+
+        STDMETHODIMP DoEditSession(TfEditCookie cookie) noexcept override
+        {
+            std::wstring settled;
+            std::wstring composing;
+
+            pending = false;
+            if (!keyboard || !context)
+            {
+                return S_OK;
+            }
+            Read(cookie, settled, composing);
+            Erase(cookie, settled.size());
+            Deliver(settled, composing);
+            return S_OK;
         }
 
         // ----- ITfContextOwner -----
@@ -187,34 +345,28 @@ namespace urusi::windows::input
 
         // ----- ITfContextOwnerCompositionSink -----
 
-        STDMETHODIMP OnStartComposition(ITfCompositionView* view, BOOL* ok) noexcept override
+        STDMETHODIMP OnStartComposition(ITfCompositionView*, BOOL* ok) noexcept override
         {
             *ok = TRUE;
-            composition.copy_from(view);
-            if (compositions++ == 0)
-            {
-                composed = 0;
-                ending = false;
-                keyboard->CompositionStarted();
-            }
+            ++compositions;
             Say("composition started, " + std::to_string(compositions) + " open");
             return S_OK;
         }
 
-        STDMETHODIMP OnUpdateComposition(ITfCompositionView* view, ITfRange*) noexcept override
+        STDMETHODIMP OnUpdateComposition(ITfCompositionView*, ITfRange*) noexcept override
         {
-            composition.copy_from(view);
             return S_OK;
         }
 
         STDMETHODIMP OnEndComposition(ITfCompositionView*) noexcept override
         {
-            // Settled where there is no cookie to read with: what it
-            // came to was read as it was composed, and is handed on when
-            // the edit it ended in is finished.
+            if (compositions <= 0)
+            {
+                return E_FAIL;
+            }
             if (--compositions == 0)
             {
-                ending = true;
+                AskToRead();
             }
             Say("composition ending, " + std::to_string(compositions) + " open");
             return S_OK;
@@ -222,18 +374,12 @@ namespace urusi::windows::input
 
         // ----- ITfTextEditSink -----
 
-        STDMETHODIMP OnEndEdit(ITfContext*, TfEditCookie cookie, ITfEditRecord*) noexcept override
+        STDMETHODIMP OnEndEdit(ITfContext*, TfEditCookie, ITfEditRecord*) noexcept override
         {
-            if (!ending)
+            if (compositions == 1)
             {
-                Take(cookie);
-                return S_OK;
+                AskToRead();
             }
-
-            ending = false;
-            composed = 0;
-            composition = nullptr;
-            keyboard->CompositionCompleted();
             return S_OK;
         }
     };
@@ -298,11 +444,13 @@ namespace urusi::windows::input
             Stop();
             return false;
         }
+        owner->client = m_client;
 
         com_ptr<ITfContext> context;
+        TfEditCookie made = TF_INVALID_COOKIE;
         if (FAILED(m_document->CreateContext(
                 m_client, 0, static_cast<ITfContextOwnerCompositionSink*>(owner.get()),
-                context.put(), &m_editCookie)))
+                context.put(), &made)))
         {
             Stop();
             return false;
@@ -328,6 +476,12 @@ namespace urusi::windows::input
         return true;
     }
 
+    // Give the text services back what was taken from them.
+    //
+    // What they may still hold is let go of rather than left pointing
+    // at a window that has gone: an edit session asked for and not yet
+    // run holds the owner, and the owner is no use without the keyboard
+    // it was made for.
     void TextServices::Stop()
     {
         if (m_owner && m_owner->context)
@@ -352,56 +506,28 @@ namespace urusi::windows::input
         {
             if (m_document)
             {
-                com_ptr<ITfContext> popped;
                 m_document->Pop(TF_POPF_ALL);
             }
             m_threads->Deactivate();
         }
 
+        if (m_owner)
+        {
+            m_owner->keyboard = nullptr;
+            m_owner->context = nullptr;
+            m_owner->log = nullptr;
+        }
         m_owner = nullptr;
         m_document = nullptr;
         m_threads = nullptr;
-        m_frame = nullptr;
     }
 
-    bool TextServices::TakesKey(core::input::KeyEvent const& key)
+    void TextServices::FlushComposition()
     {
-        if (!m_threads || key.key == 0)
+        if (m_owner)
         {
-            return false;
+            m_owner->ReadNow();
         }
-
-        auto keys = m_threads.try_as<ITfKeystrokeMgr>();
-        if (!keys)
-        {
-            return false;
-        }
-
-        // The lParam Windows would have sent, which is where the text
-        // services read the scan code and the rest of it.
-        WPARAM wParam = static_cast<WPARAM>(key.key);
-        LPARAM lParam = static_cast<LPARAM>(key.repeat & 0xFFFF)
-            | (static_cast<LPARAM>(key.scanCode & 0xFF) << 16)
-            | (key.extended ? (LPARAM{ 1 } << 24) : 0)
-            | (key.menuDown ? (LPARAM{ 1 } << 29) : 0)
-            | (key.wasDown ? (LPARAM{ 1 } << 30) : 0)
-            | (key.down ? 0 : (LPARAM{ 1 } << 31));
-
-        // Asked first, and only given the key if it says it wants it:
-        // a key handed over that it turns down is a key it has seen
-        // twice.
-        BOOL wanted = FALSE;
-        HRESULT asked = key.down ? keys->TestKeyDown(wParam, lParam, &wanted)
-                                 : keys->TestKeyUp(wParam, lParam, &wanted);
-        if (FAILED(asked) || !wanted)
-        {
-            return false;
-        }
-
-        BOOL taken = FALSE;
-        HRESULT given = key.down ? keys->KeyDown(wParam, lParam, &taken)
-                                 : keys->KeyUp(wParam, lParam, &taken);
-        return SUCCEEDED(given) && taken;
     }
 
     // Which window the keys go to, which the text services ask for
@@ -433,6 +559,10 @@ namespace urusi::windows::input
     {
         if (!Ensure())
         {
+            if (m_log)
+            {
+                m_log("no text services: the keys arrive as the letters on them");
+            }
             return;
         }
 

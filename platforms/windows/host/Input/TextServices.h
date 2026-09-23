@@ -54,13 +54,11 @@ namespace urusi::windows::input
 
         bool Started() const noexcept { return m_document != nullptr; }
 
-        // Offer KEY to the input method, and say whether it took it.
-        //
-        // Nothing else offers it: the window reads its keys where what
-        // draws it hands them over, which is past the point where a
-        // window of Windows's own would have let the text services look
-        // first. A key they take is theirs, and says nothing to Emacs.
-        bool TakesKey(core::input::KeyEvent const& key);
+        // Read what the input method has settled on, if it has not been
+        // read yet, before a key goes to Emacs: the reading waits its
+        // turn while the key does not, and the return that settled a
+        // word would reach Emacs before the word did.
+        void FlushComposition();
 
         // Settle what is being composed, as turning the input method
         // off is to.
@@ -84,9 +82,7 @@ namespace urusi::windows::input
         winrt::com_ptr<ITfThreadMgrEx> m_threads;
         winrt::com_ptr<ITfDocumentMgr> m_document;
         TfClientId m_client{ TF_CLIENTID_NULL };
-        // What the document was made with, and what each sink was taken
-        // on with, which is what gives them back.
-        TfEditCookie m_editCookie{ TF_INVALID_COOKIE };
+        // What each sink was taken on with, which is what gives it back.
         DWORD m_ownerCookie{ TF_INVALID_COOKIE };
         DWORD m_editSinkCookie{ TF_INVALID_COOKIE };
         // The window Windows knows this one by, which is where the

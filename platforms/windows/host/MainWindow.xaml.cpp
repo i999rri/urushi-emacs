@@ -412,14 +412,10 @@ namespace winrt::urusi_emacs::implementation
         // one Windows has, which is this window: what XAML puts inside
         // it is none of theirs.
         HWND window = nullptr;
-        if (FAILED(try_as<::IWindowNative>()->get_WindowHandle(&window))
-            || !m_composition.Start(window, m_keyboard,
-                                    [this](std::string const& line) {
-                                        AppendLog("ime", line + "\n");
-                                    }))
-        {
-            AppendLog("host", "no text services: the keys arrive as the letters on them\n");
-        }
+        check_hresult(try_as<::IWindowNative>()->get_WindowHandle(&window));
+        m_composition.Start(window, m_keyboard, [this](std::string const& line) {
+            AppendLog("ime", line + "\n");
+        });
 
         // The input method is the window's, not an element's: the keys
         // go to Emacs wherever in the window the focus is, but for a box
@@ -565,15 +561,10 @@ namespace winrt::urusi_emacs::implementation
         };
         m_keyboard.Key(key);
 
-        // The input method looks first, as it would have if this were a
-        // window of Windows's own. What it takes it answers itself, in
-        // the conversation it holds with the window; the key is not
-        // Emacs's to see.
-        if (m_composition.TakesKey(key))
-        {
-            args.Handled(true);
-            return;
-        }
+        // What the input method settled on goes to Emacs before the key
+        // that settled it: it reads the composition when its turn comes
+        // round, and the key is Emacs's at once.
+        m_composition.FlushComposition();
 
         if (down && urusi::windows::input::IsInputMethodSwitch(key.key))
         {
