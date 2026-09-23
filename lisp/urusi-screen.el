@@ -395,31 +395,53 @@ text and is drawn to match it, and is measured under the same name."
            (default-font-width))
        (float urusi-scale))))
 
+(defvar urusi-screen--composing-families (make-hash-table :test #'eq)
+  "The font each character of a composition is drawn in, by character.
+Asking the fontset costs a font lookup, and what is being composed is
+drawn again on every keystroke.")
+
+(defun urusi-screen--composing-family (char)
+  "Return the family Emacs would draw CHAR in.
+What is being composed is in no buffer, so redisplay never said which
+font each of its characters was found in; the fontset is asked instead.
+Drawn in the default font throughout, kana would be left to whatever
+the host found them in, at a width nothing here knows."
+  (or (gethash char urusi-screen--composing-families)
+      (puthash char
+               (or (ignore-errors
+                     (let ((font (car (internal-char-font nil char))))
+                       (and font (urusi-screen--set (font-get font :family))
+                            (symbol-name (font-get font :family)))))
+                   (urusi-screen-font-family))
+               urusi-screen--composing-families)))
+
 (defun urusi-screen--composing-text (text left top height cell color)
   "Return TEXT as XAML, at LEFT and TOP, a column drawn CELL wide in COLOR.
 HEIGHT is how tall a line is.
 
-Split where the characters stop being the same width, and spaced by hand
-within each stretch, as `urusi-screen-run' spaces a line: XAML lays a
-stretch out at the widths the font asks for, and Emacs laid it out on a
-grid of whole columns, so the two drift apart across it.  Left alone,
-what is being composed comes out narrower than the room made for it, and
-more so the longer it grows."
-  (let ((family (urusi-screen-font-family))
-        (size (urusi-screen--default-size))
+Split where the font changes and where the characters stop being the
+same width, and spaced by hand within each stretch, as
+`urusi-screen-run' spaces a line: XAML lays a stretch out at the widths
+the font asks for, and Emacs laid it out on a grid of whole columns, so
+the two drift apart across it.  Left alone, what is being composed comes
+out a different width from the room made for it, and more so the longer
+it grows, until the cursor at the end of it no longer stands there."
+  (let ((size (urusi-screen--default-size))
         (at 0)
         (x left)
         (parts nil))
-    (urusi-screen--measure family size)
     (while (< at (length text))
       (let* ((columns (char-width (aref text at)))
+             (family (urusi-screen--composing-family (aref text at)))
              (end (let ((i at))
                     (while (and (< i (length text))
-                                (= (char-width (aref text i)) columns))
+                                (= (char-width (aref text i)) columns)
+                                (equal (urusi-screen--composing-family (aref text i)) family))
                       (setq i (1+ i)))
                     i))
              (part (substring text at end))
              (advance (* columns cell)))
+        (urusi-screen--measure family size)
         (push `(TextBlock :Text ,(urusi-literal part)
                           :Canvas.Left ,x
                           :Canvas.Top ,top
