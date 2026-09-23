@@ -4,10 +4,126 @@
 #include "Window/Rows.h"
 
 #include <limits>
+#include <optional>
+#include <string>
 
 using namespace winrt;
 using namespace Microsoft::UI::Xaml;
 using namespace Windows::Data::Json;
+
+namespace
+{
+    // What a stretch of a row turns into under the pointer, as Lisp put
+    // it on the element that draws it: "hover:FOREGROUND:BACKGROUND",
+    // either of which may be empty where Emacs said nothing about it.
+    struct Hover
+    {
+        std::wstring foreground;
+        std::wstring background;
+    };
+
+    std::optional<Hover> HoverOf(FrameworkElement const& element)
+    {
+        auto tag = element.Tag().try_as<hstring>();
+        if (!tag)
+        {
+            return std::nullopt;
+        }
+
+        std::wstring text{ tag->c_str() };
+        if (text.rfind(L"hover:", 0) != 0)
+        {
+            return std::nullopt;
+        }
+
+        std::wstring rest = text.substr(6);
+        auto between = rest.find(L':');
+        if (between == std::wstring::npos)
+        {
+            return std::nullopt;
+        }
+        return Hover{ rest.substr(0, between), rest.substr(between + 1) };
+    }
+
+    Media::Brush BrushOf(std::wstring const& colour)
+    {
+        if (colour.size() != 7 || colour[0] != L'#')
+        {
+            return nullptr;
+        }
+
+        unsigned long value = std::wcstoul(colour.c_str() + 1, nullptr, 16);
+        Windows::UI::Color rgb{};
+
+        rgb.A = 255;
+        rgb.R = static_cast<uint8_t>((value >> 16) & 0xFF);
+        rgb.G = static_cast<uint8_t>((value >> 8) & 0xFF);
+        rgb.B = static_cast<uint8_t>(value & 0xFF);
+        return Media::SolidColorBrush{ rgb };
+    }
+
+    // Show what Emacs said a stretch of a row turns into while the
+    // pointer is over it.
+    //
+    // Where the pointer is is the window's to know, so it shows this
+    // itself rather than telling Emacs and waiting to be told what to
+    // draw. Emacs is told all the same, for the help it shows there and
+    // for what a click comes to; only the colour is answered here.
+    void AttachHover(UIElement const& element)
+    {
+        auto border = element.try_as<Controls::Border>();
+
+        if (auto framework = element.try_as<FrameworkElement>(); framework && border)
+        {
+            if (auto hover = HoverOf(framework))
+            {
+                auto text = border.Child().try_as<Controls::TextBlock>();
+                auto background = BrushOf(hover->background);
+                auto foreground = BrushOf(hover->foreground);
+                auto wasBackground = border.Background();
+                auto wasForeground = text ? text.Foreground() : nullptr;
+                // Weakly, or the handler and the element would hold each
+                // other and a row would never go.
+                auto weakBorder = make_weak(border);
+
+                border.PointerEntered([weakBorder, text, background, foreground](
+                                          Windows::Foundation::IInspectable const&, Input::PointerRoutedEventArgs const&) {
+                    if (auto it = weakBorder.get(); it && background)
+                    {
+                        it.Background(background);
+                    }
+                    if (text && foreground)
+                    {
+                        text.Foreground(foreground);
+                    }
+                });
+                border.PointerExited([weakBorder, text, wasBackground, wasForeground](
+                                         Windows::Foundation::IInspectable const&, Input::PointerRoutedEventArgs const&) {
+                    if (auto it = weakBorder.get())
+                    {
+                        it.Background(wasBackground);
+                    }
+                    if (text)
+                    {
+                        text.Foreground(wasForeground);
+                    }
+                });
+            }
+        }
+
+        if (auto panel = element.try_as<Controls::Panel>())
+        {
+            for (auto const& child : panel.Children())
+            {
+                AttachHover(child);
+            }
+        }
+        else if (border && border.Child())
+        {
+            AttachHover(border.Child());
+        }
+    }
+}
 
 namespace urusi::windows::window
 {
@@ -210,6 +326,7 @@ namespace urusi::windows::window
             // The row is read on its own, and its names are its own: only
             // the row can find what its events are on.
             AttachEvents(element, item.GetNamedArray(L"events", JsonArray{}));
+            AttachHover(row);
             wanted.push_back(row);
         }
 

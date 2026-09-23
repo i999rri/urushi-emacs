@@ -208,25 +208,45 @@ there XAML is laying them out and Emacs is not."
         (urusi-screen--image run (or above 0))
       (urusi-screen--run run text family size width height spacing above background))))
 
+(defun urusi-screen--hover (run)
+  "Return what RUN looks like under the pointer, for the host to show.
+Emacs says which text lights up under the pointer and what it turns
+into; where the pointer is is the host\'s to know, and it shows it
+itself rather than asking and waiting to be told to draw again.
+
+The colours are carried on the element that draws the run, as
+\"hover:FOREGROUND:BACKGROUND\"; either may be empty, and nothing is
+carried where the run looks the same under the pointer as beside it."
+  (let ((foreground (urusi-screen-color (plist-get run :hover-foreground)))
+        (background (urusi-screen-color (plist-get run :hover-background))))
+    (when (or foreground background)
+      (list :Tag (format "hover:%s:%s" (or foreground "") (or background ""))))))
+
 (defun urusi-screen--run (run text family size width height spacing above background)
   "Return RUN, TEXT drawn in FAMILY at SIZE, as `urusi-screen-run' does.
 WIDTH, HEIGHT, SPACING, ABOVE and BACKGROUND are as it worked them out."
   (let ((scale (float urusi-scale)))
     (let* ((left (/ (plist-get run :x) scale))
            (top (or above 0))
+           (hover (urusi-screen--hover run))
            (body (and text (urusi-screen--text
                             run text family size (/ width (length text))
                             (- height (or spacing 0))))))
       (cond
        ;; A background needs something to paint it, and a TextBlock
        ;; cannot; without one there is nothing for a Border to do.
-       (background `(Border :Canvas.Left ,left
-                            :Width ,width
-                            :Height ,height
-                            :Background ,background
-                            ,@(and body
-                                   (list (append body
-                                                 (list :Margin (format "0,%s,0,0" top)))))))
+       ((or background hover)
+        `(Border :Canvas.Left ,left
+                 :Width ,width
+                 :Height ,height
+                 ,@(and background (list :Background background))
+                 ;; Something has to be painted for the pointer to be
+                 ;; counted as over it, and for a colour to replace.
+                 ,@(and hover (not background) (list :Background "Transparent"))
+                 ,@hover
+                 ,@(and body
+                        (list (append body
+                                      (list :Margin (format "0,%s,0,0" top)))))))
        (body (append (list (car body) :Canvas.Left left :Canvas.Top top) (cdr body)))
        (t `(Border :Canvas.Left ,left :Width ,width :Height ,height))))))
 
