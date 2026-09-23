@@ -140,7 +140,7 @@ namespace winrt::urusi_emacs::implementation
             void ResumeLater() override;
             void TellEmacsFocus(bool focused) override;
             void Commit(std::wstring const& text) override;
-            void Composing(std::wstring const& text) override;
+            void Composing(urusi::core::input::Composition const& composition) override;
 
             MainWindow* window;
         };

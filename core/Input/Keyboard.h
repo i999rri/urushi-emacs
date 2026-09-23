@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Input/Activation.h"
+#include "Input/Composition.h"
 #include "Input/Engagement.h"
 #include "Input/ImeBuffer.h"
 #include "Input/KeyInput.h"
@@ -33,9 +34,9 @@ namespace urusi::core::input
         // What the input method settled on, to go to Emacs as typed.
         virtual void Commit(std::wstring const& text) = 0;
 
-        // What it is still turning over, to be drawn at the cursor;
-        // empty once there is nothing.
-        virtual void Composing(std::wstring const& text) = 0;
+        // What it is still turning over, to be drawn at the cursor, with
+        // the marks it put on it; empty once there is nothing.
+        virtual void Composing(Composition const& composition) = 0;
     };
 
     // The keyboard's side of the window: which window has it, what
@@ -131,7 +132,12 @@ namespace urusi::core::input
             Tell(m_engagement.ContextCreated());
         }
 
-        void TextUpdating(int32_t start, int32_t end, std::wstring const& text)
+        // MARKS and CARET are what the input method made of the text it
+        // is composing: how its stretches are to be drawn and how far
+        // into it the caret is. A device that has nothing to say of them
+        // leaves them out, and the text is drawn as one plain stretch.
+        void TextUpdating(int32_t start, int32_t end, std::wstring const& text,
+                          std::vector<CompositionRun> const& marks = {}, size_t caret = 0)
         {
             Say([&] {
                 return std::string{ R"({"e":"text-updating","start":)" } + std::to_string(start)
@@ -147,7 +153,7 @@ namespace urusi::core::input
                 Say([&] {
                     return R"({"out":"composing","text":)" + Quote(m_buffer.Composed()) + "}";
                 });
-                m_effects.Composing(m_buffer.Composed());
+                m_effects.Composing({ m_buffer.Composed(), marks, caret });
             }
             else
             {
@@ -242,7 +248,7 @@ namespace urusi::core::input
                 Say([&] { return R"({"out":"commit","text":)" + Quote(settled) + "}"; });
                 m_effects.Commit(settled);
             }
-            m_effects.Composing(std::wstring{});
+            m_effects.Composing({});
         }
 
         void Forget()
@@ -252,7 +258,7 @@ namespace urusi::core::input
             m_buffer.Reset();
             if (drawn)
             {
-                m_effects.Composing(std::wstring{});
+                m_effects.Composing({});
             }
         }
 

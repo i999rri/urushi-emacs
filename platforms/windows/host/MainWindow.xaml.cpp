@@ -529,9 +529,13 @@ namespace winrt::urusi_emacs::implementation
         LONG top = client.y + std::lround(corner.Y * scale)
                    + std::lround(message.GetNamedNumber(L"y", 0));
 
-        m_composition.SetCaret({ left, top,
-                                 left + std::lround(message.GetNamedNumber(L"width", 2)),
-                                 top + std::lround(message.GetNamedNumber(L"height", 16)) });
+        // The width Emacs gives the cursor is the width of what it sits
+        // on, which is how wide a character of the composition is drawn.
+        LONG advance = std::lround(message.GetNamedNumber(L"width", 2));
+
+        m_composition.SetCaret({ left, top, left + advance,
+                                 top + std::lround(message.GetNamedNumber(L"height", 16)) },
+                               advance);
     }
 
     // Give ARGS to the Emacs frame as the key message it was, and let
@@ -892,11 +896,37 @@ namespace winrt::urusi_emacs::implementation
         window->m_emacs->SendHostEvent(focused ? L"activated" : L"deactivated", JsonObject{});
     }
 
-    void MainWindow::Effects::Composing(std::wstring const& text)
+    void MainWindow::Effects::Composing(urusi::core::input::Composition const& composition)
     {
+        using urusi::core::input::Underline;
+        static constexpr wchar_t const* lines[] = {
+            L"none", L"solid", L"dotted", L"dashed", L"wavy", L"double",
+        };
+
         JsonObject message;
+        JsonArray runs;
+
+        for (auto const& run : composition.runs)
+        {
+            JsonObject one;
+
+            one.SetNamedValue(L"length", JsonValue::CreateNumberValue(
+                static_cast<double>(run.length)));
+            one.SetNamedValue(L"underline",
+                              String(lines[static_cast<size_t>(run.underline)]));
+            if (!run.foreground.empty())
+            {
+                one.SetNamedValue(L"foreground", String(to_hstring(run.foreground)));
+                one.SetNamedValue(L"background", String(to_hstring(run.background)));
+            }
+            runs.Append(one);
+        }
+
         message.SetNamedValue(L"type", String(L"composition"));
-        message.SetNamedValue(L"text", String(hstring{ text }));
+        message.SetNamedValue(L"text", String(hstring{ composition.text }));
+        message.SetNamedValue(L"caret", JsonValue::CreateNumberValue(
+            static_cast<double>(composition.caret)));
+        message.SetNamedValue(L"runs", runs);
         window->m_emacs->Send(message);
     }
 

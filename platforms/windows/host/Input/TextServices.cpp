@@ -3,6 +3,9 @@
 
 #include <textstor.h>
 
+#include <algorithm>
+#include <cstdio>
+
 #pragma comment(lib, "ole32.lib")
 
 using namespace winrt;
@@ -80,6 +83,88 @@ namespace
             }
         }
     }
+
+    // A colour the input method asked for, as XAML writes one.
+    //
+    // Only one it named or took from the desktop's own: the two other
+    // kinds say "whatever the window would have used", which is what the
+    // window does when it is told nothing.
+    std::string ColourOf(TF_DA_COLOR const& colour)
+    {
+        COLORREF value = 0;
+
+        switch (colour.type)
+        {
+        case TF_CT_COLORREF:
+            value = colour.cr;
+            break;
+        case TF_CT_SYSCOLOR:
+            value = GetSysColor(colour.nIndex);
+            break;
+        default:
+            return {};
+        }
+
+        char text[8]{};
+        // COLORREF is blue, green, red from the low byte up.
+        std::snprintf(text, sizeof text, "#%02x%02x%02x", GetRValue(value),
+                      GetGValue(value), GetBValue(value));
+        return text;
+    }
+
+    // How a stretch of the composition is to be drawn, from the atom the
+    // input method put on it.
+    urusi::core::input::CompositionRun MarkOf(ITfCategoryMgr* categories,
+                                       ITfDisplayAttributeMgr* attributes, TfGuidAtom atom)
+    {
+        urusi::core::input::CompositionRun mark;
+        com_ptr<ITfDisplayAttributeInfo> info;
+        TF_DISPLAYATTRIBUTE display{};
+        GUID which{};
+
+        // Some input methods mark nothing at all; a dashed line is what
+        // other windows draw for those.
+        if (atom == TF_INVALID_GUIDATOM || !categories || !attributes)
+        {
+            mark.underline = urusi::core::input::Underline::Dashed;
+            return mark;
+        }
+        if (FAILED(categories->GetGUID(atom, &which))
+            || FAILED(attributes->GetDisplayAttributeInfo(which, info.put(), nullptr))
+            || FAILED(info->GetAttributeInfo(&display)))
+        {
+            return mark;
+        }
+
+        // Both colours or neither: an input method that names one and
+        // not the other has not been tried against a window of this
+        // colour, and the one it names may be the colour already there.
+        if (display.crText.type != TF_CT_NONE && display.crText.type == display.crBk.type)
+        {
+            mark.foreground = ColourOf(display.crText);
+            mark.background = ColourOf(display.crBk);
+        }
+
+        static constexpr urusi::core::input::Underline lines[] = {
+            urusi::core::input::Underline::None,     // TF_LS_NONE
+            urusi::core::input::Underline::Solid,    // TF_LS_SOLID
+            urusi::core::input::Underline::Dotted,   // TF_LS_DOT
+            urusi::core::input::Underline::Dashed,   // TF_LS_DASH
+            urusi::core::input::Underline::Wavy,     // TF_LS_SQUIGGLE
+        };
+        if (display.lsStyle >= TF_LS_NONE && display.lsStyle <= TF_LS_SQUIGGLE)
+        {
+            mark.underline = lines[display.lsStyle];
+        }
+        // A thick line is how the Japanese input method says which
+        // clause is being converted now; XAML draws no thick line, and
+        // two thin ones say the same thing.
+        if (display.fBoldLine)
+        {
+            mark.underline = urusi::core::input::Underline::Double;
+        }
+        return mark;
+    }
 }
 
 namespace urusi::windows::input
@@ -93,7 +178,12 @@ namespace urusi::windows::input
         HWND window{ nullptr };
         RECT caret{ 0, 0, 2, 16 };
         com_ptr<ITfContext> context;
+        com_ptr<ITfCategoryMgr> categories;
+        com_ptr<ITfDisplayAttributeMgr> attributes;
         TfClientId client{ TF_CLIENTID_NULL };
+        // How wide one character of what is being composed is drawn,
+        // which is how a stretch of it is placed on the screen.
+        LONG advance{ 0 };
         // How many compositions the input method has open, which is how
         // it says whether what it is doing has finished.
         int compositions{ 0 };
@@ -123,12 +213,16 @@ namespace urusi::windows::input
         // text between two compositions cannot be un-settled once it has
         // gone to Emacs, so it is left where it is until the composition
         // before it has gone.
-        void Read(TfEditCookie cookie, std::wstring& settled, std::wstring& composing)
+        void Read(TfEditCookie cookie, std::wstring& settled,
+                  core::input::Composition& what)
         {
+            std::wstring& composing = what.text;
+            std::vector<core::input::CompositionRun>& marks = what.runs;
+
             com_ptr<ITfRange> whole;
             com_ptr<ITfReadOnlyProperty> properties;
             com_ptr<IEnumTfRanges> ranges;
-            GUID const* wanted[] = { &GUID_PROP_COMPOSING };
+            GUID const* wanted[] = { &GUID_PROP_COMPOSING, &GUID_PROP_ATTRIBUTE };
             LONG shifted = 0;
 
             if (!context
@@ -152,15 +246,29 @@ namespace urusi::windows::input
                     break;
                 }
 
-                composingFound = composingFound
-                    || IsComposing(properties.get(), range.get(), cookie);
-                (composingFound ? composing : settled) += ReadRange(range.get(), cookie);
+                TfGuidAtom atom = TF_INVALID_GUIDATOM;
+                bool isComposing = ValuesOf(properties.get(), range.get(), cookie, atom);
+                std::wstring text = ReadRange(range.get(), cookie);
+
+                composingFound = composingFound || isComposing;
+                if (!composingFound)
+                {
+                    settled += text;
+                    continue;
+                }
+                composing += text;
+
+                core::input::CompositionRun mark = MarkOf(categories.get(), attributes.get(),
+                                                          atom);
+                mark.length = text.size();
+                marks.push_back(std::move(mark));
             }
         }
 
-        // Whether the input method is still turning RANGE over.
-        static bool IsComposing(ITfReadOnlyProperty* properties, ITfRange* range,
-                                TfEditCookie cookie)
+        // Whether the input method is still turning RANGE over, and
+        // what it marked the stretch with, in ATOM.
+        static bool ValuesOf(ITfReadOnlyProperty* properties, ITfRange* range,
+                             TfEditCookie cookie, TfGuidAtom& atom)
         {
             VARIANT value{};
             com_ptr<IEnumTfPropertyValue> each;
@@ -181,6 +289,12 @@ namespace urusi::windows::input
                     {
                         composing = one.varValue.vt == VT_I4 && one.varValue.lVal != 0;
                     }
+                    else if (IsEqualGUID(one.guidId, GUID_PROP_ATTRIBUTE))
+                    {
+                        atom = one.varValue.vt == VT_I4
+                            ? static_cast<TfGuidAtom>(one.varValue.lVal)
+                            : TF_INVALID_GUIDATOM;
+                    }
                     VariantClear(&one.varValue);
                 }
             }
@@ -188,10 +302,52 @@ namespace urusi::windows::input
             return composing;
         }
 
+        // How far into what is being composed the caret is, as the input
+        // method put it: which clause is being worked on shows there as
+        // well as in the lines under the text.
+        size_t CaretIn(TfEditCookie cookie, size_t settled, size_t composing) const
+        {
+            TF_SELECTION selection{};
+            ULONG got = 0;
+            com_ptr<ITfRange> start;
+            LONG into = 0;
+
+            if (!context
+                || FAILED(context->GetSelection(cookie, TF_DEFAULT_SELECTION, 1, &selection,
+                                                &got))
+                || got != 1)
+            {
+                return composing;
+            }
+
+            com_ptr<ITfRange> where;
+            where.attach(selection.range);
+            if (FAILED(context->GetStart(cookie, start.put())))
+            {
+                return composing;
+            }
+
+            TF_HALTCOND until{
+                .pHaltRange = where.get(),
+                .aHaltPos = selection.style.ase == TF_AE_START ? TF_ANCHOR_START : TF_ANCHOR_END,
+                .dwFlags = 0,
+            };
+            if (FAILED(start->ShiftEnd(cookie, LONG_MAX, &into, &until)))
+            {
+                return composing;
+            }
+
+            // Counted from the start of the document, which still holds
+            // what was settled on until this reading takes it away.
+            size_t position = static_cast<size_t>((std::max)(into, 0L));
+            position = position > settled ? position - settled : 0;
+            return (std::min)(position, composing);
+        }
+
         // Give the keyboard what the document came to: what was settled
         // on goes to Emacs as typed, and what is still being turned over
         // is drawn at the cursor.
-        void Deliver(std::wstring const& settled, std::wstring const& composing)
+        void Deliver(std::wstring const& settled, core::input::Composition const& what)
         {
             if (!settled.empty())
             {
@@ -204,7 +360,7 @@ namespace urusi::windows::input
                 keyboard->CompositionCompleted();
             }
 
-            if (composing.empty())
+            if (what.text.empty())
             {
                 if (keyboard->Composing())
                 {
@@ -218,8 +374,8 @@ namespace urusi::windows::input
             {
                 keyboard->CompositionStarted();
             }
-            keyboard->TextUpdating(0, composed, composing);
-            composed = static_cast<int32_t>(composing.size());
+            keyboard->TextUpdating(0, composed, what.text, what.runs, what.caret);
+            composed = static_cast<int32_t>(what.text.size());
         }
 
         // Take what was settled on out of the document.
@@ -288,16 +444,17 @@ namespace urusi::windows::input
         STDMETHODIMP DoEditSession(TfEditCookie cookie) noexcept override
         {
             std::wstring settled;
-            std::wstring composing;
+            core::input::Composition what;
 
             pending = false;
             if (!keyboard || !context)
             {
                 return S_OK;
             }
-            Read(cookie, settled, composing);
+            Read(cookie, settled, what);
+            what.caret = CaretIn(cookie, settled.size(), what.text.size());
             Erase(cookie, settled.size());
-            Deliver(settled, composing);
+            Deliver(settled, what);
             return S_OK;
         }
 
@@ -308,9 +465,25 @@ namespace urusi::windows::input
             return E_NOTIMPL;
         }
 
-        STDMETHODIMP GetTextExt(LONG, LONG, RECT* rect, BOOL* clipped) noexcept override
+        // Where the text from ACPSTART to ACPEND is on the screen, which
+        // is where the candidates are put.
+        //
+        // The window draws what is being composed at the cursor and
+        // nowhere else, so a stretch of it is that many characters along
+        // from there. How wide a character is drawn is what Emacs last
+        // said of the cursor, which is one character wide where it sits
+        // over text and thinner where the text has run out.
+        STDMETHODIMP GetTextExt(LONG start, LONG end, RECT* rect, BOOL* clipped) noexcept override
         {
+            LONG width = advance > 0 ? advance : caret.right - caret.left;
+
             *rect = caret;
+            rect->left += (std::max)(start, 0L) * width;
+            rect->right = rect->left + (std::max)(end - start, 0L) * width;
+            if (rect->right <= rect->left)
+            {
+                rect->right = rect->left + (caret.right - caret.left);
+            }
             *clipped = FALSE;
             return S_OK;
         }
@@ -445,6 +618,13 @@ namespace urusi::windows::input
             return false;
         }
         owner->client = m_client;
+        // What the input method marked a stretch with is an atom, and
+        // these two are what it stands for: without them the marks are
+        // not read, and the text is drawn as one plain stretch.
+        CoCreateInstance(CLSID_TF_CategoryMgr, nullptr, CLSCTX_INPROC_SERVER,
+                         IID_PPV_ARGS(owner->categories.put()));
+        CoCreateInstance(CLSID_TF_DisplayAttributeMgr, nullptr, CLSCTX_INPROC_SERVER,
+                         IID_PPV_ARGS(owner->attributes.put()));
 
         com_ptr<ITfContext> context;
         TfEditCookie made = TF_INVALID_COOKIE;
@@ -615,11 +795,12 @@ namespace urusi::windows::input
         }
     }
 
-    void TextServices::SetCaret(RECT const& caret)
+    void TextServices::SetCaret(RECT const& caret, long advance)
     {
         if (m_owner)
         {
             m_owner->caret = caret;
+            m_owner->advance = advance;
         }
     }
 }

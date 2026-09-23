@@ -68,9 +68,10 @@ namespace urusi::windows::input
         void NotifyFocusEnter() override;
         void NotifyFocusLeave() override;
 
-        // Where the caret is, in the pixels of the screen, which is
-        // where the candidates are shown.
-        void SetCaret(RECT const& caret);
+        // Where the caret is, in the pixels of the screen, and how wide
+        // a character is drawn there: that is where the candidates are
+        // shown, and how far along a stretch of the composition is.
+        void SetCaret(RECT const& caret, long advance);
 
     private:
         struct Owner;

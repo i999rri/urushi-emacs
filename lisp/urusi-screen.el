@@ -338,6 +338,151 @@ It is not in any buffer: the input method has not settled on it, and
 Emacs will not see it until it does.  Drawing it is this file's to do,
 because the window that would otherwise draw it cannot be seen.")
 
+(defvar urusi-screen--composing-runs nil
+  "How the input method marked each stretch of what it is composing.
+A list of plists of :length, :underline and, where it asked for both of
+them, :foreground and :background.  The line under a stretch is how an
+input method says which part of the text it is working on now.")
+
+(defvar urusi-screen--composing-caret 0
+  "How far into what is being composed the input method put the caret.
+In characters.  Which clause is being worked on shows there as well as
+in the lines under the text.")
+
+(defun urusi-screen--composing-underline (kind left top width height color)
+  "Return the line to draw under a stretch of what is being composed.
+KIND is what the host called it; the line goes at LEFT and TOP, is WIDTH
+wide and HEIGHT tall, and is drawn in COLOR.
+
+XAML underlines text one way only, so each kind is drawn as a shape of
+its own under the text."
+  (let ((thickness (max 1.0 (/ height 16.0))))
+    (pcase kind
+      ("none" nil)
+      ("double"
+       (list `(Rectangle :Canvas.Left ,left :Canvas.Top ,top
+                         :Width ,width :Height ,thickness :Fill ,color)
+             `(Rectangle :Canvas.Left ,left :Canvas.Top ,(+ top (* thickness 2))
+                         :Width ,width :Height ,thickness :Fill ,color)))
+      ("wavy"
+       ;; A zigzag, which is what a wave comes to at this size.
+       (let* ((step (max 2.0 (* thickness 2)))
+              (points (let ((x 0.0) (up nil) (parts nil))
+                        (while (<= x width)
+                          (push (format "%s,%s" x (if up 0.0 step)) parts)
+                          (setq up (not up))
+                          (setq x (+ x step)))
+                        (nreverse parts))))
+         (list `(Polyline :Canvas.Left ,left :Canvas.Top ,top
+                          :Stroke ,color :StrokeThickness ,thickness
+                          :Points ,(mapconcat #'identity points " ")))))
+      ((or "dotted" "dashed")
+       (list `(Line :Canvas.Left ,left :Canvas.Top ,top
+                    :X1 0 :Y1 0 :X2 ,width :Y2 0
+                    :Stroke ,color :StrokeThickness ,thickness
+                    :StrokeDashArray ,(if (equal kind "dotted") "1,2" "3,2"))))
+      (_
+       (list `(Rectangle :Canvas.Left ,left :Canvas.Top ,top
+                         :Width ,width :Height ,thickness :Fill ,color))))))
+
+(defun urusi-screen--default-size ()
+  "Return the size the default font is drawn at, as a line's runs have it.
+A run is drawn at the pixel size redisplay settled on, which is not what
+the face's height comes to: what is being composed stands beside that
+text and is drawn to match it, and is measured under the same name."
+  (let ((font (urusi-screen--set (face-attribute 'default :font))))
+    (/ (or (and (fontp font) (font-get font :size))
+           (default-font-width))
+       (float urusi-scale))))
+
+(defun urusi-screen--composing-text (text left top height cell color)
+  "Return TEXT as XAML, at LEFT and TOP, a column drawn CELL wide in COLOR.
+HEIGHT is how tall a line is.
+
+Split where the characters stop being the same width, and spaced by hand
+within each stretch, as `urusi-screen-run' spaces a line: XAML lays a
+stretch out at the widths the font asks for, and Emacs laid it out on a
+grid of whole columns, so the two drift apart across it.  Left alone,
+what is being composed comes out narrower than the room made for it, and
+more so the longer it grows."
+  (let ((family (urusi-screen-font-family))
+        (size (urusi-screen--default-size))
+        (at 0)
+        (x left)
+        (parts nil))
+    (urusi-screen--measure family size)
+    (while (< at (length text))
+      (let* ((columns (char-width (aref text at)))
+             (end (let ((i at))
+                    (while (and (< i (length text))
+                                (= (char-width (aref text i)) columns))
+                      (setq i (1+ i)))
+                    i))
+             (part (substring text at end))
+             (advance (* columns cell)))
+        (push `(TextBlock :Text ,(urusi-literal part)
+                          :Canvas.Left ,x
+                          :Canvas.Top ,top
+                          :TextWrapping "NoWrap"
+                          :FontFamily ,family
+                          :FontSize ,size
+                          :LineHeight ,height
+                          :LineStackingStrategy "BlockLineHeight"
+                          :Foreground ,color
+                          :CharacterSpacing ,(urusi-screen--spacing family size advance))
+              parts)
+        (setq x (+ x (* (string-width part) cell)))
+        (setq at end)))
+    (nreverse parts)))
+
+(defun urusi-screen--composing-parts (left top height cell color background)
+  "Return what is being composed, as XAML, laid out from LEFT and TOP.
+HEIGHT is how tall a line is and CELL how wide one column is drawn; COLOR
+is what the text is drawn in and BACKGROUND what is behind it.
+
+Each stretch the input method marked is drawn where Emacs would put it,
+with a line of its own kind under it, and the caret goes where the input
+method left it."
+  (let ((at 0)
+        (x left)
+        (parts nil)
+        ;; What the host sent arrives as a vector, and there is nothing
+        ;; when the input method marked nothing: one plain stretch then.
+        (runs (or (append urusi-screen--composing-runs nil)
+                  (list (list :length (length urusi-screen--composing)
+                              :underline "solid"))))
+        (caret-x nil))
+    (dolist (run runs)
+      (let* ((length (min (or (plist-get run :length) 0)
+                          (- (length urusi-screen--composing) at)))
+             (text (substring urusi-screen--composing at (+ at length)))
+             (width (* (string-width text) cell)))
+        (when (and (null caret-x) (<= urusi-screen--composing-caret (+ at length)))
+          (setq caret-x
+                (+ x (* (string-width
+                         (substring text 0 (- urusi-screen--composing-caret at)))
+                        cell))))
+        ;; The line under the text is drawn over what the buffer has
+        ;; there, so the room it takes is painted over first.
+        (push `(Rectangle :Canvas.Left ,x :Canvas.Top ,top
+                          :Width ,width :Height ,height
+                          :Fill ,(or (urusi-screen-color (plist-get run :background))
+                                     background))
+              parts)
+        (dolist (part (urusi-screen--composing-text
+                       text x top height cell
+                       (or (urusi-screen-color (plist-get run :foreground)) color)))
+          (push part parts))
+        (dolist (line (urusi-screen--composing-underline
+                       (or (plist-get run :underline) "solid")
+                       x (+ top height) width height color))
+          (push line parts))
+        (setq at (+ at length))
+        (setq x (+ x width))))
+    (nreverse (cons `(Rectangle :Canvas.Left ,(or caret-x x) :Canvas.Top ,top
+                                :Width 2 :Height ,height :Fill ,color)
+                    parts))))
+
 (defvar urusi-screen--caret nil
   "Where the cursor last was, as (X Y WIDTH HEIGHT), or nil.
 The host is told, so that the candidates of the input method appear
@@ -404,20 +549,20 @@ it blinks; what is being composed is drawn all the same."
                           :Width ,(/ 2 scale)
                           :Height ,height
                           :Fill ,color
-                          ,@(unless (internal-show-cursor-p window)
+                          ;; While something is being composed it draws
+                          ;; the cursor itself, where the input method
+                          ;; put it rather than where the text will go.
+                          ,@(unless (and (internal-show-cursor-p window)
+                                         (string-empty-p urusi-screen--composing))
                               '(:Visibility "Collapsed")))
                ,@(unless (string-empty-p urusi-screen--composing)
                    ;; What is being composed goes where it will end up,
-                   ;; underlined, as an input method draws it anywhere
-                   ;; else.
-                   `((Border :Canvas.Left ,left
-                             :Canvas.Top ,top
-                             :Background ,(urusi-screen--line-background window)
-                             (TextBlock :Text ,(urusi-literal urusi-screen--composing)
-                                        :FontFamily ,(urusi-screen-font-family)
-                                        :FontSize ,(urusi-screen-font-size)
-                                        :Foreground ,color
-                                        :TextDecorations "Underline"))))))))
+                   ;; marked as the input method marked it, as it would
+                   ;; be drawn anywhere else.
+                   (urusi-screen--composing-parts
+                    left top height
+                    (/ (default-font-width) scale)
+                    color (urusi-screen--line-background window)))))))
 
 ;;;; The windows
 
@@ -960,6 +1105,8 @@ chosen for a light window when Windows has turned dark."
     ("resize" (urusi-screen--resize message))
     ("composition"
      (setq urusi-screen--composing (or (plist-get message :text) ""))
+     (setq urusi-screen--composing-runs (plist-get message :runs))
+     (setq urusi-screen--composing-caret (or (plist-get message :caret) 0))
      (if (string-empty-p urusi-screen--composing)
          ;; Gone because it was settled on, as often as not, and what
          ;; it settled on is still to be put in: drawn now, the text
