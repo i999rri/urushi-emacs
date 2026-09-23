@@ -18,7 +18,7 @@
     <ClInclude Include="pch.h" />
     <ClInclude Include="App.xaml.h" />
     <ClInclude Include="MainWindow.xaml.h" />
-    <ClInclude Include="Input\Composition.h">
+    <ClInclude Include="Input\TextServices.h">
       <Filter>Input</Filter>
     </ClInclude>
     <ClInclude Include="Input\KeyTranslation.h">
@@ -89,7 +89,7 @@
     <ClCompile Include="pch.cpp" />
     <ClCompile Include="App.xaml.cpp" />
     <ClCompile Include="MainWindow.xaml.cpp" />
-    <ClCompile Include="Input\Composition.cpp">
+    <ClCompile Include="Input\TextServices.cpp">
       <Filter>Input</Filter>
     </ClCompile>
     <ClCompile Include="Window\XamlCaptionRegions.cpp">

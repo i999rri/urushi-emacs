@@ -407,7 +407,19 @@ namespace winrt::urusi_emacs::implementation
     void MainWindow::StartComposition()
     {
         RecordKeyboard();
-        m_composition.Start(m_keyboard);
+
+        // The window the text services are to give the keys to is the
+        // one Windows has, which is this window: what XAML puts inside
+        // it is none of theirs.
+        HWND window = nullptr;
+        if (FAILED(try_as<::IWindowNative>()->get_WindowHandle(&window))
+            || !m_composition.Start(window, m_keyboard,
+                                    [this](std::string const& line) {
+                                        AppendLog("ime", line + "\n");
+                                    }))
+        {
+            AppendLog("host", "no text services: the keys arrive as the letters on them\n");
+        }
 
         // The input method is the window's, not an element's: the keys
         // go to Emacs wherever in the window the focus is, but for a box
@@ -501,20 +513,25 @@ namespace winrt::urusi_emacs::implementation
             return;
         }
 
-        // Emacs counts from the corner of the area it was given, in
-        // the pixels of the screen; this wants the corner of the
-        // screen, in the 96ths of an inch XAML counts in.
+        // Emacs counts from the corner of the area it was given, in the
+        // pixels of the screen; the text services want the corner of the
+        // screen, in those same pixels. Only what XAML laid out is in
+        // the 96ths of an inch it counts in, and is scaled up to meet
+        // them.
         double scale = site.XamlRoot().RasterizationScale();
         auto corner = site.TransformToVisual(Content()).TransformPoint({ 0, 0 });
         POINT client{ 0, 0 };
 
         ClientToScreen(window, &client);
 
-        m_composition.SetCaret({
-            static_cast<float>(client.x / scale + corner.X + message.GetNamedNumber(L"x", 0) / scale),
-            static_cast<float>(client.y / scale + corner.Y + message.GetNamedNumber(L"y", 0) / scale),
-            static_cast<float>(message.GetNamedNumber(L"width", 2) / scale),
-            static_cast<float>(message.GetNamedNumber(L"height", 16) / scale) });
+        LONG left = client.x + std::lround(corner.X * scale)
+                    + std::lround(message.GetNamedNumber(L"x", 0));
+        LONG top = client.y + std::lround(corner.Y * scale)
+                   + std::lround(message.GetNamedNumber(L"y", 0));
+
+        m_composition.SetCaret({ left, top,
+                                 left + std::lround(message.GetNamedNumber(L"width", 2)),
+                                 top + std::lround(message.GetNamedNumber(L"height", 16)) });
     }
 
     // Give ARGS to the Emacs frame as the key message it was, and let

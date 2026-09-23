@@ -1,7 +1,7 @@
 #pragma once
 
 #include "MainWindow.g.h"
-#include "Input/Composition.h"
+#include "Input/TextServices.h"
 #include "Emacs/Emacs.h"
 #include "Emacs/HostCalls.h"
 #include "Input/KeyTranslation.h"
@@ -129,7 +129,7 @@ namespace winrt::urusi_emacs::implementation
 
         // How the window takes up the screen, as Lisp was last told.
         std::wstring m_windowState{ L"normal" };
-        urusi::windows::input::Composition m_composition;
+        urusi::windows::input::TextServices m_composition;
 
         // What the Keyboard tells this window.
         struct Effects : urusi::core::input::KeyboardEvents

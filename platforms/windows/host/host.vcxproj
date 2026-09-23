@@ -138,7 +138,7 @@
     <ClInclude Include="MainWindow.xaml.h">
       <DependentUpon>MainWindow.xaml</DependentUpon>
     </ClInclude>
-    <ClInclude Include="Input\Composition.h" />
+    <ClInclude Include="Input\TextServices.h" />
     <ClInclude Include="Input\KeyTranslation.h" />
     <ClInclude Include="Input\MouseTranslation.h" />
     <ClInclude Include="Window\XamlCaptionRegions.h" />
@@ -173,7 +173,7 @@
     <ClCompile Include="MainWindow.xaml.cpp">
       <DependentUpon>MainWindow.xaml</DependentUpon>
     </ClCompile>
-    <ClCompile Include="Input\Composition.cpp" />
+    <ClCompile Include="Input\TextServices.cpp" />
     <ClCompile Include="Window\XamlCaptionRegions.cpp" />
     <ClCompile Include="Window\XamlFrameView.cpp" />
     <ClCompile Include="Window\XamlScreen.cpp" />
