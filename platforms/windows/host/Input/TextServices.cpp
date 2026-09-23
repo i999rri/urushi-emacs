@@ -3,8 +3,6 @@
 
 #include <textstor.h>
 
-#include "Text/Utf.h"
-
 #pragma comment(lib, "ole32.lib")
 
 using namespace winrt;
@@ -132,8 +130,6 @@ namespace urusi::windows::input
             }
 
             std::wstring text = ReadRange(range.get(), cookie);
-
-            Say("read \"" + core::text::ToUtf8(text) + "\" over " + std::to_string(composed));
 
             // A composition the text services have open is one the
             // keyboard is to be turning over rather than handing on.

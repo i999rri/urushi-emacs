@@ -486,7 +486,11 @@ namespace winrt::urusi_emacs::implementation
             return;
         }
 
-        AppendLog("host", "type \"" + to_string(hstring{ text }) + "\"\n");
+        // How much was typed and not what it was: what the input method
+        // settled on belongs where a run is kept on purpose, which is
+        // the trace urusi-debug-mode writes, and not in a log that every
+        // run leaves behind.
+        AppendLog("host", "type " + std::to_string(text.size()) + " characters\n");
 
         // All at once, not a character at a time: each character sent
         // as a key is a command of its own, drawn after, and the text
