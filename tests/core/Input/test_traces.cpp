@@ -38,7 +38,7 @@ namespace
         void NotifyFocusEnter() override { entered = true; }
         void NotifyFocusLeave() override { entered = false; }
         void Commit(std::wstring const& text) override { commits.push_back(ToUtf8(text)); }
-        void Composing(std::wstring const&) override {}
+        void Composing(urusi::core::input::Composition const&) override {}
 
         std::vector<std::string> commits;
         bool entered{ false };
