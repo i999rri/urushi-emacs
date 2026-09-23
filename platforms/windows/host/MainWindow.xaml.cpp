@@ -293,7 +293,24 @@ namespace winrt::urusi_emacs::implementation
             });
         }
 
-        StartComposition();
+        // Once the window's content is in the tree, and not before: the
+        // context is made for the view the content is shown in, and one
+        // made while there is none is a context the input method never
+        // sends anything to. Nothing says so; the keys simply arrive as
+        // the letters on them and the key that turns it on does nothing.
+        if (auto root = Content().try_as<FrameworkElement>(); root && !root.IsLoaded())
+        {
+            root.Loaded([weak](IInspectable const&, RoutedEventArgs const&) {
+                if (auto self = weak.get())
+                {
+                    self->StartComposition();
+                }
+            });
+        }
+        else
+        {
+            StartComposition();
+        }
 
         // Which build this is, so that a stale one is obvious.
         AppendLog("host", std::string{ "urusi-emacs built " } + __DATE__ + " " + __TIME__ + "\n");
