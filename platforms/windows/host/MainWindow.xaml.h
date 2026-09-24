@@ -61,6 +61,9 @@ namespace winrt::urusi_emacs::implementation
         // Runs on the UI thread.
         void OnMessage(std::string const& line);
         void Screen(Windows::Data::Json::JsonObject const& message);
+        void Picture(Windows::Data::Json::JsonObject const& message);
+        bool ShowPictureIn(std::wstring const& name);
+        Microsoft::UI::Xaml::FrameworkElement Walked(std::wstring const& name);
 
         void Call(Windows::Data::Json::JsonObject const& message);
 
@@ -97,7 +100,9 @@ namespace winrt::urusi_emacs::implementation
         // the window.
         std::shared_ptr<urusi::windows::emacs::Emacs> m_emacs;
         std::optional<urusi::windows::window::XamlScreen> m_screen;
-        std::optional<urusi::windows::window::XamlPicture> m_picture;
+        // The screen Emacs drew for each frame, by the name it is
+        // known by, since a child frame has a picture of its own.
+        std::map<std::wstring, urusi::windows::window::XamlPicture> m_pictures;
         std::string m_log;
         std::set<std::wstring> m_seen;
         HWND m_emacsWindow{ nullptr };

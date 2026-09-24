@@ -805,7 +805,7 @@ the border with them, and cuts off what is drawn in them."
              ,@(when corner-radius `(:CornerRadius ,corner-radius))
              ,@(when background `(:Background ,background))
              (Grid
-              ,(urusi-screen-windows frame)
+              ,(funcall urusi-screen-frame-function frame)
               ,@(when (and border-color (< 0 thickness))
                   `((Border :BorderThickness ,(/ thickness scale)
                             :BorderBrush ,border-color
@@ -869,9 +869,16 @@ which builds the same screen out of elements of its own instead."
   ;; frame itself wherever the frame reaches past it to put the echo
   ;; area out of sight: the host shows the picture within this element,
   ;; so what is past it is not seen.
-  `(Canvas :Name "urusi-emacs"
+  `(Canvas :Name ,(concat "urusi-emacs:" (urusi-screen--frame-name frame))
            :Background "Transparent"
-           :Margin ,(format "0,0,0,%s" (urusi-screen--echo-area-height frame))))
+           :Margin ,(format "0,0,0,%s" (urusi-screen--echo-area-height frame))
+           ;; There whether or not there are any, so that a child frame
+           ;; coming or going changes what is in it and nothing around
+           ;; it.  They are over the picture, being drawn after it.
+           (Rows :key ,(concat "frames-" (urusi-screen--frame-name frame))
+                 :panel "Canvas"
+                 ,@(mapcar #'urusi-screen-child-frame
+                           (urusi-screen--child-frames frame)))))
 
 (put 'urusi-screen-emacs 'urusi-screen-frame t)
 

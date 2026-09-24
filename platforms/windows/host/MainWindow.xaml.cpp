@@ -155,7 +155,6 @@ namespace winrt::urusi_emacs::implementation
             .error = [this](hstring const& text) { ShowStatus(text); },
         });
         m_screen.emplace(Surface(), m_emacs);
-        m_picture.emplace();
 
         // Started under a debugger, as from Visual Studio, everything is
         // written down from the first key: whatever is being chased may
@@ -768,23 +767,11 @@ namespace winrt::urusi_emacs::implementation
             m_frameViews.push_back(urusi::windows::window::XamlFrameView::Attach(site, L"", root, m_frameSizes));
         }
 
-        // Where Lisp said the screen Emacs draws is shown, if it said
-        // anywhere: a screen built out of elements instead has no such
-        // element, and there is nothing of the sort to show. The chrome
-        // is built again whenever it changes, which leaves the picture
-        // laid over where that element used to be.
-        if (auto shown = Named(L"urusi-emacs"))
+        // The chrome is built again whenever it changes, which leaves
+        // every picture laid over where its frame used to be.
+        for (auto& [name, picture] : m_pictures)
         {
-            m_picture->Attach(Surface(), shown);
-            // Said only when the element moved or changed size, never
-            // after every layout: the picture is laid out to follow it,
-            // and that would call for another layout each time.
-            shown.SizeChanged([weak, shown](IInspectable const&, SizeChangedEventArgs const&) {
-                if (auto self = weak.get())
-                {
-                    self->m_picture->Follow(shown);
-                }
-            });
+            ShowPictureIn(name);
         }
 
         for (auto const& panel : PanelSites())
@@ -1077,6 +1064,43 @@ namespace winrt::urusi_emacs::implementation
     // urusi-frame:ID after the panel. They are frames of their own, each
     // as big as its element, as the frame the window shows is as big as
     // the element named urusi-frame.
+    // The element of the screen named NAME, walked for rather than
+    // asked for: every row of the screen is parsed on its own, so the
+    // names in it are that row's and FindName never sees them.
+    FrameworkElement MainWindow::Walked(std::wstring const& name)
+    {
+        if (Surface().Children().Size() == 0)
+        {
+            return nullptr;
+        }
+
+        std::vector<UIElement> pending{ Surface().Children().GetAt(0) };
+        while (!pending.empty())
+        {
+            auto element = pending.back();
+            pending.pop_back();
+
+            if (auto named = element.try_as<FrameworkElement>();
+                named && named.Name() == name)
+            {
+                return named;
+            }
+            if (auto panel = element.try_as<Controls::Panel>())
+            {
+                for (auto const& child : panel.Children())
+                {
+                    pending.push_back(child);
+                }
+            }
+            else if (auto border = element.try_as<Controls::Border>();
+                     border && border.Child())
+            {
+                pending.push_back(border.Child());
+            }
+        }
+        return nullptr;
+    }
+
     std::vector<FrameworkElement> MainWindow::PanelSites()
     {
         std::vector<FrameworkElement> sites;
@@ -1201,14 +1225,7 @@ namespace winrt::urusi_emacs::implementation
         }
         else if (type == L"picture")
         {
-            // A picture that cannot be shown is passed over rather
-            // than thrown away quietly: Emacs goes on drawing into the
-            // same picture, so the next one will not put right what
-            // this one would have.
-            if (auto why = m_picture->Show(message); !why.empty())
-            {
-                AppendLog("host", "picture: " + why + "\n");
-            }
+            Picture(message);
         }
         else if (type == L"caret")
         {
@@ -1240,6 +1257,58 @@ namespace winrt::urusi_emacs::implementation
         else
         {
             m_emacs->SendError(L"unknown message type: " + type);
+        }
+    }
+
+    // Lay the picture of the frame NAME over the element Lisp named
+    // for it, and say whether there was one to lay it over.
+    bool MainWindow::ShowPictureIn(std::wstring const& name)
+    {
+        auto shown = Walked(L"urusi-emacs:" + name);
+        auto found = m_pictures.find(name);
+
+        if (!shown || found == m_pictures.end())
+        {
+            return false;
+        }
+
+        auto& picture = found->second;
+        auto weak = get_weak();
+
+        picture.Attach(Surface(), shown);
+        // Said only when the element moved or changed size, never after
+        // every layout: the picture is laid out to follow it, and that
+        // would call for another layout each time.
+        shown.SizeChanged([weak, shown, name](IInspectable const&,
+                                              SizeChangedEventArgs const&) {
+            if (auto self = weak.get())
+            {
+                if (auto it = self->m_pictures.find(name); it != self->m_pictures.end())
+                {
+                    it->second.Follow(shown);
+                }
+            }
+        });
+        return true;
+    }
+
+    void MainWindow::Picture(JsonObject const& message)
+    {
+        std::wstring name{ message.GetNamedString(L"frame", L"") };
+        auto& picture = m_pictures[name];
+
+        // The element may not be there yet: Emacs draws a frame before
+        // the screen saying where it is has been built.  The picture is
+        // kept all the same, and laid over the element once there is
+        // one, with everything drawn into it so far.
+        ShowPictureIn(name);
+
+        // A picture that cannot be shown is said rather than passed
+        // over quietly: Emacs goes on drawing into the same picture, so
+        // the next one will not put right what this one would have.
+        if (auto why = picture.Show(message); !why.empty())
+        {
+            AppendLog("host", "picture: " + why + "\n");
         }
     }
 
