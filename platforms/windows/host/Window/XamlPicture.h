@@ -25,12 +25,16 @@ namespace urusi::windows::window
         // that element sits is Lisp's to lay out, so the frame Emacs
         // drew lands where Lisp meant the frame to be, with the rest
         // of the window left to the chrome around it.
-        void Attach(winrt::Microsoft::UI::Xaml::Controls::Panel const& surface,
-                    winrt::Microsoft::UI::Xaml::FrameworkElement const& site);
+        void Attach(winrt::Microsoft::UI::Xaml::FrameworkElement const& site);
 
         // Put the picture where SITE is now, after it has been laid out
         // or moved.
         void Follow(winrt::Microsoft::UI::Xaml::FrameworkElement const& site);
+
+        // Take the picture off the screen.  It is a bitmap and stays as
+        // it was drawn, so one left where Emacs has gone would look
+        // like an Emacs that is still there and answering nothing.
+        void TakeAway();
 
         // Take in a "picture" message: the size of the whole screen,
         // the box of it that was drawn, and that box's pixels.  Return
@@ -42,13 +46,12 @@ namespace urusi::windows::window
         // again when the screen is a different size.
         bool Ready(int width, int height);
 
-        winrt::Microsoft::UI::Xaml::Controls::Canvas m_canvas{ nullptr };
         winrt::Microsoft::UI::Xaml::Controls::Image m_image{ nullptr };
+        // What holds the picture now, kept so that it can be taken
+        // out again once that element is off the screen.
+        winrt::Microsoft::UI::Xaml::Controls::Panel m_in{ nullptr };
         winrt::Microsoft::UI::Xaml::Media::Imaging::WriteableBitmap m_bitmap{ nullptr };
-        // Where the picture was last laid and how much room it was
-        // given, to tell whether either changed.
-        float m_left{ -1 };
-        float m_top{ -1 };
+        // How much room it was last given, to tell whether that changed.
         winrt::Windows::Foundation::Size m_room{ -1, -1 };
         int m_width{ 0 };
         int m_height{ 0 };

@@ -1182,6 +1182,17 @@ namespace winrt::urusi_emacs::implementation
     {
         bool running = m_emacs->Ready();
         m_emacs->Exited();
+
+        // Before anything else, and whether or not the window is to go:
+        // a picture is a bitmap and stays as it was drawn, so a frame
+        // left on the screen says that Emacs is there when it is not,
+        // and says it for as long as the window takes to close.
+        for (auto& [name, picture] : m_pictures)
+        {
+            picture.TakeAway();
+        }
+        m_pictures.clear();
+
         if (running)
         {
             Close();
@@ -1275,7 +1286,7 @@ namespace winrt::urusi_emacs::implementation
         auto& picture = found->second;
         auto weak = get_weak();
 
-        picture.Attach(Surface(), shown);
+        picture.Attach(shown);
         // Said only when the element moved or changed size, never after
         // every layout: the picture is laid out to follow it, and that
         // would call for another layout each time.

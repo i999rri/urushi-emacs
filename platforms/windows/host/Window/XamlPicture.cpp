@@ -32,9 +32,11 @@ namespace
 
 namespace urusi::windows::window
 {
-    void XamlPicture::Attach(Controls::Panel const& surface, FrameworkElement const& site)
+    void XamlPicture::Attach(FrameworkElement const& site)
     {
-        if (!surface || !site)
+        auto room = site.try_as<Controls::Panel>();
+
+        if (!room)
         {
             return;
         }
@@ -52,65 +54,78 @@ namespace urusi::windows::window
             {
                 m_image.Source(m_bitmap);
             }
-
-            // In a Canvas, which asks for no room of its own however
-            // large what is in it, so that the picture cannot widen
-            // what it is laid over.
-            m_canvas = Controls::Canvas();
-            m_canvas.IsHitTestVisible(false);
-            m_canvas.Children().Append(m_image);
         }
 
-        // Over the screen Lisp built rather than within the element
-        // Lisp said the frame is drawn in: that element's size is what
-        // Emacs lays the text out to, and a picture inside it would be
-        // making the frame it was drawn for bigger.  It is moved to
-        // where that element is instead.
-        if (!m_canvas.Parent())
+        // Within the element Lisp named for it, so that whatever Lisp
+        // put around the frame is around the picture as well: a border
+        // with rounded corners cuts the picture to them, and a shadow
+        // falls outside it.  The element is a Canvas, which asks for no
+        // room of its own however large what is in it, so the picture
+        // cannot widen the frame it was drawn for.
+        // Taken out of where it was by the element that holds it
+        // rather than by asking the picture what holds it: an element
+        // taken off the screen says it has no parent while still
+        // holding what is in it, and putting that somewhere else
+        // without taking it out first is refused.
+        if (m_in)
         {
-            surface.Children().Append(m_canvas);
+            if (m_in == room)
+            {
+                Follow(site);
+                return;
+            }
+
+            uint32_t at{};
+            if (m_in.Children().IndexOf(m_image, at))
+            {
+                m_in.Children().RemoveAt(at);
+            }
+            m_in = nullptr;
         }
+
+        // First, so that anything Lisp draws over the frame -- a child
+        // frame floating on it -- is drawn over the picture.
+        room.Children().InsertAt(0, m_image);
+        m_in = room;
         Follow(site);
     }
 
-    // Put the picture where SITE is, which is where Lisp laid out the
-    // frame Emacs drew.
+    void XamlPicture::TakeAway()
+    {
+        uint32_t at{};
+
+        if (m_in && m_image && m_in.Children().IndexOf(m_image, at))
+        {
+            m_in.Children().RemoveAt(at);
+        }
+        m_in = nullptr;
+    }
+
+    // Cut the picture to the room SITE was given.  A Canvas draws what
+    // is in it however far past itself that reaches, and the picture is
+    // the whole frame, which is taller than its room wherever Lisp
+    // means to draw part of it itself: the echo area is left out of
+    // sight that way when a status bar is to say what it says.
     void XamlPicture::Follow(FrameworkElement const& site)
     {
-        if (!m_canvas || !site.XamlRoot())
-        {
-            return;
-        }
+        auto room = winrt::Windows::Foundation::Size{
+            static_cast<float>(site.ActualWidth()),
+            static_cast<float>(site.ActualHeight())
+        };
 
-        auto corner = site.TransformToVisual(m_canvas.Parent().try_as<UIElement>())
-                          .TransformPoint({ 0, 0 });
-
-        auto room = winrt::Windows::Foundation::Size{ static_cast<float>(site.ActualWidth()),
-                                               static_cast<float>(site.ActualHeight()) };
-
-        // Only where it moved or the room changed: this is said after
-        // every layout, and laying the picture out again would call for
+        // Only where the room changed: this is said after every layout
+        // of the element, and cutting the picture again would call for
         // another one.
-        if (corner.X == m_left && corner.Y == m_top
-            && room.Width == m_room.Width && room.Height == m_room.Height)
+        if (!m_image || (room.Width == m_room.Width && room.Height == m_room.Height))
         {
             return;
         }
 
-        m_left = corner.X;
-        m_top = corner.Y;
         m_room = room;
-        m_canvas.Margin(Thickness{ corner.X, corner.Y, 0, 0 });
-        m_canvas.HorizontalAlignment(HorizontalAlignment::Left);
-        m_canvas.VerticalAlignment(VerticalAlignment::Top);
 
-        // Cut to the room it was given: the picture is the whole frame,
-        // and Emacs is given a frame taller than the room where Lisp
-        // means to draw part of it itself, as it does with the echo
-        // area when the status bar is to say what it says.
         Media::RectangleGeometry clip;
         clip.Rect(winrt::Windows::Foundation::Rect{ 0, 0, room.Width, room.Height });
-        m_canvas.Clip(clip);
+        m_image.Clip(clip);
     }
 
     bool XamlPicture::Ready(int width, int height)
