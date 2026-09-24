@@ -1238,6 +1238,13 @@ namespace winrt::urusi_emacs::implementation
         {
             Picture(message);
         }
+        else if (type == L"font")
+        {
+            if (auto why = m_fonts.Take(message); !why.empty())
+            {
+                AppendLog("host", "font: " + why + "\n");
+            }
+        }
         else if (type == L"caret")
         {
             Caret(message);
