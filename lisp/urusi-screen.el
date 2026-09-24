@@ -846,6 +846,49 @@ minibuffer that floats in the middle of the frame."
                  ,@(mapcar #'urusi-screen-child-frame
                            (urusi-screen--child-frames frame)))))
 
+(defun urusi-screen-emacs (frame)
+  "Return the room the screen Emacs draws for FRAME is shown in.
+
+Emacs reads the font files and rasterizes the glyphs itself, so it lays
+the text out and draws it by the same measurements; the host is handed
+that picture and shows it here.  Nothing is in this element: the
+picture is the host\\='s to put there.
+
+What is in the picture is everything Emacs draws -- the text, the mode
+line, the header line, the tab line, the fringes and the cursor -- so
+anything else on the screen is a component beside this one, and
+anything of Emacs\\='s that is to be one is turned off in Emacs first.
+
+Put in `urusi-screen-components' in place of `urusi-screen-windows',
+which builds the same screen out of elements of its own instead."
+  ;; A background, transparent though it is, is what makes XAML count
+  ;; the pointer as being over the frame; the picture itself is not
+  ;; there to be pointed at.
+  ;;
+  ;; As tall as the room the frame is shown in, which is less than the
+  ;; frame itself wherever the frame reaches past it to put the echo
+  ;; area out of sight: the host shows the picture within this element,
+  ;; so what is past it is not seen.
+  `(Canvas :Name "urusi-emacs"
+           :Background "Transparent"
+           :Margin ,(format "0,0,0,%s" (urusi-screen--echo-area-height frame))))
+
+(put 'urusi-screen-emacs 'urusi-screen-frame t)
+
+(defcustom urusi-screen-frame-function #'urusi-screen-windows
+  "Function that fills the room the Emacs frame is given.
+It takes the frame and returns a tree for `urusi-render'.
+
+`urusi-screen-windows' builds the screen out of elements, reading what
+Emacs laid out; `urusi-screen-emacs' leaves the room for the picture
+Emacs drew itself and lets the host show that there.
+
+This is what `urusi-screen-frame-site' puts in the frame's element,
+which is how a layout places the frame.  A screen built by listing
+components in `urusi-screen-components' instead names one of the two
+there."
+  :type 'function)
+
 ;;;; The screen
 
 (defcustom urusi-screen-components '(urusi-screen-windows)
@@ -900,17 +943,23 @@ goes past the bottom, under whatever is there."
   :type '(choice (const :tag "Shown" t)
                  (const :tag "Only while typed in" when-active)))
 
-(defun urusi-screen--echo-area-margin (frame)
-  "Return the properties that put the echo area of FRAME out of sight.
-That is nothing unless `urusi-screen-echo-area' says to leave it out,
-and nothing while the minibuffer is being typed in there."
+(defun urusi-screen--echo-area-height (frame)
+  "Return how far FRAME reaches past its room to put the echo area out of sight.
+That is zero unless `urusi-screen-echo-area' says to leave it out, and
+zero while the minibuffer is being typed in there."
   (let ((window (minibuffer-window frame)))
-    (when (and (eq urusi-screen-echo-area 'when-active)
-               (window-live-p window)
-               (eq (window-frame window) frame)
-               (not (eq window (active-minibuffer-window))))
-      `(:Margin ,(format "0,0,0,%s" (- (/ (window-pixel-height window)
-                                          (float urusi-scale))))))))
+    (if (and (eq urusi-screen-echo-area 'when-active)
+             (window-live-p window)
+             (eq (window-frame window) frame)
+             (not (eq window (active-minibuffer-window))))
+        (/ (window-pixel-height window) (float urusi-scale))
+      0)))
+
+(defun urusi-screen--echo-area-margin (frame)
+  "Return the properties that put the echo area of FRAME out of sight."
+  (let ((height (urusi-screen--echo-area-height frame)))
+    (unless (zerop height)
+      `(:Margin ,(format "0,0,0,%s" (- height))))))
 
 (defun urusi-screen-frame-site (frame &optional name)
   "Return the windows of FRAME in the element the host sizes the frame by.
@@ -931,12 +980,12 @@ the mouse to."
       `(Grid :Name "urusi-frame"
              :Background "Transparent"
              ,@(urusi-screen--echo-area-margin frame)
-             ,(urusi-screen-windows frame))
+             ,(funcall urusi-screen-frame-function frame))
     (puthash name frame urusi-screen--sites)
     `(Grid :Name ,(concat "urusi-frame:" name)
            :Tag ,(frame-parameter frame 'window-id)
            :Background "Transparent"
-           ,(urusi-screen-windows frame))))
+           ,(funcall urusi-screen-frame-function frame))))
 
 (defun urusi-screen--in-row (tree row)
   "Return TREE placed in ROW of the grid around it."

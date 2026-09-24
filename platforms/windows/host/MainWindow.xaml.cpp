@@ -766,18 +766,23 @@ namespace winrt::urusi_emacs::implementation
         {
             site.SizeChanged(changed);
             m_frameViews.push_back(urusi::windows::window::XamlFrameView::Attach(site, L"", root, m_frameSizes));
-            // The chrome is built again whenever it changes, which
-            // leaves the picture with no element to sit in.
-            // The chrome is built again whenever it changes, which
-            // leaves the picture laid over where the frame used to be.
-            m_picture->Attach(Surface(), site);
+        }
+
+        // Where Lisp said the screen Emacs draws is shown, if it said
+        // anywhere: a screen built out of elements instead has no such
+        // element, and there is nothing of the sort to show. The chrome
+        // is built again whenever it changes, which leaves the picture
+        // laid over where that element used to be.
+        if (auto shown = Named(L"urusi-emacs"))
+        {
+            m_picture->Attach(Surface(), shown);
             // Said only when the element moved or changed size, never
             // after every layout: the picture is laid out to follow it,
             // and that would call for another layout each time.
-            site.SizeChanged([weak, site](IInspectable const&, SizeChangedEventArgs const&) {
+            shown.SizeChanged([weak, shown](IInspectable const&, SizeChangedEventArgs const&) {
                 if (auto self = weak.get())
                 {
-                    self->m_picture->Follow(site);
+                    self->m_picture->Follow(shown);
                 }
             });
         }

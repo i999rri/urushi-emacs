@@ -45,9 +45,11 @@ namespace urusi::windows::window
         winrt::Microsoft::UI::Xaml::Controls::Canvas m_canvas{ nullptr };
         winrt::Microsoft::UI::Xaml::Controls::Image m_image{ nullptr };
         winrt::Microsoft::UI::Xaml::Media::Imaging::WriteableBitmap m_bitmap{ nullptr };
-        // Where the picture was last laid, to tell whether it moved.
+        // Where the picture was last laid and how much room it was
+        // given, to tell whether either changed.
         float m_left{ -1 };
         float m_top{ -1 };
+        winrt::Windows::Foundation::Size m_room{ -1, -1 };
         int m_width{ 0 };
         int m_height{ 0 };
     };

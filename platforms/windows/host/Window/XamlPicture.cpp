@@ -85,18 +85,32 @@ namespace urusi::windows::window
         auto corner = site.TransformToVisual(m_canvas.Parent().try_as<UIElement>())
                           .TransformPoint({ 0, 0 });
 
-        // Only where it moved: this is said after every layout, and
-        // laying the picture out again would call for another one.
-        if (corner.X == m_left && corner.Y == m_top)
+        auto room = winrt::Windows::Foundation::Size{ static_cast<float>(site.ActualWidth()),
+                                               static_cast<float>(site.ActualHeight()) };
+
+        // Only where it moved or the room changed: this is said after
+        // every layout, and laying the picture out again would call for
+        // another one.
+        if (corner.X == m_left && corner.Y == m_top
+            && room.Width == m_room.Width && room.Height == m_room.Height)
         {
             return;
         }
 
         m_left = corner.X;
         m_top = corner.Y;
+        m_room = room;
         m_canvas.Margin(Thickness{ corner.X, corner.Y, 0, 0 });
         m_canvas.HorizontalAlignment(HorizontalAlignment::Left);
         m_canvas.VerticalAlignment(VerticalAlignment::Top);
+
+        // Cut to the room it was given: the picture is the whole frame,
+        // and Emacs is given a frame taller than the room where Lisp
+        // means to draw part of it itself, as it does with the echo
+        // area when the status bar is to say what it says.
+        Media::RectangleGeometry clip;
+        clip.Rect(winrt::Windows::Foundation::Rect{ 0, 0, room.Width, room.Height });
+        m_canvas.Clip(clip);
     }
 
     bool XamlPicture::Ready(int width, int height)
