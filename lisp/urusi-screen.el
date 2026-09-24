@@ -175,7 +175,14 @@ what names the parts of it that the host keeps between screens."
 (defcustom urusi-screen-tab-line-function nil
   "Function that draws the tab line of a window, or nil to draw it as text.
 It takes the window and its tab line, a line as `window-screen-rows'
-reads it, and returns XAML to fill the room Emacs kept for it:
+reads it, and returns XAML to fill the room Emacs kept for it.
+
+Where the screen is the picture Emacs drew (`urusi-screen-emacs'),
+Emacs draws the tab line into that picture as well unless it is told
+not to: set `host-draw-tab-lines' to nil beside this, or the line is
+drawn under what this returns and sent every time it changes.
+
+The function is given the window and the line, and returns XAML:
 `urusi-tabs-tab-line' draws the tabs of `tab-line-mode' there.  How much
 room that is stays Emacs's to say, by the face `tab-line'."
   :type '(choice (const :tag "As text" nil) function))
@@ -846,6 +853,35 @@ minibuffer that floats in the middle of the frame."
                  ,@(mapcar #'urusi-screen-child-frame
                            (urusi-screen--child-frames frame)))))
 
+(defun urusi-screen--tab-lines (frame)
+  "Return the tab lines of FRAME's windows, drawn in the room Emacs kept.
+
+Emacs keeps room for the tab line at the top of a window; where these
+fill it, Emacs is told to leave that room alone rather than draw the
+line into the picture under them.
+
+Nothing unless `urusi-screen-tab-line-function' says to draw them: it
+is what turns the line Emacs would draw into elements of its own."
+  (when urusi-screen-tab-line-function
+    (let ((scale (float urusi-scale))
+          (index 0))
+      (delq nil
+            (mapcar
+             (lambda (window)
+               (let ((at (cl-incf index))
+                     (edges (window-pixel-edges window))
+                     (line (seq-find (lambda (row)
+                                       (eq (plist-get row :kind) 'tab-line))
+                                     (window-screen-rows window))))
+                 (when line
+                   `(Canvas :key ,(format "tab-line-%d" at)
+                            :Canvas.Left ,(/ (nth 0 edges) scale)
+                            :Canvas.Top ,(/ (nth 1 edges) scale)
+                            ,(urusi-screen--tab-line
+                              window line
+                              (/ (window-pixel-width window) scale))))))
+             (window-list frame t))))))
+
 (defun urusi-screen-emacs (frame)
   "Return the room the screen Emacs draws for FRAME is shown in.
 
@@ -872,9 +908,14 @@ which builds the same screen out of elements of its own instead."
   `(Canvas :Name ,(concat "urusi-emacs:" (urusi-screen--frame-name frame))
            :Background "Transparent"
            :Margin ,(format "0,0,0,%s" (urusi-screen--echo-area-height frame))
+           ;; In the room Emacs keeps for a tab line, which Emacs is
+           ;; told to leave alone where these fill it.
+           (Rows :key ,(concat "tab-lines-" (urusi-screen--frame-name frame))
+                 :panel "Canvas"
+                 ,@(urusi-screen--tab-lines frame))
            ;; There whether or not there are any, so that a child frame
            ;; coming or going changes what is in it and nothing around
-           ;; it.  They are over the picture, being drawn after it.
+           ;; it.  Last, so that one floats over everything else.
            (Rows :key ,(concat "frames-" (urusi-screen--frame-name frame))
                  :panel "Canvas"
                  ,@(mapcar #'urusi-screen-child-frame
