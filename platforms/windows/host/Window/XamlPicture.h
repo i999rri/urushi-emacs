@@ -45,6 +45,7 @@ namespace urusi::windows::window
         // The picture to draw into, of WIDTH by HEIGHT pixels, made
         // again when the screen is a different size.
         bool Ready(int width, int height);
+        std::string Take(winrt::Windows::Data::Json::JsonObject const& drawn);
 
         winrt::Microsoft::UI::Xaml::Controls::Image m_image{ nullptr };
         // What holds the picture now, kept so that it can be taken

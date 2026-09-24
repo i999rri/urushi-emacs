@@ -150,20 +150,10 @@ namespace urusi::windows::window
         return true;
     }
 
-    std::string XamlPicture::Show(JsonObject const& message)
+    // One box of a picture: where it is and the pixels of it.  Return
+    // why it could not be taken, or nothing if it was.
+    std::string XamlPicture::Take(JsonObject const& drawn)
     {
-        auto drawn = message.GetNamedObject(L"drawn", nullptr);
-        if (!drawn)
-        {
-            return "no drawn box";
-        }
-
-        if (!Ready(static_cast<int>(message.GetNamedNumber(L"width", 0)),
-                   static_cast<int>(message.GetNamedNumber(L"height", 0))))
-        {
-            return "no picture that size";
-        }
-
         int const x = static_cast<int>(drawn.GetNamedNumber(L"x", 0));
         int const y = static_cast<int>(drawn.GetNamedNumber(L"y", 0));
         int const width = static_cast<int>(drawn.GetNamedNumber(L"width", 0));
@@ -181,7 +171,7 @@ namespace urusi::windows::window
         }
 
         auto cells = winrt::Windows::Security::Cryptography::CryptographicBuffer::
-            DecodeFromBase64String(message.GetNamedString(L"cells", L""));
+            DecodeFromBase64String(drawn.GetNamedString(L"cells", L""));
         constexpr uint32_t kPixel = 4;
         if (cells.Length() != static_cast<uint32_t>(width) * height * kPixel)
         {
@@ -197,6 +187,33 @@ namespace urusi::windows::window
             std::copy_n(from + static_cast<size_t>(row) * width * kPixel,
                         static_cast<size_t>(width) * kPixel,
                         into + (static_cast<size_t>(y + row) * m_width + x) * kPixel);
+        }
+        return {};
+    }
+
+    std::string XamlPicture::Show(JsonObject const& message)
+    {
+        auto drawn = message.GetNamedArray(L"drawn", nullptr);
+        if (!drawn)
+        {
+            return "no drawn boxes";
+        }
+
+        if (!Ready(static_cast<int>(message.GetNamedNumber(L"width", 0)),
+                   static_cast<int>(message.GetNamedNumber(L"height", 0))))
+        {
+            return "no picture that size";
+        }
+
+        // Several of them: a keystroke draws the line being typed in
+        // and the mode line below it, and one box around both is the
+        // whole frame between them.
+        for (auto const& one : drawn)
+        {
+            if (auto why = Take(one.GetObject()); !why.empty())
+            {
+                return why;
+            }
         }
 
         m_bitmap.Invalidate();
