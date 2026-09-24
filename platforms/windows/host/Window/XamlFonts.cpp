@@ -3,14 +3,75 @@
 #include "XamlFonts.h"
 
 #include <winrt/Windows.Security.Cryptography.h>
+#include <winrt/Windows.Storage.h>
 #include <winrt/Windows.Storage.Streams.h>
+
+#include <filesystem>
+#include <fstream>
+#include <vector>
 
 #pragma comment(lib, "dwrite.lib")
 
 using namespace winrt;
 
+namespace
+{
+    // What a font file is kept under here: what Emacs said of it, run
+    // together into one name.  Two files of the same name, length and
+    // time are the same file; one that has changed since is another,
+    // and comes again under another name.
+    std::wstring NameOf(std::wstring const& file, int64_t length, int64_t when,
+                        int instance)
+    {
+        uint64_t hash = 14695981039346656037ull;
+        auto eat = [&hash](uint64_t value) {
+            for (int at = 0; at < 8; at++)
+            {
+                hash = (hash ^ ((value >> (at * 8)) & 0xFF)) * 1099511628211ull;
+            }
+        };
+
+        for (wchar_t letter : file)
+        {
+            eat(static_cast<uint64_t>(letter));
+        }
+        eat(static_cast<uint64_t>(length));
+        eat(static_cast<uint64_t>(when));
+        eat(static_cast<uint64_t>(instance));
+
+        wchar_t name[32]{};
+        swprintf_s(name, L"%016llx.font", static_cast<unsigned long long>(hash));
+        return name;
+    }
+
+    // Where the font files this window has been given are kept, made if
+    // it is not there.  Empty if there is nowhere to keep them.
+    std::filesystem::path FontsDirectory()
+    {
+        try
+        {
+            std::filesystem::path where{
+                std::wstring{ Windows::Storage::ApplicationData::Current().LocalFolder().Path() }
+            };
+
+            where /= L"fonts";
+            std::filesystem::create_directories(where);
+            return where;
+        }
+        catch (...)
+        {
+            return {};
+        }
+    }
+}
+
 namespace urusi::windows::window
 {
+    void XamlFonts::OnWanting(std::function<void(int)> ask)
+    {
+        m_ask = std::move(ask);
+    }
+
     com_ptr<IDWriteFactory5> XamlFonts::Writer()
     {
         if (!m_writer)
@@ -22,33 +83,8 @@ namespace urusi::windows::window
         return m_writer;
     }
 
-    std::string XamlFonts::Take(Windows::Data::Json::JsonObject const& message)
+    std::string XamlFonts::Made(int id, uint8_t const* bytes, uint32_t length)
     {
-        int const id = static_cast<int>(message.GetNamedNumber(L"id", -1));
-        if (id < 0)
-        {
-            return "no number for the font";
-        }
-
-        // Which file the font is comes first and the file itself only
-        // if it is asked for, so a message with no bytes in it is the
-        // first of the two: what is in it is written down, and nothing
-        // is asked for until there is something to draw from it.
-        if (!message.HasKey(L"bytes"))
-        {
-            m_files[id] = { std::wstring{ message.GetNamedString(L"file", L"") },
-                            static_cast<int64_t>(message.GetNamedNumber(L"size", 0)),
-                            static_cast<int64_t>(message.GetNamedNumber(L"when", 0)) };
-            return {};
-        }
-
-        auto bytes = Windows::Security::Cryptography::CryptographicBuffer::
-            DecodeFromBase64String(message.GetNamedString(L"bytes", L""));
-        if (bytes.Length() == 0)
-        {
-            return "font " + std::to_string(id) + " came empty";
-        }
-
         try
         {
             auto writer = Writer();
@@ -62,7 +98,7 @@ namespace urusi::windows::window
 
             com_ptr<IDWriteFontFile> file;
             check_hresult(loader->CreateInMemoryFontFileReference(
-                writer.get(), bytes.data(), bytes.Length(), nullptr, file.put()));
+                writer.get(), bytes, length, nullptr, file.put()));
 
             BOOL supported{};
             DWRITE_FONT_FILE_TYPE kind{};
@@ -84,14 +120,100 @@ namespace urusi::windows::window
         {
             return "font " + std::to_string(id) + ": " + to_string(error.message());
         }
-
         return {};
     }
 
-    com_ptr<IDWriteFontFace> XamlFonts::Face(int id) const
+    std::string XamlFonts::Take(Windows::Data::Json::JsonObject const& message)
     {
-        auto found = m_faces.find(id);
+        std::scoped_lock held{ m_lock };
+        int const id = static_cast<int>(message.GetNamedNumber(L"id", -1));
+        if (id < 0)
+        {
+            return "no number for the font";
+        }
 
-        return found == m_faces.end() ? nullptr : found->second;
+        // Which file the font is comes first and the file itself only
+        // if it is asked for, so a message with no bytes in it is the
+        // first of the two: what is kept here of that file from a run
+        // before this one is looked for, and nothing is asked for
+        // until there is something to draw from it.
+        if (!message.HasKey(L"bytes"))
+        {
+            auto kept = NameOf(std::wstring{ message.GetNamedString(L"file", L"") },
+                               static_cast<int64_t>(message.GetNamedNumber(L"size", 0)),
+                               static_cast<int64_t>(message.GetNamedNumber(L"when", 0)),
+                               static_cast<int>(message.GetNamedNumber(L"instance", -1)));
+
+            m_files[id] = { kept, false };
+
+            auto where = FontsDirectory();
+            if (where.empty())
+            {
+                return {};
+            }
+
+            std::ifstream file{ where / kept, std::ios::binary | std::ios::ate };
+            if (!file)
+            {
+                return {};
+            }
+
+            std::vector<uint8_t> bytes(static_cast<size_t>(file.tellg()));
+            file.seekg(0);
+            file.read(reinterpret_cast<char*>(bytes.data()), bytes.size());
+            if (!file)
+            {
+                return {};
+            }
+            return Made(id, bytes.data(), static_cast<uint32_t>(bytes.size()));
+        }
+
+        auto bytes = Windows::Security::Cryptography::CryptographicBuffer::
+            DecodeFromBase64String(message.GetNamedString(L"bytes", L""));
+        if (bytes.Length() == 0)
+        {
+            return "font " + std::to_string(id) + " came empty";
+        }
+
+        if (auto why = Made(id, bytes.data(), bytes.Length()); !why.empty())
+        {
+            return why;
+        }
+
+        // Kept, so that a later run asks for none of it.
+        if (auto found = m_files.find(id); found != m_files.end())
+        {
+            auto where = FontsDirectory();
+
+            if (!where.empty())
+            {
+                std::ofstream file{ where / found->second.kept, std::ios::binary };
+
+                file.write(reinterpret_cast<char const*>(bytes.data()), bytes.Length());
+            }
+        }
+        return {};
+    }
+
+    com_ptr<IDWriteFontFace> XamlFonts::Face(int id)
+    {
+        std::scoped_lock held{ m_lock };
+
+        if (auto found = m_faces.find(id); found != m_faces.end())
+        {
+            return found->second;
+        }
+
+        // Asked for once: Emacs answers with the file, and until it
+        // does there is nothing to draw the glyphs of it with.
+        if (auto found = m_files.find(id); found != m_files.end() && !found->second.asked)
+        {
+            found->second.asked = true;
+            if (m_ask)
+            {
+                m_ask(id);
+            }
+        }
+        return nullptr;
     }
 }

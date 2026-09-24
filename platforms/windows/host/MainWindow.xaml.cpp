@@ -17,6 +17,7 @@
 #pragma comment(lib, "imm32.lib")
 
 #include <algorithm>
+#include <string_view>
 #include <chrono>
 #include <limits>
 #include <cmath>
@@ -164,7 +165,34 @@ namespace winrt::urusi_emacs::implementation
 
         // Emacs posts from its own thread, and the window may only be
         // touched from this one.
-        m_emacs->OnMessage([weak, dispatcher](std::string message) {
+        // A font file is taken here, on the thread that reads from
+        // Emacs, rather than where the window is drawn: it may be tens
+        // of megabytes, and reading it out of the message and making a
+        // face of it would stop the window for as long.  Nothing of
+        // that touches an element.
+        auto fonts = m_fonts;
+        fonts->OnWanting([emacs = m_emacs](int id) {
+            JsonObject wanted;
+
+            wanted.SetNamedValue(L"type", String(L"want-font"));
+            wanted.SetNamedValue(L"id", JsonValue::CreateNumberValue(id));
+            emacs->Send(wanted);
+        });
+
+        m_emacs->OnMessage([weak, dispatcher, fonts](std::string message) {
+            constexpr std::string_view kFont{ "{\"type\":\"font\"" };
+
+            if (message.compare(0, kFont.size(), kFont) == 0)
+            {
+                JsonObject said{ nullptr };
+
+                if (JsonObject::TryParse(to_hstring(message), said))
+                {
+                    fonts->Take(said);
+                }
+                return;
+            }
+
             dispatcher.TryEnqueue([weak, message = std::move(message)] {
                 if (auto self = weak.get())
                 {
@@ -1237,13 +1265,6 @@ namespace winrt::urusi_emacs::implementation
         else if (type == L"picture")
         {
             Picture(message);
-        }
-        else if (type == L"font")
-        {
-            if (auto why = m_fonts.Take(message); !why.empty())
-            {
-                AppendLog("host", "font: " + why + "\n");
-            }
         }
         else if (type == L"caret")
         {

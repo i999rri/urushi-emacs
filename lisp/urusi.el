@@ -173,6 +173,13 @@ error: shown every time, it would be what keeps it coming."
      (run-hook-with-args 'urusi-host-event-functions
                          (intern (plist-get message :event)) message))
     ("stale" (urusi-forget) (run-hooks 'urusi-stale-hook))
+    ;; The host has something to draw from a font and has not the file
+    ;; it is in.  Emacs reads the font files itself, so it is the one
+    ;; that has it; a glyph is numbered by the file it is in, and a
+    ;; font the host found by name would number them otherwise.
+    ("want-font"
+     (when (fboundp 'host-send-font)
+       (host-send-font (plist-get message :id))))
     ("error" (urusi--host-error (plist-get message :message)))
     (_ (run-hook-with-args 'urusi-message-hook message))))
 
