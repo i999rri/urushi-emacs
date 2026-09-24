@@ -143,6 +143,7 @@
     <ClInclude Include="Input\MouseTranslation.h" />
     <ClInclude Include="Window\XamlCaptionRegions.h" />
     <ClInclude Include="Window\XamlFrameView.h" />
+    <ClInclude Include="Window\XamlPicture.h" />
     <ClInclude Include="Window\XamlScreen.h" />
     <ClInclude Include="Window\XamlSplitter.h" />
     <ClInclude Include="Emacs\Emacs.h" />
@@ -176,6 +177,7 @@
     <ClCompile Include="Input\TextServices.cpp" />
     <ClCompile Include="Window\XamlCaptionRegions.cpp" />
     <ClCompile Include="Window\XamlFrameView.cpp" />
+    <ClCompile Include="Window\XamlPicture.cpp" />
     <ClCompile Include="Window\XamlScreen.cpp" />
     <ClCompile Include="Window\XamlSplitter.cpp" />
     <ClCompile Include="Emacs\Emacs.cpp" />

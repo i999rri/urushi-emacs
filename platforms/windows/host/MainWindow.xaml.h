@@ -10,6 +10,7 @@
 #include "Window/Rows.h"
 #include "Window/XamlCaptionRegions.h"
 #include "Window/XamlFrameView.h"
+#include "Window/XamlPicture.h"
 #include "Window/XamlScreen.h"
 #include "Window/XamlSplitter.h"
 
@@ -96,6 +97,7 @@ namespace winrt::urusi_emacs::implementation
         // the window.
         std::shared_ptr<urusi::windows::emacs::Emacs> m_emacs;
         std::optional<urusi::windows::window::XamlScreen> m_screen;
+        std::optional<urusi::windows::window::XamlPicture> m_picture;
         std::string m_log;
         std::set<std::wstring> m_seen;
         HWND m_emacsWindow{ nullptr };

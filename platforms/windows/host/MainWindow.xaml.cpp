@@ -155,6 +155,7 @@ namespace winrt::urusi_emacs::implementation
             .error = [this](hstring const& text) { ShowStatus(text); },
         });
         m_screen.emplace(Surface(), m_emacs);
+        m_picture.emplace();
 
         // Started under a debugger, as from Visual Studio, everything is
         // written down from the first key: whatever is being chased may
@@ -765,6 +766,20 @@ namespace winrt::urusi_emacs::implementation
         {
             site.SizeChanged(changed);
             m_frameViews.push_back(urusi::windows::window::XamlFrameView::Attach(site, L"", root, m_frameSizes));
+            // The chrome is built again whenever it changes, which
+            // leaves the picture with no element to sit in.
+            // The chrome is built again whenever it changes, which
+            // leaves the picture laid over where the frame used to be.
+            m_picture->Attach(Surface(), site);
+            // Said only when the element moved or changed size, never
+            // after every layout: the picture is laid out to follow it,
+            // and that would call for another layout each time.
+            site.SizeChanged([weak, site](IInspectable const&, SizeChangedEventArgs const&) {
+                if (auto self = weak.get())
+                {
+                    self->m_picture->Follow(site);
+                }
+            });
         }
 
         for (auto const& panel : PanelSites())
@@ -1178,6 +1193,17 @@ namespace winrt::urusi_emacs::implementation
         else if (type == L"pointer")
         {
             ShowPointer(message.GetNamedString(L"shape"));
+        }
+        else if (type == L"picture")
+        {
+            // A picture that cannot be shown is passed over rather
+            // than thrown away quietly: Emacs goes on drawing into the
+            // same picture, so the next one will not put right what
+            // this one would have.
+            if (auto why = m_picture->Show(message); !why.empty())
+            {
+                AppendLog("host", "picture: " + why + "\n");
+            }
         }
         else if (type == L"caret")
         {
