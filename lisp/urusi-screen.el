@@ -887,13 +887,17 @@ is what turns the line Emacs would draw into elements of its own."
 
 Emacs reads the font files and rasterizes the glyphs itself, so it lays
 the text out and draws it by the same measurements; the host is handed
-that picture and shows it here.  Nothing is in this element: the
-picture is the host\\='s to put there.
+that picture and shows it here, under whatever else this holds.
 
 What is in the picture is everything Emacs draws -- the text, the mode
-line, the header line, the tab line, the fringes and the cursor -- so
-anything else on the screen is a component beside this one, and
-anything of Emacs\\='s that is to be one is turned off in Emacs first.
+line, the header line, the fringes and the cursor -- so anything else
+on the screen is a component beside this one, and anything of Emacs\\='s
+that is to be one is turned off in Emacs first.
+
+The tab line of a window is drawn here rather than in the picture
+where `urusi-screen-tab-line-function' says to; see it for what to
+tell Emacs beside that.  A child frame is drawn here too, over
+everything, where Emacs floated one on this frame.
 
 Put in `urusi-screen-components' in place of `urusi-screen-windows',
 which builds the same screen out of elements of its own instead."
