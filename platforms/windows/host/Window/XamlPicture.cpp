@@ -227,11 +227,7 @@ namespace urusi::windows::window
 
     std::string XamlPicture::Show(JsonObject const& message)
     {
-        auto drawn = message.GetNamedArray(L"drawn", nullptr);
-        if (!drawn)
-        {
-            return "no drawn boxes";
-        }
+        auto drawn = message.GetNamedArray(L"drawn", JsonArray{});
 
         if (!Ready(static_cast<int>(message.GetNamedNumber(L"width", 0)),
                    static_cast<int>(message.GetNamedNumber(L"height", 0))))
