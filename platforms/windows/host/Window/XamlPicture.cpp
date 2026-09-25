@@ -63,6 +63,7 @@ namespace urusi::windows::window
         // falls outside it.  The element is a Canvas, which asks for no
         // room of its own however large what is in it, so the picture
         // cannot widen the frame it was drawn for.
+        //
         // Taken out of where it was by the element that holds it
         // rather than by asking the picture what holds it: an element
         // taken off the screen says it has no parent while still
