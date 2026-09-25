@@ -1345,9 +1345,25 @@ namespace winrt::urusi_emacs::implementation
         // A picture that cannot be shown is said rather than passed
         // over quietly: Emacs goes on drawing into the same picture, so
         // the next one will not put right what this one would have.
-        if (auto why = picture.Show(message); !why.empty())
+        auto began = std::chrono::steady_clock::now();
+        auto why = picture.Show(message);
+        if (!why.empty())
         {
             AppendLog("host", "picture: " + why + "\n");
+        }
+
+        // The first of them say what showing one costs, as the screens
+        // do: long enough to see what a keystroke takes, and then quiet.
+        static int told;
+        if (told < 30)
+        {
+            auto took = std::chrono::duration<double, std::milli>(
+                            std::chrono::steady_clock::now() - began)
+                            .count();
+            char said[96];
+
+            snprintf(said, sizeof said, "picture %d shown in %.1fms\n", ++told, took);
+            AppendLog("host", said);
         }
     }
 

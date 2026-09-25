@@ -257,7 +257,11 @@ The methods:
                                  as (:width W :height H)
   window.resize    :width :height
   window.theme                   whether it is drawn dark, as (:dark B)
-  dialog.open-file               the file the person chose, or nil"
+  dialog.open-file               the file the person chose, or nil
+  dialog.ask       :title :message :accept :other :cancel
+                                 which of the answers was chosen, as
+                                 \"accept\", \"other\" or \"cancel\";
+                                 see `urusi-ask'"
   (let ((id (cl-incf urusi--next-call)))
     (puthash id
              (lambda (value error)
@@ -270,6 +274,29 @@ The methods:
                        ;; An empty plist is not an object to JSON.
                        :args (or args (make-hash-table))))
     id))
+
+(cl-defun urusi-ask (message &key title accept other cancel then)
+  "Ask MESSAGE in a dialog of the host\='s, and call THEN with the answer.
+
+ACCEPT, OTHER and CANCEL name the answers offered: the dialog opens on
+ACCEPT, and CANCEL is what closing it and pressing escape come to.  One
+left unnamed is not offered.  TITLE is what the dialog is called.
+
+THEN is called with `accept', `other' or `cancel' once one is
+chosen.  Emacs goes on while the dialog is up, so what is to happen
+after is THEN\='s to do, and nothing waits for it.
+
+The dialog is the host\='s own: it looks as the dialogs of the system
+do, and is not a frame of Emacs\='s."
+  (urusi-call "dialog.ask"
+              (nconc (list :message message)
+                     (when title (list :title title))
+                     (when accept (list :accept accept))
+                     (when other (list :other other))
+                     (when cancel (list :cancel cancel)))
+              (lambda (answer)
+                (when then
+                  (funcall then (intern (or answer "cancel")))))))
 
 (defun urusi-call-wait (method &optional args timeout)
   "Ask the host to do METHOD with ARGS, a plist, and return its answer.

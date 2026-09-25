@@ -4,6 +4,7 @@
 #include <microsoft.ui.xaml.window.h>
 #include <shobjidl.h>
 #include <winrt/Microsoft.UI.Windowing.h>
+#include <winrt/Microsoft.UI.Xaml.Controls.h>
 #include <winrt/Windows.Storage.h>
 #include <winrt/Windows.Storage.Pickers.h>
 
@@ -132,6 +133,58 @@ namespace
         }
     }
 
+    // Ask the person a question, as Windows asks one: over the window,
+    // with a line of text and the answers it is given.
+    //
+    // ARGS says the TITLE and the MESSAGE, and names the answers:
+    // ACCEPT is the one it opens on, OTHER a second, and CANCEL the one
+    // it closes on, which is also what pressing Escape comes to.  An
+    // answer left unnamed is not offered.  Answers with "accept",
+    // "other" or "cancel".
+    fire_and_forget AskAsync(Window window, JsonObject args, Reply reply)
+    {
+        try
+        {
+            Controls::ContentDialog dialog;
+            auto accept = args.GetNamedString(L"accept", L"");
+            auto other = args.GetNamedString(L"other", L"");
+            auto cancel = args.GetNamedString(L"cancel", L"");
+
+            dialog.XamlRoot(window.Content().XamlRoot());
+            dialog.Title(box_value(args.GetNamedString(L"title", L"")));
+            dialog.Content(box_value(args.GetNamedString(L"message", L"")));
+            if (!accept.empty())
+            {
+                dialog.PrimaryButtonText(accept);
+                dialog.DefaultButton(Controls::ContentDialogButton::Primary);
+            }
+            if (!other.empty())
+            {
+                dialog.SecondaryButtonText(other);
+            }
+            if (!cancel.empty())
+            {
+                dialog.CloseButtonText(cancel);
+            }
+
+            auto chosen = co_await dialog.ShowAsync();
+            reply(JsonValue::CreateStringValue(
+                      chosen == Controls::ContentDialogResult::Primary     ? L"accept"
+                      : chosen == Controls::ContentDialogResult::Secondary ? L"other"
+                                                                          : L"cancel"),
+                  L"");
+        }
+        catch (hresult_error const& error)
+        {
+            reply(JsonValue::CreateNullValue(), std::wstring{ error.message() });
+        }
+    }
+
+    void Ask(Window const& window, JsonObject const& args, Reply const& reply)
+    {
+        AskAsync(window, args, reply);
+    }
+
     void OpenFile(Window const& window, JsonObject const& args, Reply const& reply)
     {
         OpenFileAsync(window, args, reply);
@@ -147,6 +200,7 @@ namespace
             { L"window.resize", Resize },
             { L"window.theme", Theme },
             { L"dialog.open-file", OpenFile },
+            { L"dialog.ask", Ask },
         };
         return methods;
     }
