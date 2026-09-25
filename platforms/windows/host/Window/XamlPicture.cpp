@@ -7,6 +7,7 @@
 #include <winrt/Windows.Storage.Streams.h>
 
 #include <algorithm>
+#include <cstring>
 #include <string>
 #include <utility>
 
@@ -150,6 +151,39 @@ namespace urusi::windows::window
         return true;
     }
 
+    // Move one box of the picture, which is what a window scrolling
+    // comes to: what it holds is here already.
+    void XamlPicture::Move(JsonObject const& moved)
+    {
+        int const x = static_cast<int>(moved.GetNamedNumber(L"x", 0));
+        int const y = static_cast<int>(moved.GetNamedNumber(L"y", 0));
+        int const width = static_cast<int>(moved.GetNamedNumber(L"width", 0));
+        int const height = static_cast<int>(moved.GetNamedNumber(L"height", 0));
+        int const toY = static_cast<int>(moved.GetNamedNumber(L"toY", 0));
+        constexpr uint32_t kPixel = 4;
+
+        if (width <= 0 || height <= 0 || x < 0 || y < 0 || toY < 0
+            || x + width > m_width
+            || y + height > m_height || toY + height > m_height)
+        {
+            return;
+        }
+
+        uint8_t* cells = BytesOf(m_bitmap.PixelBuffer());
+        size_t const stride = static_cast<size_t>(m_width) * kPixel;
+        size_t const run = static_cast<size_t>(width) * kPixel;
+
+        // From the end the rows are moving towards, so that a box moved
+        // onto itself is not read after it has been written.
+        for (int row = 0; row < height; row++)
+        {
+            int const at = toY < y ? row : height - 1 - row;
+
+            std::memmove(cells + (toY + at) * stride + x * kPixel,
+                         cells + (y + at) * stride + x * kPixel, run);
+        }
+    }
+
     // One box of a picture: where it is and the pixels of it.  Return
     // why it could not be taken, or nothing if it was.
     std::string XamlPicture::Take(JsonObject const& drawn)
@@ -203,6 +237,13 @@ namespace urusi::windows::window
                    static_cast<int>(message.GetNamedNumber(L"height", 0))))
         {
             return "no picture that size";
+        }
+
+        // What moved moves first: the boxes drawn are what was drawn
+        // after the moving, and are to go over it.
+        for (auto const& one : message.GetNamedArray(L"moved", JsonArray{}))
+        {
+            Move(one.GetObject());
         }
 
         // Several of them: a keystroke draws the line being typed in
