@@ -29,6 +29,7 @@
 #include "Window/DrawReader.h"
 
 using urusi::core::window::DrawReader;
+using urusi::tests::kChecked;
 using urusi::tests::Measured;
 
 namespace
@@ -48,13 +49,6 @@ namespace
 
         size_t Taken() const { return g_taken.load(); }
     };
-
-    constexpr bool kChecked =
-#if defined _ITERATOR_DEBUG_LEVEL && _ITERATOR_DEBUG_LEVEL > 0
-        true;
-#else
-        false;
-#endif
 
 }
 

@@ -323,9 +323,24 @@ namespace urusi::core::window
     // shown is a screen no one drew.
     //
     // The lines are read as they come rather than parsed into objects
-    // of their own.  A screen is a few hundred of them and a screen is
-    // drawn many times a second, and building an object for each field
-    // of each of them costs as much as the drawing does.
+    // of their own, which is where this began: it was written after
+    // measuring the one that did.
+    //
+    // That one read each line with Windows.Data.Json, which builds an
+    // object for every value in it -- every number of a run of glyphs
+    // among them.  While the window scrolled, the thread reading from
+    // Emacs spent nine per cent of a processor, as much as the drawing
+    // of the screen did; and a screen of four hundred and fifty
+    // commands took it five milliseconds against this one's hundred
+    // and thirty microseconds, which is forty times.  One glyph of a
+    // long run cost it fifteen hundred nanoseconds against twenty:
+    // that is the object each number was made into, and it is the
+    // whole of the difference.
+    //
+    // Both readers are kept, and both are held to the same screen and
+    // timed against each other, in tests/windows/Emacs/
+    // test_draw_reader_same.cpp; what this one takes from the heap is
+    // counted in tests/core/Window/test_draw_reader_cost.cpp.
     class DrawReader
     {
     public:

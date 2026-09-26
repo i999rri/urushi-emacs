@@ -15,6 +15,18 @@
 
 namespace urusi::tests
 {
+    // Whether the standard library is the checked one, which takes a
+    // piece of the heap for every container it makes and is slower by
+    // a good deal: what a measurement comes to there is not what it
+    // comes to in what is shipped, so measurements are only made and
+    // held to where this is false.
+    constexpr bool kChecked =
+#if defined _ITERATOR_DEBUG_LEVEL && _ITERATOR_DEBUG_LEVEL > 0
+        true;
+#else
+        false;
+#endif
+
     namespace measured
     {
         // Beside the test program, so it follows the build it belongs

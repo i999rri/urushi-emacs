@@ -31,6 +31,7 @@
 #include "Window/DrawReader.h"
 
 using winrt::Windows::Data::Json::JsonObject;
+using urusi::tests::kChecked;
 using urusi::tests::Measured;
 using urusi::core::window::DrawCommand;
 using urusi::core::window::DrawFrame;
@@ -309,6 +310,13 @@ TEST(DrawReaderSameTest, BothReadersMakeTheSameOfTheShapesAScreenMayNotHave)
 // for.
 TEST(DrawReaderSameTest, TheHandWrittenReaderIsTheFasterOfTheTwo)
 {
+    if (kChecked)
+    {
+        SUCCEED() << "not timed: the checked standard library is not what"
+                     " either of these runs on";
+        return;
+    }
+
     auto const lines = Screen();
     ASSERT_FALSE(lines.empty()) << "no screen in " << Screens();
 
@@ -355,4 +363,130 @@ TEST(DrawReaderSameTest, TheHandWrittenReaderIsTheFasterOfTheTwo)
 
     EXPECT_LT(ours, theirs) << ours << " against " << theirs
                             << " microseconds a screen";
+}
+
+namespace
+{
+    // One run of HOW_MANY glyphs, as Emacs writes one.
+    std::string RunOfGlyphs(int how_many)
+    {
+        std::string ids;
+        std::string xs;
+
+        for (int at = 0; at < how_many; ++at)
+        {
+            if (at)
+            {
+                ids += ",";
+                xs += ",";
+            }
+            ids += std::to_string(3 + at % 90);
+            xs += std::to_string(8 + at * 10);
+        }
+        return R"({"type":"draw","op":"glyphs","font":3,"size":20.00,"y":48,)"
+               R"("color":"#ff6b35","ids":[)"
+               + ids + R"(],"xs":[)" + xs + "]}";
+    }
+
+    template <typename Read>
+    double Each(std::string const& line, int how_many, Read read)
+    {
+        constexpr int kTimes = 2000;
+        auto const began = std::chrono::steady_clock::now();
+
+        for (int time = 0; time < kTimes; ++time)
+        {
+            read(line);
+        }
+
+        auto const took = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                              std::chrono::steady_clock::now() - began)
+                              .count();
+        return static_cast<double>(took) / kTimes / how_many;
+    }
+}
+
+// What one glyph of a run costs each of them.
+//
+// This is what the reader was written by hand for.  The one before it
+// read a line into an object of its own, and every number in the line
+// became an object as well: a run of a hundred glyphs carries two
+// hundred numbers, so two hundred objects made, counted and freed.
+//
+// A run is read at three lengths, so that what is done once for the
+// line is told apart from what is done for each number in it.  Both
+// get cheaper for each glyph as the run grows, since both have a cost
+// for the line; what the longest run shows is the floor, which is what
+// one number costs.  Measured on the machine this was written on, in
+// nanoseconds for each glyph:
+//
+//               by hand   into objects
+//     1 glyph     500        25000
+//    10 glyphs     62         3600
+//   100 glyphs     20         1500
+//
+// Twenty against fifteen hundred is the object each number is made
+// into.  It is that floor, not the reading of the text, that put the
+// thread reading from Emacs at nine per cent of a processor while it
+// drew -- as much as the drawing itself -- and taking it away is what
+// the hand-written reader is for.
+TEST(DrawReaderSameTest, TheReaderThatWasPaysForEveryNumberOfARun)
+{
+    if (kChecked)
+    {
+        SUCCEED() << "not timed: the checked standard library is not what"
+                     " either of these runs on";
+        return;
+    }
+
+    struct { int many; double ours; double theirs; } at[] = {
+        { 1, 0, 0 }, { 10, 0, 0 }, { 100, 0, 0 }
+    };
+
+    for (auto& length : at)
+    {
+        auto const line = RunOfGlyphs(length.many);
+
+        length.ours = Each(line, length.many, [](std::string const& said) {
+            urusi::core::window::DrawReader reader;
+
+            reader.Take(
+                R"({"type":"draw","op":"begin","frame":"f","width":8,"height":6})");
+            reader.Take(said);
+        });
+
+        length.theirs = Each(line, length.many, [](std::string const& said) {
+            was::Reader reader;
+            JsonObject object{ nullptr };
+
+            reader.Take(JsonObject::Parse(
+                winrt::to_hstring(
+                    R"({"type":"draw","op":"begin","frame":"f","width":8,"height":6})")));
+            if (JsonObject::TryParse(winrt::to_hstring(said), object))
+            {
+                reader.Take(object);
+            }
+        });
+
+        std::cout << "a run of " << length.many << " glyphs: " << length.ours
+                  << " nanoseconds a glyph by hand, " << length.theirs
+                  << " into objects\n";
+    }
+
+    Measured("glyph.by.hand", at[2].ours, "nanoseconds");
+    Measured("glyph.into.objects", at[2].theirs, "nanoseconds");
+
+    // Both spread the cost of the line over a longer run.
+    EXPECT_LT(at[2].ours, at[0].ours)
+        << at[0].ours << " a glyph in a run of one, " << at[2].ours
+        << " in a run of a hundred";
+    EXPECT_LT(at[2].theirs, at[0].theirs);
+
+    // What is left at the bottom is what one number costs, and for one
+    // that is made into an object of its own it is another order
+    // altogether.  Ten times is far under what was measured, so only
+    // something gone badly wrong trips this.
+    EXPECT_GT(at[2].theirs, at[2].ours * 10)
+        << at[2].theirs << " against " << at[2].ours
+        << " nanoseconds a glyph in a run of a hundred";
 }
