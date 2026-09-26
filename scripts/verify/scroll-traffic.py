@@ -23,6 +23,7 @@ PLAIN = '--plain' in sys.argv
 NO_TABS = '--no-tab-lines' in sys.argv
 NO_SCREEN = '--no-screen' in sys.argv
 NO_NUMBERS = '--no-line-numbers' in sys.argv
+COMMANDS = '--commands' in sys.argv
 SETTLE = 6 if PLAIN else 22
 # A wheel notch every 60ms, which is about as fast as a hand turns it.
 STEP = 0.06
@@ -34,6 +35,7 @@ PROBE = ('(progn'
          + (' (setq urusi-screen-tab-line-function nil)' if NO_TABS else '')
          + (' (urusi-screen-mode -1)' if NO_SCREEN else '')
          + (' (global-display-line-numbers-mode -1)' if NO_NUMBERS else '')
+         + (' (setq host-draw-commands t)' if COMMANDS else '')
          + (' (run-at-time %d nil'
          '  (lambda () (switch-to-buffer (find-file-noselect "%s"))'
          '             (goto-char (point-min)) (redisplay t)'
@@ -60,7 +62,7 @@ emacs = subprocess.Popen(
 lock = threading.Lock()
 counting = [False]
 tally = {'pictures': 0, 'bytes': 0, 'moved': 0, 'boxes': 0, 'pixels': 0,
-         'widest': 0, 'tallest': 0}
+         'widest': 0, 'tallest': 0, 'commands': 0, 'glyphs': 0}
 
 
 def send(message):
@@ -85,6 +87,19 @@ def read_out():
                 tally['pixels'] += box['width'] * box['height']
                 tally['widest'] = max(tally['widest'], box['width'])
                 tally['tallest'] = max(tally['tallest'], box['height'])
+        elif kind == 'draw' and counting[0]:
+            tally['bytes'] += len(raw)
+            op = message.get('op')
+            if op == 'begin':
+                tally['pictures'] += 1
+            elif op == 'end':
+                pass
+            else:
+                tally['commands'] += 1
+                if op == 'glyphs':
+                    tally['glyphs'] += len(message.get('ids', []))
+                elif op == 'copy':
+                    tally['moved'] += 1
         elif kind == 'call':
             send({'type': 'reply', 'id': message['id'], 'value': None})
 
@@ -113,6 +128,7 @@ print('  %d pictures -- %.1f a second, %.1f a notch'
 print('  %.1f MB -- %.2f MB a second, %.1f KB a picture'
       % (tally['bytes'] / 1e6, tally['bytes'] / took / 1e6,
          tally['bytes'] / max(tally['pictures'], 1) / 1e3))
+print('  %d commands, %d glyphs' % (tally['commands'], tally['glyphs']))
 print('  %d moved boxes, %d drawn boxes, %.1f million pixels'
       % (tally['moved'], tally['boxes'], tally['pixels'] / 1e6))
 print('  the widest box was %d, the tallest %d'
