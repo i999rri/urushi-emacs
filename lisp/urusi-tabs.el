@@ -179,20 +179,23 @@ PROPERTIES are more properties of the TextBlock it is in."
   (let ((family (urusi-tabs--string-face-attribute icon :family))
         (foreground (urusi-screen-color
                      (urusi-tabs--string-face-attribute icon :foreground))))
+    ;; What the caller says is left out of what is said here rather
+    ;; than laid beside it: XAML takes each property once, and a caller
+    ;; that says where the icon sits or what colour it is would
+    ;; otherwise say it twice, which is an error and not the caller
+    ;; winning.
     `(TextBlock :Text ,(urusi-literal (substring-no-properties icon))
-                :VerticalAlignment "Center"
-                ,@(when (stringp family) `(:FontFamily ,family))
-                ,@(when foreground `(:Foreground ,foreground))
+                ,@(urusi-titlebar--without
+                   `(:VerticalAlignment "Center"
+                     ,@(when (stringp family) `(:FontFamily ,family))
+                     ,@(when foreground `(:Foreground ,foreground)))
+                   (cl-loop for (key _) on properties by #'cddr collect key))
                 ,@properties)))
 
 (defun urusi-tabs--face-color (face attribute)
   "Return the colour FACE gives ATTRIBUTE, or nil if it gives none."
   (and face (facep face)
        (urusi-screen-color (face-attribute face attribute nil t))))
-
-(defconst urusi-tabs-close-hover "#28808080"
-  "Colour laid over a close button under the pointer.
-Grey and mostly clear, so that it shows on a tab of any colour.")
 
 (defun urusi-tabs-button-colors (background foreground &optional
                                             hover-background hover-foreground)
@@ -266,7 +269,7 @@ current one stays as it is."
                                        ;; tab's from the tab around it.
                                        ,(urusi-tabs-button-colors
                                          "Transparent" foreground
-                                         urusi-tabs-close-hover foreground))))))))
+                                         urusi-hover-color foreground))))))))
 
 (cl-defun urusi-tabs (tabs &rest properties &key (orientation "Horizontal")
                            (scroll t) &allow-other-keys)
@@ -284,13 +287,18 @@ element, such as its height or where it goes in the grid around it."
         (horizontal (equal orientation "Horizontal")))
     (if (not scroll)
         `(Grid ,@properties ,strip)
-      `(ScrollViewer ,@properties
-                     :IsTabStop nil
-                     :HorizontalScrollMode ,(if horizontal "Enabled" "Disabled")
-                     :HorizontalScrollBarVisibility ,(if horizontal "Hidden" "Disabled")
-                     :VerticalScrollMode ,(if horizontal "Disabled" "Enabled")
-                     :VerticalScrollBarVisibility ,(if horizontal "Disabled" "Hidden")
-                     ,strip))))
+      ;; Merged rather than laid beside: XAML takes each property once,
+      ;; and a caller that says how the strip scrolls would otherwise
+      ;; say it twice, which is not the later one winning but an error.
+      `(ScrollViewer
+        ,@(urusi-titlebar--merge
+           properties
+           `(:IsTabStop nil
+             :HorizontalScrollMode ,(if horizontal "Enabled" "Disabled")
+             :HorizontalScrollBarVisibility ,(if horizontal "Hidden" "Disabled")
+             :VerticalScrollMode ,(if horizontal "Disabled" "Enabled")
+             :VerticalScrollBarVisibility ,(if horizontal "Disabled" "Hidden")))
+        ,strip))))
 
 ;;;; Where they go
 

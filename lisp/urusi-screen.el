@@ -585,7 +585,12 @@ it blinks; what is being composed is drawn all the same."
            (above (or (plist-get cursor :line-spacing-above) 0))
            (left (/ (plist-get cursor :x) scale))
            (top (/ (+ (plist-get cursor :y) above) scale))
-           (height (/ (- (plist-get cursor :height) spacing) scale)))
+           (height (/ (- (plist-get cursor :height) spacing) scale))
+           ;; As wide as Emacs says: a bar is as wide as `cursor-type'
+           ;; asks for and a box is as wide as the character under it,
+           ;; and drawing every one of them two pixels wide draws a bar
+           ;; where a box was meant.
+           (width (/ (max (or (plist-get cursor :width) 0) 1) scale)))
       (let ((origin (urusi-screen--window-origin window)))
         (urusi-screen--tell-caret (+ (car origin) (plist-get cursor :x))
                                   (+ (cdr origin) (plist-get cursor :y) above)
@@ -595,7 +600,7 @@ it blinks; what is being composed is drawn all the same."
                :IsHitTestVisible "False"
                (Rectangle :Canvas.Left ,left
                           :Canvas.Top ,top
-                          :Width ,(/ 2 scale)
+                          :Width ,width
                           :Height ,height
                           :Fill ,color
                           ;; While something is being composed it draws

@@ -51,6 +51,10 @@ An id is a string that says where the event is, the row and the
 element, so that a row the host keeps from one screen to the next goes
 on reaching the handler of the same element in the screen after.")
 
+(defconst urusi-hover-color "#28808080"
+  "Colour laid over something that can be clicked, under the pointer.
+Grey and mostly clear, so that it shows on a background of any colour.")
+
 (defconst urusi--namespaces
   (concat " xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\""
           " xmlns:x=\"http://schemas.microsoft.com/winfx/2006/xaml\"")
@@ -68,12 +72,6 @@ on reaching the handler of the same element in the screen after.")
   (unless (urusi-available-p)
     (user-error "urusi: This Emacs does not run inside the host"))
   (urusi-stop)
-  ;; The host draws the frame, with no menu bar or tool bar of Emacs's
-  ;; above it.  An Emacs built without a window system has no tool bar
-  ;; to turn off.
-  (menu-bar-mode -1)
-  (when (fboundp 'tool-bar-mode)
-    (tool-bar-mode -1))
   (setq urusi--timer
         (run-with-timer urusi-poll-interval urusi-poll-interval #'urusi--take))
   (urusi--send '(:type "hello" :version 1)))

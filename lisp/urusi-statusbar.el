@@ -43,10 +43,6 @@
   "A status bar drawn by the host."
   :group 'urusi)
 
-(defconst urusi-statusbar-hover "#28808080"
-  "Colour laid over a segment that can be clicked, under the pointer.
-Grey and mostly clear, so that it shows on a bar of any colour.")
-
 (defun urusi-statusbar-window (&optional frame)
   "Return the window the bar is about, on FRAME's root frame.
 That is the selected window, or while the minibuffer is being typed in,
@@ -268,8 +264,8 @@ nothing else."
                              (list "ButtonForeground" foreground
                                    "ButtonForegroundPointerOver" foreground
                                    "ButtonForegroundPressed" foreground
-                                   "ButtonBackgroundPointerOver" urusi-statusbar-hover
-                                   "ButtonBackgroundPressed" urusi-statusbar-hover
+                                   "ButtonBackgroundPointerOver" urusi-hover-color
+                                   "ButtonBackgroundPressed" urusi-hover-color
                                    "ButtonBorderBrushPointerOver" "Transparent"
                                    "ButtonBorderBrushPressed" "Transparent")
                              by #'cddr

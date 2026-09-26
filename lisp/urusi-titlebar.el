@@ -135,7 +135,12 @@ grid around it."
 (defun urusi-titlebar--merge (properties defaults)
   "Return PROPERTIES, and those of DEFAULTS that PROPERTIES does not name.
 XAML takes each property once, so one given twice is an error rather
-than the later one winning."
+than the later one winning.
+
+What an element is rather than how it is asked to look -- the text of
+a TextBlock, the content of a Button -- is written before this rather
+than among the defaults, so that it stays at the front of the element
+whatever a caller adds."
   (append properties
           (urusi-titlebar--without
            defaults (cl-loop for (key _) on properties by #'cddr collect key))))

@@ -84,4 +84,35 @@
     (should (string-match-p "Orientation=\"Vertical\"" down))
     (should (string-prefix-p "<Grid" cut))))
 
+(defun urusi-tabs-test--times (attribute xaml)
+  "How many times ATTRIBUTE is written in XAML."
+  ;; Every attribute of an element has a space before it.
+  (cl-loop with at = 0
+           while (string-match (concat " " attribute "=") xaml at)
+           do (setq at (match-end 0))
+           count t))
+
+(ert-deftest urusi-tabs-say-each-property-once ()
+  "A caller that names a property the strip or an icon has says it alone.
+XAML takes each property once, and one written twice is an error rather
+than the later one winning, so a strip asked to scroll another way has
+to be asked once."
+  (let ((strip (car (urusi--compile
+                     (urusi-tabs nil :VerticalScrollMode "Enabled"
+                                 :HorizontalScrollBarVisibility "Visible")))))
+    (should (= 1 (urusi-tabs-test--times "VerticalScrollMode" strip)))
+    (should (= 1 (urusi-tabs-test--times "HorizontalScrollBarVisibility" strip)))
+    ;; And what the caller said is what it says.
+    (should (string-match-p "VerticalScrollMode=\"Enabled\"" strip))
+    (should (string-match-p "HorizontalScrollBarVisibility=\"Visible\"" strip)))
+
+  (let ((icon (car (urusi--compile
+                    (urusi-tabs-icon (propertize "i" 'face '(:family "Icons"))
+                                     :VerticalAlignment "Top"
+                                     :FontFamily "Other")))))
+    (should (= 1 (urusi-tabs-test--times "VerticalAlignment" icon)))
+    (should (= 1 (urusi-tabs-test--times "FontFamily" icon)))
+    (should (string-match-p "VerticalAlignment=\"Top\"" icon))
+    (should (string-match-p "FontFamily=\"Other\"" icon))))
+
 ;;; urusi-tabs-test.el ends here
