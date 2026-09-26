@@ -162,6 +162,19 @@ error: shown every time, it would be what keeps it coming."
   (pcase (plist-get message :type)
     ("hello"
      (setq urusi-scale (or (plist-get message :scale) 1.0))
+     ;; A host that draws what Emacs says to draw is told to say it
+     ;; rather than to draw it: a screen is then a few hundred things
+     ;; to do instead of a megabyte of pixels, and its text is drawn by
+     ;; the same hand as the text around it.  One that cannot is handed
+     ;; the pixels, as before.
+     (when (boundp 'host-draw-commands)
+       (let ((draws (and (plist-get message :draws) t)))
+         (unless (eq draws host-draw-commands)
+           (setq host-draw-commands draws)
+           ;; The host has whatever was drawn the other way; what it
+           ;; holds and what it is told next would be a screen made of
+           ;; both, so the whole of it is drawn again.
+           (redraw-display))))
      ;; Run under a debugger, the host wants an account of what
      ;; happens from the start, before anything has gone wrong.
      (when (plist-get message :debug)

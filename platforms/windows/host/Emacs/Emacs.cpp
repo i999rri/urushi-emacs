@@ -76,6 +76,10 @@ namespace urusi::windows::emacs
         // Emacs measures in the pixels of the screen and XAML in 96ths
         // of an inch, and this is what lies between them.
         reply.SetNamedValue(L"scale", JsonValue::CreateNumberValue(scale));
+        // This host draws what Emacs says to draw, so Emacs need not
+        // draw it and hand over the pixels.  Emacs asks because a host
+        // that cannot would show nothing at all.
+        reply.SetNamedValue(L"draws", JsonValue::CreateBooleanValue(true));
         Send(reply);
     }
 
