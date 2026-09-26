@@ -38,11 +38,14 @@
       <WarningLevel>Level4</WarningLevel>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>/utf-8 /Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\platforms\windows\host;$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <!-- The cppwinrt headers the Windows SDK comes with, for the
+           reader the hand-written one is held to. -->
+      <AdditionalIncludeDirectories>$(ProjectDir)..\platforms\windows\host;$(ProjectDir);$(WindowsSdkDir)Include\$(WindowsTargetPlatformVersion)\cppwinrt;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
+      <AdditionalDependencies>windowsapp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)'=='Debug'">
@@ -62,6 +65,8 @@
     <ClCompile Include="core\Input\test_activation.cpp" />
     <ClCompile Include="core\Window\test_caption_regions.cpp" />
     <ClCompile Include="core\Input\test_engagement.cpp" />
+    <ClCompile Include="core\Window\test_draw_reader.cpp" />
+    <ClCompile Include="core\Window\test_draw_reader_cost.cpp" />
     <ClCompile Include="core\Window\test_frame_sizes.cpp" />
     <ClCompile Include="core\Window\test_frame_view.cpp" />
     <ClCompile Include="core\Input\test_ime_buffer.cpp" />
@@ -69,6 +74,7 @@
     <ClCompile Include="windows\Input\test_mouse_translation.cpp" />
     <ClCompile Include="windows\Input\test_key_names.cpp" />
     <ClCompile Include="windows\Input\test_pointer_message.cpp" />
+    <ClCompile Include="windows\Emacs\test_draw_reader_same.cpp" />
     <ClCompile Include="windows\Emacs\test_remote_command.cpp" />
     <ClCompile Include="core\Window\test_rows.cpp" />
     <ClCompile Include="core\Window\test_splitter.cpp" />

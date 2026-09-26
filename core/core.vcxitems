@@ -28,6 +28,8 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)Input\Pointer.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)Text\Utf.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)Window\CaptionRegions.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)Window\DrawCommand.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)Window\DrawReader.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)Window\FrameSizes.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)Window\FrameView.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)Window\Rows.h" />

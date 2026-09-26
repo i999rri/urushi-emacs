@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "MainWindow.xaml.h"
-#include "Emacs/DrawReader.h"
+#include "Window/DrawReader.h"
 #include "Emacs/HostApi.h"
 #include "Emacs/InputMessages.h"
 #include "Input/KeyboardLayout.h"
@@ -181,7 +181,7 @@ namespace winrt::urusi_emacs::implementation
             emacs->Send(wanted);
         });
 
-        auto drawing = std::make_shared<urusi::windows::emacs::DrawReader>();
+        auto drawing = std::make_shared<urusi::core::window::DrawReader>();
 
         m_emacs->OnMessage([weak, dispatcher, fonts, drawing](std::string message) {
             constexpr std::string_view kFont{ "{\"type\":\"font\"" };
