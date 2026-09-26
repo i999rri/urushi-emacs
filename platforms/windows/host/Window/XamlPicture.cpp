@@ -1,5 +1,8 @@
 #include "pch.h"
 
+#include <algorithm>
+#include <cstring>
+
 #include "XamlPicture.h"
 
 #include <robuffer.h>
@@ -223,6 +226,171 @@ namespace urusi::windows::window
                         static_cast<size_t>(width) * kPixel,
                         into + (static_cast<size_t>(y + row) * m_width + x) * kPixel);
         }
+        return {};
+    }
+
+    // Fill the box with COLOR, as far as the clip allows.  The bitmap
+    // holds a pixel as blue, green, red and alpha, in that order.
+    void XamlPicture::FillBox(int x, int y, int width, int height, uint32_t color)
+    {
+        int left = x;
+        int top = y;
+        int right = x + width;
+        int bottom = y + height;
+
+        if (m_clipped)
+        {
+            left = (std::max)(left, m_clipX);
+            top = (std::max)(top, m_clipY);
+            right = (std::min)(right, m_clipX + m_clipWidth);
+            bottom = (std::min)(bottom, m_clipY + m_clipHeight);
+        }
+        left = (std::max)(left, 0);
+        top = (std::max)(top, 0);
+        right = (std::min)(right, m_width);
+        bottom = (std::min)(bottom, m_height);
+        if (right <= left || bottom <= top)
+        {
+            return;
+        }
+
+        uint8_t* into = BytesOf(m_bitmap.PixelBuffer());
+        uint8_t const blue = color & 0xff;
+        uint8_t const green = (color >> 8) & 0xff;
+        uint8_t const red = (color >> 16) & 0xff;
+
+        for (int row = top; row < bottom; ++row)
+        {
+            uint8_t* at = into + (static_cast<size_t>(row) * m_width + left) * 4;
+
+            for (int column = left; column < right; ++column)
+            {
+                *at++ = blue;
+                *at++ = green;
+                *at++ = red;
+                *at++ = 0xff;
+            }
+        }
+    }
+
+    // Move a box of the picture up or down, which is what a window
+    // scrolling comes to: what it holds is here already.
+    void XamlPicture::CopyBox(int x, int y, int width, int height, int toY)
+    {
+        int const left = (std::max)(x, 0);
+        int const right = (std::min)(x + width, m_width);
+
+        if (right <= left || height <= 0 || y == toY)
+        {
+            return;
+        }
+
+        // Both ends have to lie inside the picture, and stay the same
+        // height, so that what is moved is what was there.
+        int const above = (std::max)(0, (std::max)(-y, -toY));
+        int const below = (std::max)(0, (std::max)(y + height - m_height,
+                                                   toY + height - m_height));
+        int const from = y + above;
+        int const to = toY + above;
+        int const rows = height - above - below;
+
+        if (rows <= 0)
+        {
+            return;
+        }
+
+        uint8_t* cells = BytesOf(m_bitmap.PixelBuffer());
+        size_t const stride = static_cast<size_t>(m_width) * 4;
+        size_t const run = static_cast<size_t>(right - left) * 4;
+        // Upwards from the top and downwards from the bottom, so that
+        // a box moved onto itself does not overwrite what it is still
+        // reading.
+        int const step = to < from ? 1 : -1;
+        int const first = to < from ? 0 : rows - 1;
+
+        for (int i = 0; i < rows; ++i)
+        {
+            int const row = first + i * step;
+
+            std::memmove(cells + (from + row) * stride + left * 4
+                             + (to - from) * static_cast<ptrdiff_t>(stride),
+                         cells + (from + row) * stride + left * 4, run);
+        }
+    }
+
+    // Draw a screen Emacs said rather than drew.
+    std::string XamlPicture::Draw(core::window::DrawFrame const& said)
+    {
+        using core::window::DrawOp;
+
+        if (!Ready(said.width, said.height))
+        {
+            return "a screen of " + std::to_string(said.width) + "x"
+                + std::to_string(said.height);
+        }
+
+        m_clipped = false;
+
+        for (auto const& command : said.commands)
+        {
+            switch (command.op)
+            {
+            case DrawOp::Fill:
+                FillBox(command.x, command.y, command.width, command.height,
+                        command.color);
+                break;
+
+            case DrawOp::Rectangle:
+                // The four sides of it, each a line one pixel thick.
+                FillBox(command.x, command.y, command.width + 1, 1, command.color);
+                FillBox(command.x, command.y + command.height, command.width + 1, 1,
+                        command.color);
+                FillBox(command.x, command.y, 1, command.height + 1, command.color);
+                FillBox(command.x + command.width, command.y, 1, command.height + 1,
+                        command.color);
+                break;
+
+            case DrawOp::Line:
+                // Only the straight ones, which is all Emacs draws
+                // outside the underwave.
+                if (command.y == command.height)
+                {
+                    FillBox((std::min)(command.x, command.width), command.y,
+                            std::abs(command.width - command.x) + 1, 1,
+                            command.color);
+                }
+                else if (command.x == command.width)
+                {
+                    FillBox(command.x, (std::min)(command.y, command.height), 1,
+                            std::abs(command.height - command.y) + 1, command.color);
+                }
+                break;
+
+            case DrawOp::Copy:
+                CopyBox(command.x, command.y, command.width, command.height,
+                        command.toY);
+                break;
+
+            case DrawOp::Clip:
+                m_clipped = true;
+                m_clipX = command.x;
+                m_clipY = command.y;
+                m_clipWidth = command.width;
+                m_clipHeight = command.height;
+                break;
+
+            case DrawOp::Unclip:
+                m_clipped = false;
+                break;
+
+            case DrawOp::Glyphs:
+                // Nothing yet: the text is drawn once the host has the
+                // letters to draw it with.
+                break;
+            }
+        }
+
+        m_bitmap.Invalidate();
         return {};
     }
 

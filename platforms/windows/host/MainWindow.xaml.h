@@ -63,6 +63,7 @@ namespace winrt::urusi_emacs::implementation
         void OnMessage(std::string const& line);
         void Screen(Windows::Data::Json::JsonObject const& message);
         void Picture(Windows::Data::Json::JsonObject const& message);
+        void Drawn(urusi::core::window::DrawFrame const& said);
         bool ShowPictureIn(std::wstring const& name);
         Microsoft::UI::Xaml::FrameworkElement Walked(std::wstring const& name);
 

@@ -6,6 +6,8 @@
 
 #include <string>
 
+#include "Window/DrawCommand.h"
+
 namespace urusi::windows::window
 {
     // The screen as Emacs drew it.
@@ -41,7 +43,15 @@ namespace urusi::windows::window
         // why it could not be shown, or nothing if it was.
         std::string Show(winrt::Windows::Data::Json::JsonObject const& message);
 
+        // Draw a screen Emacs said rather than drew.  Return why it
+        // could not be drawn, or nothing if it was.
+        std::string Draw(core::window::DrawFrame const& said);
+
     private:
+        // Fill the box, as far as the clip allows.
+        void FillBox(int x, int y, int width, int height, uint32_t color);
+        void CopyBox(int x, int y, int width, int height, int toY);
+
         // The picture to draw into, of WIDTH by HEIGHT pixels, made
         // again when the screen is a different size.
         bool Ready(int width, int height);
@@ -57,5 +67,13 @@ namespace urusi::windows::window
         winrt::Windows::Foundation::Size m_room{ -1, -1 };
         int m_width{ 0 };
         int m_height{ 0 };
+
+        // What drawing is kept within while a screen is being drawn,
+        // which Emacs narrows to a row or to one run of text.
+        bool m_clipped{ false };
+        int m_clipX{ 0 };
+        int m_clipY{ 0 };
+        int m_clipWidth{ 0 };
+        int m_clipHeight{ 0 };
     };
 }

@@ -147,6 +147,7 @@
     <ClInclude Include="Window\XamlPicture.h" />
     <ClInclude Include="Window\XamlScreen.h" />
     <ClInclude Include="Window\XamlSplitter.h" />
+    <ClInclude Include="Emacs\DrawReader.h" />
     <ClInclude Include="Emacs\Emacs.h" />
     <ClInclude Include="Emacs\HostCalls.h" />
     <ClInclude Include="Emacs\EmacsHost.h" />
@@ -182,6 +183,7 @@
     <ClCompile Include="Window\XamlPicture.cpp" />
     <ClCompile Include="Window\XamlScreen.cpp" />
     <ClCompile Include="Window\XamlSplitter.cpp" />
+    <ClCompile Include="Emacs\DrawReader.cpp" />
     <ClCompile Include="Emacs\Emacs.cpp" />
     <ClCompile Include="Emacs\HostCalls.cpp" />
     <ClCompile Include="Emacs\EmacsHost.cpp" />

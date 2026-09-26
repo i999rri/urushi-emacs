@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "MainWindow.xaml.h"
+#include "Emacs/DrawReader.h"
 #include "Emacs/HostApi.h"
 #include "Emacs/InputMessages.h"
 #include "Input/KeyboardLayout.h"
@@ -179,8 +180,11 @@ namespace winrt::urusi_emacs::implementation
             emacs->Send(wanted);
         });
 
-        m_emacs->OnMessage([weak, dispatcher, fonts](std::string message) {
+        auto drawing = std::make_shared<urusi::windows::emacs::DrawReader>();
+
+        m_emacs->OnMessage([weak, dispatcher, fonts, drawing](std::string message) {
             constexpr std::string_view kFont{ "{\"type\":\"font\"" };
+            constexpr std::string_view kDraw{ "{\"type\":\"draw\"" };
 
             if (message.compare(0, kFont.size(), kFont) == 0)
             {
@@ -189,6 +193,29 @@ namespace winrt::urusi_emacs::implementation
                 if (JsonObject::TryParse(to_hstring(message), said))
                 {
                     fonts->Take(said);
+                }
+                return;
+            }
+
+            // A screen comes as one line for each thing to draw, which
+            // would be as many hops to the user interface thread; they
+            // are gathered here and the screen goes over in one.
+            if (message.compare(0, kDraw.size(), kDraw) == 0)
+            {
+                JsonObject said{ nullptr };
+
+                if (!JsonObject::TryParse(to_hstring(message), said))
+                {
+                    return;
+                }
+                if (auto frame = drawing->Take(said))
+                {
+                    dispatcher.TryEnqueue([weak, said = std::move(*frame)] {
+                        if (auto self = weak.get())
+                        {
+                            self->Drawn(said);
+                        }
+                    });
                 }
                 return;
             }
@@ -1329,6 +1356,20 @@ namespace winrt::urusi_emacs::implementation
             }
         });
         return true;
+    }
+
+    // A screen Emacs said rather than drew, which the host draws.
+    void MainWindow::Drawn(urusi::core::window::DrawFrame const& said)
+    {
+        auto& picture = m_pictures[said.frame];
+
+        ShowPictureIn(said.frame);
+
+        auto why = picture.Draw(said);
+        if (!why.empty())
+        {
+            AppendLog("host", "draw: " + why + "\n");
+        }
     }
 
     void MainWindow::Picture(JsonObject const& message)
