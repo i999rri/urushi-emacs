@@ -179,7 +179,12 @@ namespace urusi::windows::window
 
     bool XamlDrawing::Ready(int width, int height)
     {
-        if (width <= 0 || height <= 0 || !m_panel || !Device())
+        // Without a panel as well: Emacs draws a frame before the
+        // screen saying where it goes has been built, and a child
+        // frame is drawn the moment it is made.  What is drawn is kept
+        // and shown once there is somewhere to show it, which is what
+        // Attach does.
+        if (width <= 0 || height <= 0 || !Device())
         {
             return false;
         }
@@ -241,18 +246,20 @@ namespace urusi::windows::window
                 return false;
             }
 
-            auto native = m_panel.as<::ISwapChainPanelNative>();
-            if (FAILED(native->SetSwapChain(m_chain.get())))
+            if (m_panel)
             {
-                return false;
+                m_panel.as<::ISwapChainPanelNative>()->SetSwapChain(m_chain.get());
             }
         }
 
         // As many pixels across as Emacs drew for, and as many hundredths
         // of an inch: XAML scales it by the same amount it scales
         // everything else, which is what the picture did before it.
-        m_panel.Width(width);
-        m_panel.Height(height);
+        if (m_panel)
+        {
+            m_panel.Width(width);
+            m_panel.Height(height);
+        }
 
         m_canvas = canvas;
         m_spare = spare;
@@ -367,6 +374,13 @@ namespace urusi::windows::window
     {
         com_ptr<IDXGISurface> back;
         com_ptr<ID2D1Bitmap1> target;
+
+        // Nowhere to show it yet: it stays in the canvas until there
+        // is, and Attach shows it then.
+        if (!m_chain || !m_panel)
+        {
+            return;
+        }
 
         if (FAILED(m_chain->GetBuffer(0, __uuidof(IDXGISurface), back.put_void())))
         {

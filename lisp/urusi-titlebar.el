@@ -27,6 +27,7 @@
 
 (require 'cl-lib)
 (require 'urusi)
+(require 'urusi-frame)
 (require 'urusi-screen)
 
 (defconst urusi-titlebar-symbol-font "Segoe Fluent Icons, Segoe MDL2 Assets"
@@ -54,11 +55,13 @@ places.")
 
 (defun urusi-titlebar-close ()
   "Leave Emacs, asking about the buffers that are not saved first.
-This is what closing the window does: `save-buffers-kill-emacs'."
+This is what closing the window does, and it does the same thing:
+`urusi-frame-close-function' is asked either way, so a button drawn
+here and the window's own close are not two different ways to leave."
   (interactive)
   ;; Not from a button's handler: what it asks waits for the host's
   ;; messages, which are read from where the handler runs.
-  (run-at-time 0 nil #'save-buffers-kill-emacs))
+  (run-at-time 0 nil urusi-frame-close-function))
 
 ;;;; The parts
 
