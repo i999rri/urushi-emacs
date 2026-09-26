@@ -192,7 +192,15 @@ namespace winrt::urusi_emacs::implementation
 
                 if (JsonObject::TryParse(to_hstring(message), said))
                 {
-                    fonts->Take(said);
+                    if (auto why = fonts->Take(said); !why.empty())
+                    {
+                        dispatcher.TryEnqueue([weak, why = std::move(why)] {
+                            if (auto self = weak.get())
+                            {
+                                self->AppendLog("host", "font: " + why + "\n");
+                            }
+                        });
+                    }
                 }
                 return;
             }
@@ -1365,7 +1373,12 @@ namespace winrt::urusi_emacs::implementation
 
         ShowPictureIn(said.frame);
 
-        auto why = picture.Draw(said);
+        if (!m_glyphs)
+        {
+            m_glyphs = std::make_shared<urusi::windows::window::XamlGlyphs>(m_fonts);
+        }
+
+        auto why = picture.Draw(said, *m_glyphs);
         if (!why.empty())
         {
             AppendLog("host", "draw: " + why + "\n");

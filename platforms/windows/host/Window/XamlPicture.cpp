@@ -318,8 +318,83 @@ namespace urusi::windows::window
         }
     }
 
+    // Lay one run of glyphs over what is already there.  The text is
+    // drawn over its background rather than with one, since the
+    // background was filled by the command before it.
+    void XamlPicture::PutGlyphs(core::window::DrawCommand const& command,
+                                XamlGlyphs& glyphs)
+    {
+        uint8_t* cells = BytesOf(m_bitmap.PixelBuffer());
+        int const blue = command.color & 0xff;
+        int const green = (command.color >> 8) & 0xff;
+        int const red = (command.color >> 16) & 0xff;
+
+        int clipLeft = 0;
+        int clipTop = 0;
+        int clipRight = m_width;
+        int clipBottom = m_height;
+
+        if (m_clipped)
+        {
+            clipLeft = (std::max)(clipLeft, m_clipX);
+            clipTop = (std::max)(clipTop, m_clipY);
+            clipRight = (std::min)(clipRight, m_clipX + m_clipWidth);
+            clipBottom = (std::min)(clipBottom, m_clipY + m_clipHeight);
+        }
+
+        for (size_t at = 0; at < command.ids.size(); ++at)
+        {
+            auto const* raster = glyphs.Of(command.font, command.size,
+                                           command.ids[at]);
+            if (!raster)
+            {
+                continue;
+            }
+
+            int const left = command.xs[at] + raster->left;
+            int const top = command.y + raster->top;
+
+            for (int row = 0; row < raster->height; ++row)
+            {
+                int const y = top + row;
+
+                if (y < clipTop || y >= clipBottom)
+                {
+                    continue;
+                }
+
+                uint8_t const* covers
+                    = raster->coverage.data()
+                      + static_cast<size_t>(row) * raster->width;
+
+                for (int column = 0; column < raster->width; ++column)
+                {
+                    int const x = left + column;
+                    int const cover = covers[column];
+
+                    if (x < clipLeft || x >= clipRight || cover == 0)
+                    {
+                        continue;
+                    }
+
+                    uint8_t* pixel
+                        = cells + (static_cast<size_t>(y) * m_width + x) * 4;
+
+                    pixel[0] = static_cast<uint8_t>(
+                        (blue * cover + pixel[0] * (255 - cover)) / 255);
+                    pixel[1] = static_cast<uint8_t>(
+                        (green * cover + pixel[1] * (255 - cover)) / 255);
+                    pixel[2] = static_cast<uint8_t>(
+                        (red * cover + pixel[2] * (255 - cover)) / 255);
+                    pixel[3] = 0xff;
+                }
+            }
+        }
+    }
+
     // Draw a screen Emacs said rather than drew.
-    std::string XamlPicture::Draw(core::window::DrawFrame const& said)
+    std::string XamlPicture::Draw(core::window::DrawFrame const& said,
+                                  XamlGlyphs& glyphs)
     {
         using core::window::DrawOp;
 
@@ -384,8 +459,7 @@ namespace urusi::windows::window
                 break;
 
             case DrawOp::Glyphs:
-                // Nothing yet: the text is drawn once the host has the
-                // letters to draw it with.
+                PutGlyphs(command, glyphs);
                 break;
             }
         }

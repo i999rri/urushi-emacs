@@ -7,6 +7,7 @@
 #include <string>
 
 #include "Window/DrawCommand.h"
+#include "Window/XamlGlyphs.h"
 
 namespace urusi::windows::window
 {
@@ -45,12 +46,15 @@ namespace urusi::windows::window
 
         // Draw a screen Emacs said rather than drew.  Return why it
         // could not be drawn, or nothing if it was.
-        std::string Draw(core::window::DrawFrame const& said);
+        std::string Draw(core::window::DrawFrame const& said,
+                         XamlGlyphs& glyphs);
 
     private:
         // Fill the box, as far as the clip allows.
         void FillBox(int x, int y, int width, int height, uint32_t color);
         void CopyBox(int x, int y, int width, int height, int toY);
+        void PutGlyphs(core::window::DrawCommand const& command,
+                       XamlGlyphs& glyphs);
 
         // The picture to draw into, of WIDTH by HEIGHT pixels, made
         // again when the screen is a different size.
