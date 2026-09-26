@@ -837,6 +837,14 @@ namespace winrt::urusi_emacs::implementation
             ShowPictureIn(name);
         }
 
+        for (auto& [name, drawing] : m_drawings)
+        {
+            if (auto site = Walked(L"urusi-emacs:" + name))
+            {
+                drawing.Attach(site);
+            }
+        }
+
         for (auto const& panel : PanelSites())
         {
             HWND window = nullptr;
@@ -1369,17 +1377,33 @@ namespace winrt::urusi_emacs::implementation
     // A screen Emacs said rather than drew, which the host draws.
     void MainWindow::Drawn(urusi::core::window::DrawFrame const& said)
     {
-        auto& picture = m_pictures[said.frame];
+        auto found = m_drawings.find(said.frame);
 
-        ShowPictureIn(said.frame);
-
-        if (!m_glyphs)
+        if (found == m_drawings.end())
         {
-            m_glyphs = std::make_shared<urusi::windows::window::XamlGlyphs>(m_fonts);
+            found = m_drawings
+                        .emplace(said.frame,
+                                 urusi::windows::window::XamlDrawing{ m_fonts })
+                        .first;
         }
 
-        auto why = picture.Draw(said, *m_glyphs);
-        if (!why.empty())
+        // A picture of the same frame from before Emacs was told to
+        // say what it draws is still laid over the element, and would
+        // be laid over this: it is a bitmap and never changes again.
+        if (auto stale = m_pictures.find(said.frame); stale != m_pictures.end())
+        {
+            stale->second.TakeAway();
+            m_pictures.erase(stale);
+        }
+
+        // The element may not be there yet: Emacs draws a frame before
+        // the screen saying where it goes has been built.
+        if (auto site = Walked(L"urusi-emacs:" + said.frame))
+        {
+            found->second.Attach(site);
+        }
+
+        if (auto why = found->second.Draw(said); !why.empty())
         {
             AppendLog("host", "draw: " + why + "\n");
         }

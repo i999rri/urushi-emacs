@@ -143,6 +143,7 @@
     <ClInclude Include="Input\MouseTranslation.h" />
     <ClInclude Include="Window\XamlCaptionRegions.h" />
     <ClInclude Include="Window\XamlFrameView.h" />
+    <ClInclude Include="Window\XamlDrawing.h" />
     <ClInclude Include="Window\XamlFonts.h" />
     <ClInclude Include="Window\XamlGlyphs.h" />
     <ClInclude Include="Window\XamlPicture.h" />
@@ -180,6 +181,7 @@
     <ClCompile Include="Input\TextServices.cpp" />
     <ClCompile Include="Window\XamlCaptionRegions.cpp" />
     <ClCompile Include="Window\XamlFrameView.cpp" />
+    <ClCompile Include="Window\XamlDrawing.cpp" />
     <ClCompile Include="Window\XamlFonts.cpp" />
     <ClCompile Include="Window\XamlGlyphs.cpp" />
     <ClCompile Include="Window\XamlPicture.cpp" />

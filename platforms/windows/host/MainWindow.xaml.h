@@ -10,6 +10,7 @@
 #include "Window/Rows.h"
 #include "Window/XamlCaptionRegions.h"
 #include "Window/XamlFrameView.h"
+#include "Window/XamlDrawing.h"
 #include "Window/XamlFonts.h"
 #include "Window/XamlGlyphs.h"
 #include "Window/XamlPicture.h"
@@ -107,6 +108,10 @@ namespace winrt::urusi_emacs::implementation
         // known by, since a child frame has a picture of its own.
         std::map<std::wstring, urusi::windows::window::XamlPicture> m_pictures;
         std::shared_ptr<urusi::windows::window::XamlGlyphs> m_glyphs;
+        // The screens drawn from what Emacs said, one for each
+        // frame, beside the pictures of an Emacs that draws its
+        // own.
+        std::map<std::wstring, urusi::windows::window::XamlDrawing> m_drawings;
         // The font files Emacs draws in, which it hands over because a
         // glyph is numbered by the file it is in.  Shared, since they
         // are taken on the thread that reads from Emacs and outlive
