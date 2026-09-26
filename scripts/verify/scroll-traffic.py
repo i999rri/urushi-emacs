@@ -20,6 +20,9 @@ SECONDS = int(sys.argv[sys.argv.index('--seconds') + 1]) if '--seconds' in sys.a
 FILE = (sys.argv[sys.argv.index('--file') + 1] if '--file' in sys.argv
         else '~/dev/urusi/emacs-config/.config/emacs/asiimov-theme.el')
 PLAIN = '--plain' in sys.argv
+NO_TABS = '--no-tab-lines' in sys.argv
+NO_SCREEN = '--no-screen' in sys.argv
+NO_NUMBERS = '--no-line-numbers' in sys.argv
 SETTLE = 6 if PLAIN else 22
 # A wheel notch every 60ms, which is about as fast as a hand turns it.
 STEP = 0.06
@@ -28,7 +31,10 @@ STEP = 0.06
 # settled, since some of that shows a screen of its own; and where the
 # top of the window is by the end says the wheel moved something.
 PROBE = ('(progn'
-         ' (run-at-time %d nil'
+         + (' (setq urusi-screen-tab-line-function nil)' if NO_TABS else '')
+         + (' (urusi-screen-mode -1)' if NO_SCREEN else '')
+         + (' (global-display-line-numbers-mode -1)' if NO_NUMBERS else '')
+         + (' (run-at-time %d nil'
          '  (lambda () (switch-to-buffer (find-file-noselect "%s"))'
          '             (goto-char (point-min)) (redisplay t)'
          '             (princ (format "PROBE showing %%s, %%d characters\\n"'
@@ -38,7 +44,7 @@ PROBE = ('(progn'
          '  (lambda () (princ (format "PROBE %%s starts at %%d of %%d\\n"'
          '                            (buffer-name) (window-start) (point-max))'
          '                    #\'external-debugging-output))))'
-         % (SETTLE - 2, FILE, SETTLE + SECONDS + 1))
+            % (SETTLE - 2, FILE, SETTLE + SECONDS + 1)))
 
 INNER = ('EMACS_HOST_PIPE=1 '
          + ('' if PLAIN else 'EMACSLOADPATH=$HOME/dev/urusi/site-lisp: ')
