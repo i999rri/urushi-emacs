@@ -12,7 +12,12 @@
 
 param(
     [string] $Path = 'urusi-emacs.png',
-    [string] $Process = 'urusi_emacs'
+    [string] $Process = 'urusi_emacs',
+    # Photograph it off the screen instead, which is the only way to
+    # see what a swap chain shows: it is composed by the desktop, and
+    # a window asked to draw itself leaves it out. The window comes to
+    # the front for as long as it takes and is put back after.
+    [switch] $FromScreen
 )
 
 $ErrorActionPreference = 'Stop'
@@ -35,8 +40,13 @@ public static class WindowShot
 
     // Draw everything the window shows, including what the desktop
     // composes for it: without this a window drawn that way comes out
-    // blank.
+    // blank. It does not reach a swap chain all the same.
     public const uint RenderFullContent = 2;
+
+    [DllImport("user32.dll")]
+    public static extern bool SetForegroundWindow(IntPtr window);
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetForegroundWindow();
 }
 '@
 
@@ -54,10 +64,25 @@ $width = $bounds.Right - $bounds.Left
 $height = $bounds.Bottom - $bounds.Top
 $bitmap = New-Object System.Drawing.Bitmap $width, $height
 $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-$dc = $graphics.GetHdc()
-$drawn = [WindowShot]::PrintWindow($window, $dc, [WindowShot]::RenderFullContent)
-$graphics.ReleaseHdc($dc)
-$graphics.Dispose()
+
+if ($FromScreen) {
+    $wasFront = [WindowShot]::GetForegroundWindow()
+    [void][WindowShot]::SetForegroundWindow($window)
+    Start-Sleep -Milliseconds 500
+    $graphics.CopyFromScreen($bounds.Left, $bounds.Top, 0, 0,
+                             (New-Object System.Drawing.Size $width, $height))
+    if ($wasFront -ne [IntPtr]::Zero) {
+        [void][WindowShot]::SetForegroundWindow($wasFront)
+    }
+    $drawn = $true
+    $graphics.Dispose()
+}
+else {
+    $dc = $graphics.GetHdc()
+    $drawn = [WindowShot]::PrintWindow($window, $dc, [WindowShot]::RenderFullContent)
+    $graphics.ReleaseHdc($dc)
+    $graphics.Dispose()
+}
 
 if (-not $drawn) {
     $bitmap.Dispose()
