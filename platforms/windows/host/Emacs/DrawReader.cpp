@@ -1,71 +1,309 @@
 #include "pch.h"
 
-#include <algorithm>
 #include "Emacs/DrawReader.h"
 
-using namespace winrt;
-using namespace winrt::Windows::Data::Json;
+#include <algorithm>
+#include <cstdlib>
+#include <vector>
+
 using urusi::core::window::DrawCommand;
 using urusi::core::window::DrawFrame;
 using urusi::core::window::DrawOp;
 
 namespace
 {
-    // "#rrggbb" as Emacs writes a color, or black.
-    uint32_t ColorOf(JsonObject const& said)
+    // What one line of a screen says, whatever order it says it in.
+    struct Said
     {
-        auto text = said.GetNamedString(L"color", L"");
-        if (text.size() != 7 || text[0] != L'#')
+        std::string_view op;
+        std::string_view frame;
+        int x{};
+        int y{};
+        int x0{};
+        int y0{};
+        int x1{};
+        int y1{};
+        int width{};
+        int height{};
+        int toY{};
+        int font{};
+        uint32_t color{};
+        double size{};
+        std::vector<uint16_t> ids;
+        std::vector<int> xs;
+    };
+
+    void PassSpace(std::string_view line, size_t& at)
+    {
+        while (at < line.size() && (line[at] == ' ' || line[at] == '\t'))
+        {
+            ++at;
+        }
+    }
+
+    // The text of a string that begins at AT, which is its quote.
+    std::string_view Text(std::string_view line, size_t& at)
+    {
+        if (at >= line.size() || line[at] != '"')
+        {
+            return {};
+        }
+
+        auto const from = ++at;
+        while (at < line.size() && line[at] != '"')
+        {
+            // Nothing Emacs writes here has an escape in it, but one
+            // would otherwise end the string early.
+            if (line[at] == '\\' && at + 1 < line.size())
+            {
+                ++at;
+            }
+            ++at;
+        }
+
+        auto const text = line.substr(from, at - from);
+        if (at < line.size())
+        {
+            ++at;
+        }
+        return text;
+    }
+
+    long long Number(std::string_view line, size_t& at)
+    {
+        bool const below = at < line.size() && line[at] == '-';
+        long long value = 0;
+
+        if (below)
+        {
+            ++at;
+        }
+        while (at < line.size() && line[at] >= '0' && line[at] <= '9')
+        {
+            value = value * 10 + (line[at++] - '0');
+        }
+        // A fraction, which only the size of a font has.
+        if (at < line.size() && line[at] == '.')
+        {
+            ++at;
+            while (at < line.size() && line[at] >= '0' && line[at] <= '9')
+            {
+                ++at;
+            }
+        }
+        return below ? -value : value;
+    }
+
+    double Fraction(std::string_view line, size_t& at)
+    {
+        auto const from = at;
+
+        Number(line, at);
+        return std::strtod(std::string{ line.substr(from, at - from) }.c_str(),
+                           nullptr);
+    }
+
+    // "#rrggbb" as Emacs writes a color.
+    uint32_t Color(std::string_view text)
+    {
+        uint32_t value = 0;
+
+        if (text.size() != 7 || text[0] != '#')
         {
             return 0;
         }
-        return static_cast<uint32_t>(std::wcstoul(text.c_str() + 1, nullptr, 16));
+        for (size_t at = 1; at < text.size(); ++at)
+        {
+            char const digit = text[at];
+            uint32_t part;
+
+            if (digit >= '0' && digit <= '9')
+            {
+                part = digit - '0';
+            }
+            else if (digit >= 'a' && digit <= 'f')
+            {
+                part = digit - 'a' + 10;
+            }
+            else if (digit >= 'A' && digit <= 'F')
+            {
+                part = digit - 'A' + 10;
+            }
+            else
+            {
+                return 0;
+            }
+            value = value * 16 + part;
+        }
+        return value;
     }
 
-    int NumberOf(JsonObject const& said, wchar_t const* name)
+    template <typename T>
+    void Numbers(std::string_view line, size_t& at, std::vector<T>& into)
     {
-        return static_cast<int>(said.GetNamedNumber(name, 0));
-    }
-
-    void ReadGlyphs(JsonObject const& said, DrawCommand& command)
-    {
-        command.font = NumberOf(said, L"font");
-        command.size = said.GetNamedNumber(L"size", 0);
-        command.y = NumberOf(said, L"y");
-        command.color = ColorOf(said);
-
-        auto ids = said.GetNamedArray(L"ids", nullptr);
-        auto xs = said.GetNamedArray(L"xs", nullptr);
-        if (!ids || !xs)
+        if (at >= line.size() || line[at] != '[')
         {
             return;
         }
+        ++at;
 
-        auto count = (std::min)(ids.Size(), xs.Size());
-        command.ids.reserve(count);
-        command.xs.reserve(count);
-        for (uint32_t at = 0; at < count; ++at)
+        while (at < line.size() && line[at] != ']')
         {
-            command.ids.push_back(static_cast<uint16_t>(ids.GetNumberAt(at)));
-            command.xs.push_back(static_cast<int>(xs.GetNumberAt(at)));
+            PassSpace(line, at);
+            into.push_back(static_cast<T>(Number(line, at)));
+            PassSpace(line, at);
+            if (at < line.size() && line[at] == ',')
+            {
+                ++at;
+            }
         }
+        if (at < line.size())
+        {
+            ++at;
+        }
+    }
+
+    // Read one line into what it says.  It is one object of the few
+    // shapes hostrecord.c writes, and nothing else is looked for.
+    bool Read(std::string_view line, Said& said)
+    {
+        size_t at = line.find('{');
+
+        if (at == std::string_view::npos)
+        {
+            return false;
+        }
+        ++at;
+
+        while (at < line.size())
+        {
+            PassSpace(line, at);
+            if (at >= line.size() || line[at] == '}')
+            {
+                return true;
+            }
+            if (line[at] == ',')
+            {
+                ++at;
+                continue;
+            }
+
+            auto const key = Text(line, at);
+            PassSpace(line, at);
+            if (at >= line.size() || line[at] != ':')
+            {
+                return false;
+            }
+            ++at;
+            PassSpace(line, at);
+
+            if (key == "op")
+            {
+                said.op = Text(line, at);
+            }
+            else if (key == "frame")
+            {
+                said.frame = Text(line, at);
+            }
+            else if (key == "color")
+            {
+                said.color = Color(Text(line, at));
+            }
+            else if (key == "ids")
+            {
+                Numbers(line, at, said.ids);
+            }
+            else if (key == "xs")
+            {
+                Numbers(line, at, said.xs);
+            }
+            else if (key == "size")
+            {
+                said.size = Fraction(line, at);
+            }
+            else if (key == "x")
+            {
+                said.x = static_cast<int>(Number(line, at));
+            }
+            else if (key == "y")
+            {
+                said.y = static_cast<int>(Number(line, at));
+            }
+            else if (key == "x0")
+            {
+                said.x0 = static_cast<int>(Number(line, at));
+            }
+            else if (key == "y0")
+            {
+                said.y0 = static_cast<int>(Number(line, at));
+            }
+            else if (key == "x1")
+            {
+                said.x1 = static_cast<int>(Number(line, at));
+            }
+            else if (key == "y1")
+            {
+                said.y1 = static_cast<int>(Number(line, at));
+            }
+            else if (key == "width")
+            {
+                said.width = static_cast<int>(Number(line, at));
+            }
+            else if (key == "height")
+            {
+                said.height = static_cast<int>(Number(line, at));
+            }
+            else if (key == "toY")
+            {
+                said.toY = static_cast<int>(Number(line, at));
+            }
+            else if (key == "font")
+            {
+                said.font = static_cast<int>(Number(line, at));
+            }
+            else
+            {
+                // A field this host has no use for: the value is a
+                // string, a number or an array, and all three end
+                // where the next field begins.
+                if (line[at] == '"')
+                {
+                    Text(line, at);
+                }
+                else if (line[at] == '[')
+                {
+                    std::vector<int> ignored;
+                    Numbers(line, at, ignored);
+                }
+                else
+                {
+                    Number(line, at);
+                }
+            }
+        }
+        return true;
     }
 }
 
 namespace urusi::windows::emacs
 {
-    std::optional<DrawFrame> DrawReader::Take(JsonObject const& said)
+    std::optional<DrawFrame> DrawReader::Take(std::string_view line)
     {
+        Said said;
+
         m_why.clear();
+        if (!Read(line, said))
+        {
+            m_why = L"a line that is no drawing";
+            return std::nullopt;
+        }
 
-        auto op = said.GetNamedString(L"op", L"");
-
-        if (op == L"begin")
+        if (said.op == "begin")
         {
             m_frame = DrawFrame{};
-            m_frame.frame = said.GetNamedString(L"frame", L"");
-            m_frame.width = NumberOf(said, L"width");
-            m_frame.height = NumberOf(said, L"height");
+            m_frame.frame.assign(said.frame.begin(), said.frame.end());
+            m_frame.width = said.width;
+            m_frame.height = said.height;
             m_begun = true;
             return std::nullopt;
         }
@@ -74,58 +312,65 @@ namespace urusi::windows::emacs
         // and drawing from it would draw onto the screen before it.
         if (!m_begun)
         {
-            m_why = L"a line of a screen that never began: " + std::wstring{ op };
+            m_why = L"a line of a screen that never began";
             return std::nullopt;
         }
 
-        if (op == L"end")
+        if (said.op == "end")
         {
             m_begun = false;
             return std::move(m_frame);
         }
 
         DrawCommand command;
-        if (op == L"fill" || op == L"rectangle" || op == L"clip")
+        if (said.op == "fill" || said.op == "rectangle" || said.op == "clip")
         {
-            command.op = op == L"fill"        ? DrawOp::Fill
-                         : op == L"rectangle" ? DrawOp::Rectangle
-                                              : DrawOp::Clip;
-            command.x = NumberOf(said, L"x");
-            command.y = NumberOf(said, L"y");
-            command.width = NumberOf(said, L"width");
-            command.height = NumberOf(said, L"height");
-            command.color = ColorOf(said);
+            command.op = said.op == "fill"        ? DrawOp::Fill
+                         : said.op == "rectangle" ? DrawOp::Rectangle
+                                                  : DrawOp::Clip;
+            command.x = said.x;
+            command.y = said.y;
+            command.width = said.width;
+            command.height = said.height;
+            command.color = said.color;
         }
-        else if (op == L"line")
+        else if (said.op == "line")
         {
             command.op = DrawOp::Line;
-            command.x = NumberOf(said, L"x0");
-            command.y = NumberOf(said, L"y0");
-            command.width = NumberOf(said, L"x1");
-            command.height = NumberOf(said, L"y1");
-            command.color = ColorOf(said);
+            command.x = said.x0;
+            command.y = said.y0;
+            command.width = said.x1;
+            command.height = said.y1;
+            command.color = said.color;
         }
-        else if (op == L"copy")
+        else if (said.op == "copy")
         {
             command.op = DrawOp::Copy;
-            command.x = NumberOf(said, L"x");
-            command.y = NumberOf(said, L"y");
-            command.width = NumberOf(said, L"width");
-            command.height = NumberOf(said, L"height");
-            command.toY = NumberOf(said, L"toY");
+            command.x = said.x;
+            command.y = said.y;
+            command.width = said.width;
+            command.height = said.height;
+            command.toY = said.toY;
         }
-        else if (op == L"unclip")
+        else if (said.op == "unclip")
         {
             command.op = DrawOp::Unclip;
         }
-        else if (op == L"glyphs")
+        else if (said.op == "glyphs")
         {
             command.op = DrawOp::Glyphs;
-            ReadGlyphs(said, command);
+            command.font = said.font;
+            command.size = said.size;
+            command.y = said.y;
+            command.color = said.color;
+            command.ids = std::move(said.ids);
+            command.xs = std::move(said.xs);
+            command.ids.resize((std::min)(command.ids.size(), command.xs.size()));
+            command.xs.resize(command.ids.size());
         }
         else
         {
-            m_why = L"a kind of drawing this host does not know: " + std::wstring{ op };
+            m_why = L"a kind of drawing this host does not know";
             return std::nullopt;
         }
 

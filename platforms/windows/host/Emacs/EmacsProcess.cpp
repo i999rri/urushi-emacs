@@ -104,8 +104,16 @@ namespace urusi::windows::emacs
         }
 
         auto self = shared_from_this();
-        std::thread{ [self] { self->ReadMessages(); } }.detach();
-        std::thread{ [self] { self->ReadErrors(); } }.detach();
+        // Named, so that what the window spends its time on can be
+        // told apart in a profile or in the task manager.
+        std::thread{ [self] {
+            SetThreadDescription(GetCurrentThread(), L"emacs messages");
+            self->ReadMessages();
+        } }.detach();
+        std::thread{ [self] {
+            SetThreadDescription(GetCurrentThread(), L"emacs errors");
+            self->ReadErrors();
+        } }.detach();
     }
 
     // Start the process, with pipes for its standard handles and only

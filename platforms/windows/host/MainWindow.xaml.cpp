@@ -150,6 +150,7 @@ namespace winrt::urusi_emacs::implementation
     void MainWindow::Start()
     {
         m_dispatcher = Microsoft::UI::Dispatching::DispatcherQueue::GetForCurrentThread();
+        SetThreadDescription(GetCurrentThread(), L"window");
         auto weak = get_weak();
 
         m_emacs = std::make_shared<urusi::windows::emacs::Emacs>(urusi::windows::emacs::Emacs::Events{
@@ -210,13 +211,7 @@ namespace winrt::urusi_emacs::implementation
             // are gathered here and the screen goes over in one.
             if (message.compare(0, kDraw.size(), kDraw) == 0)
             {
-                JsonObject said{ nullptr };
-
-                if (!JsonObject::TryParse(to_hstring(message), said))
-                {
-                    return;
-                }
-                if (auto frame = drawing->Take(said))
+                if (auto frame = drawing->Take(message))
                 {
                     dispatcher.TryEnqueue([weak, said = std::move(*frame)] {
                         if (auto self = weak.get())
