@@ -21,16 +21,15 @@
 #include <atomic>
 #include <chrono>
 #include <cstdlib>
-#include <fstream>
-#include <map>
 #include <new>
-#include <sstream>
 #include <string>
 #include <vector>
 
+#include "Measured.h"
 #include "Window/DrawReader.h"
 
 using urusi::core::window::DrawReader;
+using urusi::tests::Measured;
 
 namespace
 {
@@ -57,66 +56,6 @@ namespace
         false;
 #endif
 
-    // What the run before this one measured, and what this one did.
-    // Kept beside the test program, so that running it twice says
-    // whether anything moved.
-    char const* const kBefore = "draw-reader-cost.last";
-
-    std::map<std::string, double>& Before()
-    {
-        static std::map<std::string, double> before = [] {
-            std::map<std::string, double> read;
-            std::ifstream file{ kBefore };
-            std::string name;
-            double was{};
-
-            while (file >> name >> was)
-            {
-                read[name] = was;
-            }
-            return read;
-        }();
-        return before;
-    }
-
-    std::map<std::string, double>& Now()
-    {
-        static std::map<std::string, double> now;
-        return now;
-    }
-
-    // Say what was measured beside what it was last time, and keep it
-    // for the next run.
-    void Measured(std::string const& name, double value, char const* unit)
-    {
-        Now()[name] = value;
-
-        std::ostringstream said;
-        said << name << ": " << value << " " << unit;
-
-        if (auto was = Before().find(name); was != Before().end())
-        {
-            double const then = was->second;
-
-            said << " (was " << then;
-            if (then > 0)
-            {
-                said << ", " << (value - then) / then * 100 << "%";
-            }
-            said << ")";
-        }
-        else
-        {
-            said << " (nothing to compare with yet)";
-        }
-        std::cout << said.str() << "\n";
-
-        std::ofstream file{ kBefore };
-        for (auto const& [kept, number] : Now())
-        {
-            file << kept << " " << number << "\n";
-        }
-    }
 }
 
 void* operator new(size_t size)

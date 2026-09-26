@@ -20,15 +20,18 @@
 #include <winrt/Windows.Data.Json.h>
 
 #include <algorithm>
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <optional>
 #include <string>
 #include <vector>
 
+#include "Measured.h"
 #include "Window/DrawReader.h"
 
 using winrt::Windows::Data::Json::JsonObject;
+using urusi::tests::Measured;
 using urusi::core::window::DrawCommand;
 using urusi::core::window::DrawFrame;
 using urusi::core::window::DrawOp;
@@ -293,4 +296,63 @@ TEST(DrawReaderSameTest, BothReadersMakeTheSameOfTheShapesAScreenMayNotHave)
     {
         Same(ours->commands[at], theirs->commands[at], at);
     }
+}
+
+// How long each of them takes over the same screen.
+//
+// What each takes from the heap would say it better, but cannot be
+// counted here: Windows.Data.Json is a runtime of the system's, and
+// what it takes it takes from a heap of its own, which the counting
+// this test program does of `operator new' never sees.  Counting it
+// would say the reader that was takes nothing, which is the opposite
+// of why it was replaced.  Time is what both are on the same footing
+// for.
+TEST(DrawReaderSameTest, TheHandWrittenReaderIsTheFasterOfTheTwo)
+{
+    auto const lines = Screen();
+    ASSERT_FALSE(lines.empty()) << "no screen in " << Screens();
+
+    constexpr int kTimes = 50;
+
+    auto const began = std::chrono::steady_clock::now();
+    for (int time = 0; time < kTimes; ++time)
+    {
+        urusi::core::window::DrawReader now;
+
+        for (auto const& line : lines)
+        {
+            now.Take(line);
+        }
+    }
+    auto const ours = std::chrono::duration_cast<std::chrono::microseconds>(
+                          std::chrono::steady_clock::now() - began)
+                          .count()
+                      / static_cast<double>(kTimes);
+
+    auto const alsoBegan = std::chrono::steady_clock::now();
+    for (int time = 0; time < kTimes; ++time)
+    {
+        was::Reader before;
+
+        for (auto const& line : lines)
+        {
+            JsonObject said{ nullptr };
+
+            if (JsonObject::TryParse(winrt::to_hstring(line), said))
+            {
+                before.Take(said);
+            }
+        }
+    }
+    auto const theirs = std::chrono::duration_cast<std::chrono::microseconds>(
+                            std::chrono::steady_clock::now() - alsoBegan)
+                            .count()
+                        / static_cast<double>(kTimes);
+
+    Measured("screen.read.by.hand", ours, "microseconds");
+    Measured("screen.read.into.objects", theirs, "microseconds");
+    Measured("screen.read.times.faster", theirs / (ours > 0 ? ours : 1), "times");
+
+    EXPECT_LT(ours, theirs) << ours << " against " << theirs
+                            << " microseconds a screen";
 }
