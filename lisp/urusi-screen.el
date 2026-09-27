@@ -556,6 +556,14 @@ cursor to be seen.  Nothing is drawn beside a cursor that is not there:
 what was being composed would otherwise stay where the cursor was, over
 whatever the window was scrolled to.")
 
+(defvar urusi-screen--composing-at nil
+  "Where in the buffer what is being composed will go, as a marker.
+
+Not point: scrolling with the wheel drags point with it, so that a
+composition drawn where point is would move to another line while it
+was being composed and would not come back to its own.  Where it goes
+was settled when it began.")
+
 (defun urusi-screen--tell-caret (x y width height)
   "Tell the host the cursor is at X, Y and is WIDTH by HEIGHT."
   (let ((caret (list x y width height)))
@@ -625,6 +633,47 @@ back under what is being composed."
                ,@(when-let* ((composing (funcall urusi-screen-composing-function frame)))
                    (list composing)))))
 
+(defun urusi-screen--caret-of-anchor (window)
+  "Where what is being composed in WINDOW goes, from where it began.
+
+Nil while nothing is being composed.  Where the window has been
+scrolled away from the place it began at, it goes against the edge it
+went out by: what is being composed is still there to read, and which
+edge it is against says which way the place it belongs to lies.  Not
+where point drifted to, which the wheel drags along with it and which
+would be over a line it has nothing to do with."
+  (when-let* ((marker urusi-screen--composing-at)
+              ((not (string-empty-p urusi-screen--composing)))
+              ((eq (marker-buffer marker) (window-buffer window))))
+    (let* ((origin (urusi-screen--window-origin window))
+           (seen (pos-visible-in-window-p marker window t))
+           (line (default-line-height))
+           (place
+            (cond
+             ;; Where it began, while that is on the screen.
+             ((consp seen) (cons (nth 0 seen) (nth 1 seen)))
+             ;; Scrolled past: against the edge it went out by, as the
+             ;; window systems Emacs draws its own frames on do, so that
+             ;; what is being composed is still there to read and still
+             ;; says which way its place lies.
+             ((< marker (window-start window)) (cons 0 0))
+             (t (cons 0 (max 0 (- (window-body-height window t) line)))))))
+      (list (+ (car origin) (car place))
+            (+ (cdr origin) (cdr place))
+            (default-font-width)
+            (if (consp seen) (or (nth 4 seen) line) line)))))
+
+(defun urusi-screen--caret-of-cursor (window)
+  "Where the cursor of WINDOW is, or nil where there is none to be seen."
+  (when-let* ((cursor (window-screen-cursor window)))
+    (let ((spacing (or (plist-get cursor :line-spacing) 0))
+          (above (or (plist-get cursor :line-spacing-above) 0))
+          (origin (urusi-screen--window-origin window)))
+      (list (+ (car origin) (plist-get cursor :x))
+            (+ (cdr origin) (plist-get cursor :y) above)
+            (plist-get cursor :width)
+            (- (plist-get cursor :height) spacing)))))
+
 (defun urusi-screen--caret-from (window)
   "Say where the cursor of WINDOW is, for the input method to ask about.
 
@@ -635,22 +684,12 @@ the input method still has to know where what it is composing goes.
 Nothing told it, and it put the composition in the corner of the
 window."
   (setq urusi-screen--caret-at
-        (when-let* (((eq window (selected-window)))
-                    ;; And point is where it can be seen: a window
-                    ;; scrolled away from it with the wheel is one Emacs
-                    ;; draws the cursor at the edge of, point being
-                    ;; unable to move while an input method holds the
-                    ;; keys, and what is being composed would stick
-                    ;; there against a line it has nothing to do with.
-                    ((pos-visible-in-window-p (window-point window) window))
-                    (cursor (window-screen-cursor window)))
-          (let ((spacing (or (plist-get cursor :line-spacing) 0))
-                (above (or (plist-get cursor :line-spacing-above) 0))
-                (origin (urusi-screen--window-origin window)))
-            (list (+ (car origin) (plist-get cursor :x))
-                  (+ (cdr origin) (plist-get cursor :y) above)
-                  (plist-get cursor :width)
-                  (- (plist-get cursor :height) spacing)))))
+        (when (eq window (selected-window))
+          ;; Where a composition began, while there is one: that is
+          ;; where it goes, and where the input method is to put what it
+          ;; is asking about.  The cursor otherwise.
+          (or (urusi-screen--caret-of-anchor window)
+              (urusi-screen--caret-of-cursor window))))
   ;; Told only where there is one.  A cursor that has been scrolled away
   ;; from is at no place to tell, and the last place told is the best
   ;; there is to leave the input method looking at.
@@ -1344,6 +1383,15 @@ chosen for a light window when Windows has turned dark."
     ("measured" (urusi-screen--measured message))
     ("resize" (urusi-screen--resize message))
     ("composition"
+     (let ((text (or (plist-get message :text) "")))
+       ;; Where it goes, settled as it begins and let go of as it ends.
+       (cond ((string-empty-p text)
+              (when (markerp urusi-screen--composing-at)
+                (set-marker urusi-screen--composing-at nil))
+              (setq urusi-screen--composing-at nil))
+             ((string-empty-p urusi-screen--composing)
+              (setq urusi-screen--composing-at
+                    (copy-marker (window-point (selected-window)))))))
      (setq urusi-screen--composing (or (plist-get message :text) ""))
      (setq urusi-screen--composing-runs (plist-get message :runs))
      (setq urusi-screen--composing-caret (or (plist-get message :caret) 0))
