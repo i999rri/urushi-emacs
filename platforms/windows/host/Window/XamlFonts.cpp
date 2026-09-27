@@ -110,9 +110,20 @@ namespace urusi::windows::window
                 return "font " + std::to_string(id) + " is of no kind DirectWrite knows";
             }
 
+            // Which font of the file, as Emacs said: a collection
+            // holds many -- the one the screen is drawn in holds 48,
+            // Japanese and Korean among them -- and the glyph numbers
+            // Emacs measured in one are other letters in another.
+            auto const which = static_cast<uint32_t>(FaceOf(id));
+            if (which >= faces)
+            {
+                return "font " + std::to_string(id) + " is not the "
+                       + std::to_string(which) + " of " + std::to_string(faces);
+            }
+
             IDWriteFontFile* files[] = { file.get() };
             com_ptr<IDWriteFontFace> made;
-            check_hresult(writer->CreateFontFace(face, 1, files, 0,
+            check_hresult(writer->CreateFontFace(face, 1, files, which,
                                                  DWRITE_FONT_SIMULATIONS_NONE, made.put()));
             m_faces[id] = made;
         }
@@ -121,6 +132,15 @@ namespace urusi::windows::window
             return "font " + std::to_string(id) + ": " + to_string(error.message());
         }
         return {};
+    }
+
+    // Which font of its file the font ID is, or the first where
+    // nothing said.
+    int XamlFonts::FaceOf(int id) const
+    {
+        auto found = m_files.find(id);
+
+        return found == m_files.end() ? 0 : found->second.face;
     }
 
     std::string XamlFonts::Take(Windows::Data::Json::JsonObject const& message)
@@ -144,7 +164,8 @@ namespace urusi::windows::window
                                static_cast<int64_t>(message.GetNamedNumber(L"when", 0)),
                                static_cast<int>(message.GetNamedNumber(L"instance", -1)));
 
-            m_files[id] = { kept, false };
+            m_files[id] = { kept, false,
+                            static_cast<int>(message.GetNamedNumber(L"face", 0)) };
 
             auto where = FontsDirectory();
             if (where.empty())

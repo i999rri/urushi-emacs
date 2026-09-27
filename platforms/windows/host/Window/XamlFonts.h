@@ -47,6 +47,7 @@ namespace urusi::windows::window
         winrt::com_ptr<IDWriteFactory5> Writer();
         // Make the face of ID out of BYTES, LENGTH of them.
         std::string Made(int id, uint8_t const* bytes, uint32_t length);
+        int FaceOf(int id) const;
 
         // Which file each font is, as Emacs said of it, and what this
         // window keeps that file under.
@@ -54,6 +55,9 @@ namespace urusi::windows::window
         {
             std::wstring kept;
             bool asked;
+            // Which font of the file: a collection holds many, and the
+            // glyph numbers of one are the glyphs of another.
+            int face;
         };
 
         mutable std::mutex m_lock;
