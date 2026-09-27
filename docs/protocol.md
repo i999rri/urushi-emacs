@@ -168,7 +168,7 @@ Order is the whole of it. The text goes over the background that was filled befo
 | `clip` | `x`, `y`, `width`, `height` | Nothing outside this box is drawn until `unclip`. |
 | `unclip` | | |
 | `glyphs` | `font` (number), `size` (pixels), `y` (the baseline), `color`, `ids` (array), `xs` (array) | A run of glyphs of one font. See [Fonts](#fonts). |
-| `image` | `image` (number), `fromX`, `fromY`, `x`, `y`, `width`, `height` | The part of an image that begins at `fromX`,`fromY`, drawn in the box. See [Images](#images). |
+| `image` | `image` (number), `x`, `y`, `width`, `height`, `imageWidth`, `imageHeight`, `matrix` (six numbers), `smooth` (boolean) | An image, drawn within the box. See [Images](#images). |
 | `end` | `frame` (string) | The screen is whole. |
 
 A colour is `#rrggbb`. Everything else is in pixels, from the frame's corner.
@@ -198,6 +198,12 @@ The pixels go over once, as the image is first said, and the `image` op names th
 `want-image` is for an application that has an image to draw and has not its pixels, which should not happen in the ordinary way of things: it is there for one that lost them, as after a graphics device is lost.
 
 `image-gone` says Emacs has let go of an image, so the application can let go of what it made from the pixels. The number may be given to another image afterwards.
+
+An image is drawn by its matrix, not by its box. `imageWidth` and `imageHeight` are its size as the pixels came; `matrix` carries that image from its own corner to where this row's part of it goes, scaled and turned as the image asked to be, as `a b c d dx dy`, where a point x,y of the image goes to `a·x + c·y + dx`, `b·x + d·y + dy`. So the application applies the matrix, draws the image at its own size, and leaves out whatever falls outside the box. `smooth` says whether to blend the pixels, which Emacs asks for when the image is drawn smaller than it is and not when it is drawn larger.
+
+A tall image is drawn a row at a time, and every row says the same image with a matrix that brings a different part of it into that row's box. Nothing else says which part: the box and the matrix are the whole of it.
+
+Emacs works all of this out because it is the one that knows what the image was asked to be — `:scale`, `:width`, `:rotation` and the rest are its to read — and because an application told the matrix has nothing left to decide.
 
 ## Host events
 
