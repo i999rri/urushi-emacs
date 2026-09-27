@@ -12,7 +12,7 @@
 set -euo pipefail
 
 seconds=${1:-10}
-emacs=$HOME/dev/urusi/host-build/src/emacs
+emacs=$HOME/dev/urusi/emacs-build/src/emacs
 config=$HOME/dev/urusi/emacs-config/.config/emacs
 ticks=$(getconf CLK_TCK)
 

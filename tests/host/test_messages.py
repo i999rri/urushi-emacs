@@ -134,7 +134,10 @@ class Told(unittest.TestCase):
         every message rather than one at a time filled it and pushed the
         typing out, so that nothing typed or clicked arrived at all.
         """
+        # Counted from what is there already: the buffer Emacs starts in
+        # has text of its own, and some of it is the letter typed here.
         typed = 50
+        before = self.buffer_text().count('x')
         for n in range(1, typed + 1):
             self.probe(n)
             self.type('x')
@@ -145,9 +148,9 @@ class Told(unittest.TestCase):
         end = time.monotonic() + 20
         while True:
             text = self.buffer_text()
-            if text.count('x') >= typed or time.monotonic() > end:
+            if text.count('x') - before >= typed or time.monotonic() > end:
                 break
-        self.assertEqual(text.count('x'), typed)
+        self.assertEqual(text.count('x') - before, typed)
 
     def test_being_told_is_quicker_than_looking_would_have_been(self):
         """Measured, since when a message arrives is the whole point.

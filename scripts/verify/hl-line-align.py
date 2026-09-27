@@ -32,7 +32,7 @@ SETUP = """(progn
   (hl-line-mode 1))""" % (int(LINE) - 1)
 
 INNER = ('EMACS_HOST_PIPE=1 EMACSLOADPATH=$HOME/dev/urusi/site-lisp: '
-         'exec ~/dev/urusi/host-build/src/emacs -Q '
+         'exec ~/dev/urusi/emacs-build/src/emacs -Q '
          '-L /mnt/c/Users/me/repos/urusi-emacs/lisp '
          '-l /mnt/c/Users/me/repos/urusi-emacs/lisp/urusi-site-start.el --eval "$PROBE"')
 emacs = subprocess.Popen(['wsl.exe', '-e', 'env', 'PROBE=' + SETUP, 'bash', '-lc', INNER],

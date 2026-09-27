@@ -39,7 +39,7 @@ TIMER = r"""(progn (setq host-message-function nil)
 form = ANSWER.replace('PUT-BACK-THE-TIMER', TIMER if POLL else '(ignore)')
 
 INNER = ('EMACS_HOST_PIPE=1 EMACSLOADPATH=$HOME/dev/urusi/site-lisp: '
-         'exec ~/dev/urusi/host-build/src/emacs '
+         'exec ~/dev/urusi/emacs-build/src/emacs '
          '--init-directory ~/dev/urusi/emacs-config/.config/emacs --eval "$PROBE"')
 
 emacs = subprocess.Popen(

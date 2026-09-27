@@ -49,7 +49,7 @@ SETUP = r"""(progn
     'SETTLE', str(SETTLE - 3))
 
 INNER = ('EMACS_HOST_PIPE=1 EMACSLOADPATH=$HOME/dev/urusi/site-lisp: '
-         'exec ~/dev/urusi/host-build/src/emacs'
+         'exec ~/dev/urusi/emacs-build/src/emacs'
          + (' --init-directory ~/dev/urusi/emacs-config/.config/emacs' if WITH_CONFIG
             else ' -Q')
          + ' --eval "$PROBE"')

@@ -29,8 +29,16 @@ mkdir -p "$build"
 cd "$build"
 # The host window system in place of X: its frames are the host's to
 # draw, and it needs no library of the desktop's.
-[ -f Makefile ] || "$src/configure" --with-host --without-x --with-gnutls=ifavailable \
-    --without-native-compilation --without-pop --without-mailutils
+#
+# Configured again when what is here was configured without it, as a
+# tree from before --with-host existed was: that one looks built and
+# builds an ordinary Emacs, which answers a pipe with "standard input is
+# not a tty" and so fails every test of the host for a reason that says
+# nothing about the host.
+if [ ! -f Makefile ] || ! grep -q '^#define HAVE_HOST' src/config.h; then
+    "$src/configure" --with-host --without-x --with-gnutls=ifavailable \
+        --without-native-compilation --without-pop --without-mailutils
+fi
 
 make -j"$(nproc)"
 echo "built $build/src/emacs"

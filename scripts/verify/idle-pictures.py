@@ -24,7 +24,7 @@ SECONDS = int(sys.argv[sys.argv.index('--seconds') + 1]) if '--seconds' in sys.a
 SETTLE = 22 if WITH_CONFIG else 6
 
 INNER = ('EMACS_HOST_PIPE=1 EMACSLOADPATH=$HOME/dev/urusi/site-lisp: '
-         'exec ~/dev/urusi/host-build/src/emacs'
+         'exec ~/dev/urusi/emacs-build/src/emacs'
          + (' --init-directory ~/dev/urusi/emacs-config/.config/emacs' if WITH_CONFIG
             else ' -Q'))
 

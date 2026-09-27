@@ -50,7 +50,7 @@ PROBE = ('(progn'
 
 INNER = ('EMACS_HOST_PIPE=1 '
          + ('' if PLAIN else 'EMACSLOADPATH=$HOME/dev/urusi/site-lisp: ')
-         + 'exec ~/dev/urusi/host-build/src/emacs '
+         + 'exec ~/dev/urusi/emacs-build/src/emacs '
          + ('-Q' if PLAIN
             else '--init-directory ~/dev/urusi/emacs-config/.config/emacs')
          + ' --eval "$PROBE"')

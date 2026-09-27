@@ -22,7 +22,7 @@ import time
 EVAL = ('(run-at-time 1 nil (lambda () (switch-to-buffer (get-buffer-create "typing"))'
         ' (text-mode)))')
 INNER = ('EMACS_HOST_PIPE=1 EMACSLOADPATH=$HOME/dev/urusi/site-lisp: '
-         'exec ~/dev/urusi/host-build/src/emacs '
+         'exec ~/dev/urusi/emacs-build/src/emacs '
          '--init-directory ~/dev/urusi/emacs-config/.config/emacs --eval "$PROBE"')
 
 emacs = subprocess.Popen(['wsl.exe', '-e', 'env', 'PROBE=' + EVAL, 'bash', '-lc', INNER],
