@@ -566,6 +566,25 @@ first character being composed onwards."
          frame)
         (urusi-screen-color (face-attribute 'default :background frame t)))))
 
+(defun urusi-screen--caret-from (window)
+  "Say where the cursor of WINDOW is, for the input method to ask about.
+
+Said whether or not a cursor is drawn here, and so not left to whoever
+draws one: where the host draws what Emacs says it drew, the cursor is
+one of the things Emacs said and no cursor is built for the screen, and
+the input method still has to know where what it is composing goes.
+Nothing told it, and it put the composition in the corner of the
+window."
+  (when-let* (((eq window (selected-window)))
+              (cursor (window-screen-cursor window)))
+    (let ((spacing (or (plist-get cursor :line-spacing) 0))
+          (above (or (plist-get cursor :line-spacing-above) 0))
+          (origin (urusi-screen--window-origin window)))
+      (urusi-screen--tell-caret (+ (car origin) (plist-get cursor :x))
+                                (+ (cdr origin) (plist-get cursor :y) above)
+                                (plist-get cursor :width)
+                                (- (plist-get cursor :height) spacing)))))
+
 (defun urusi-screen-cursor (window)
   "Return the cursor of WINDOW, to be laid over its text.
 It is laid over rather than put in a line, so that moving it leaves
@@ -591,11 +610,6 @@ it blinks; what is being composed is drawn all the same."
            ;; and drawing every one of them two pixels wide draws a bar
            ;; where a box was meant.
            (width (/ (max (or (plist-get cursor :width) 0) 1) scale)))
-      (let ((origin (urusi-screen--window-origin window)))
-        (urusi-screen--tell-caret (+ (car origin) (plist-get cursor :x))
-                                  (+ (cdr origin) (plist-get cursor :y) above)
-                                  (plist-get cursor :width)
-                                  (- (plist-get cursor :height) spacing)))
       `(Canvas :key "cursor"
                :IsHitTestVisible "False"
                (Rectangle :Canvas.Left ,left
@@ -1078,6 +1092,12 @@ parts take the room they need."
   "Return the whole screen of FRAME as a tree for `urusi-render'."
   (urusi-screen--start-screen)
   (setq urusi-screen--windows-drawn 0)
+  ;; Said for every screen, and not by whoever draws a cursor: where the
+  ;; host draws what Emacs says it drew, nothing here draws one, and the
+  ;; input method still has to be told where the text it is composing
+  ;; goes.  Emacs has redisplayed by now, so the cursor is where it will
+  ;; be seen.
+  (urusi-screen--caret-from (selected-window))
   (let* ((frame (or frame (urusi-root-frame)))
          (parts (delq nil
                       (mapcar (lambda (component)
