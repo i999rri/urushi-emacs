@@ -204,11 +204,26 @@ namespace winrt::urusi_emacs::implementation
             emacs->Send(wanted);
         });
 
+        // The same for an image, and for the same reason: its pixels
+        // may be megabytes, and Emacs sends them once however many
+        // screens draw them.
+        auto images = m_images;
+        images->OnWanting([emacs = m_emacs](int id) {
+            JsonObject wanted;
+
+            wanted.SetNamedValue(L"type", String(L"want-image"));
+            wanted.SetNamedValue(L"id", JsonValue::CreateNumberValue(id));
+            emacs->Send(wanted);
+        });
+
         auto drawing = std::make_shared<urusi::core::window::DrawReader>();
 
-        m_emacs->OnMessage([weak, dispatcher, fonts, drawing](std::string message) {
+        m_emacs->OnMessage([weak, dispatcher, fonts, images,
+                            drawing](std::string message) {
             constexpr std::string_view kFont{ "{\"type\":\"font\"" };
             constexpr std::string_view kDraw{ "{\"type\":\"draw\"" };
+            constexpr std::string_view kImage{ "{\"type\":\"image\"" };
+            constexpr std::string_view kGone{ "{\"type\":\"image-gone\"" };
 
             if (message.compare(0, kFont.size(), kFont) == 0)
             {
@@ -222,6 +237,34 @@ namespace winrt::urusi_emacs::implementation
                             if (auto self = weak.get())
                             {
                                 self->AppendLog("host", "font: " + why + "\n");
+                            }
+                        });
+                    }
+                }
+                return;
+            }
+
+            if (message.compare(0, kImage.size(), kImage) == 0
+                || message.compare(0, kGone.size(), kGone) == 0)
+            {
+                JsonObject said{ nullptr };
+
+                if (JsonObject::TryParse(to_hstring(message), said))
+                {
+                    auto const id = static_cast<int>(said.GetNamedNumber(L"id", -1));
+
+                    if (message.compare(0, kGone.size(), kGone) == 0)
+                    {
+                        images->Gone(id);
+                        return;
+                    }
+
+                    if (auto why = images->Take(said); !why.empty())
+                    {
+                        dispatcher.TryEnqueue([weak, why = std::move(why)] {
+                            if (auto self = weak.get())
+                            {
+                                self->AppendLog("host", "image: " + why + "\n");
                             }
                         });
                     }
@@ -1401,7 +1444,8 @@ namespace winrt::urusi_emacs::implementation
         {
             found = m_drawings
                         .emplace(said.frame,
-                                 urusi::windows::window::XamlDrawing{ m_fonts })
+                                 urusi::windows::window::XamlDrawing{
+                                     m_fonts, m_images })
                         .first;
         }
 

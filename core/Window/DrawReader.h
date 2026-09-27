@@ -29,6 +29,9 @@ namespace urusi::core::window
             int height{};
             int toY{};
             int font{};
+            int image{};
+            int fromX{};
+            int fromY{};
             uint32_t color{};
             double size{};
             std::vector<uint16_t> ids;
@@ -290,6 +293,18 @@ namespace urusi::core::window
                 {
                     said.font = static_cast<int>(Number(line, at));
                 }
+                else if (key == "image")
+                {
+                    said.image = static_cast<int>(Number(line, at));
+                }
+                else if (key == "fromX")
+                {
+                    said.fromX = static_cast<int>(Number(line, at));
+                }
+                else if (key == "fromY")
+                {
+                    said.fromY = static_cast<int>(Number(line, at));
+                }
                 else
                 {
                     // A field this host has no use for: the value is a
@@ -416,6 +431,17 @@ namespace urusi::core::window
             else if (said.op == "unclip")
             {
                 command.op = DrawOp::Unclip;
+            }
+            else if (said.op == "image")
+            {
+                command.op = DrawOp::Image;
+                command.image = said.image;
+                command.fromX = said.fromX;
+                command.fromY = said.fromY;
+                command.x = said.x;
+                command.y = said.y;
+                command.width = said.width;
+                command.height = said.height;
             }
             else if (said.op == "glyphs")
             {

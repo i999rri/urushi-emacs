@@ -306,6 +306,38 @@ namespace urusi::windows::window
         }
     }
 
+    // The part of an image that this row shows, where Emacs put it.
+    //
+    // Nothing is drawn while the pixels are still being asked for: the
+    // background under the image was filled before this, so the room it
+    // will take is already what it is, and the screen it arrives for
+    // draws it then.
+    void XamlDrawing::Image(DrawCommand const& command)
+    {
+        auto bitmap = m_images ? m_images->Bitmap(m_context.get(), command.image)
+                               : nullptr;
+
+        if (!bitmap)
+        {
+            return;
+        }
+
+        auto const to = D2D1::RectF(
+            static_cast<float>(command.x), static_cast<float>(command.y),
+            static_cast<float>(command.x + command.width),
+            static_cast<float>(command.y + command.height));
+        auto const from = D2D1::RectF(
+            static_cast<float>(command.fromX), static_cast<float>(command.fromY),
+            static_cast<float>(command.fromX + command.width),
+            static_cast<float>(command.fromY + command.height));
+
+        // Drawn pixel for pixel: Emacs sized the image as it laid the
+        // text out, so anything else here would be a second sizing.
+        m_context->DrawBitmap(bitmap.get(), to, 1.0f,
+                              D2D1_INTERPOLATION_MODE_NEAREST_NEIGHBOR, from,
+                              nullptr);
+    }
+
     void XamlDrawing::Glyphs(DrawCommand const& command)
     {
         auto face = m_fonts ? m_fonts->Face(command.font) : nullptr;
@@ -464,6 +496,10 @@ namespace urusi::windows::window
 
             case DrawOp::Glyphs:
                 Glyphs(command);
+                break;
+
+            case DrawOp::Image:
+                Image(command);
                 break;
             }
         }

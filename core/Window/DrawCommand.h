@@ -23,6 +23,9 @@ namespace urusi::core::window
         Clip,
         Unclip,
         Glyphs,
+        // Pixels Emacs decoded, which it sends once and says by number
+        // however often it is drawn.
+        Image,
     };
 
     struct DrawCommand
@@ -48,6 +51,14 @@ namespace urusi::core::window
         double size{};
         std::vector<uint16_t> ids;
         std::vector<int> xs;
+
+        // An image: which one, as Emacs numbers it, and where in it the
+        // part drawn begins.  The box is where that part goes, so a
+        // tall image is one command to a row, each naming the same
+        // image with another corner of it.
+        int image{};
+        int fromX{};
+        int fromY{};
     };
 
     // A whole screen's worth, between a "begin" and an "end".  Nothing

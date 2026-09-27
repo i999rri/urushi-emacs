@@ -121,6 +121,11 @@ namespace winrt::urusi_emacs::implementation
         // nothing else here.
         std::shared_ptr<urusi::windows::window::XamlFonts> m_fonts
             = std::make_shared<urusi::windows::window::XamlFonts>();
+        // The pixels of the images Emacs draws, which it decodes itself
+        // and sends once each.  Shared for the same reason the fonts
+        // are: they arrive on the thread that reads from Emacs.
+        std::shared_ptr<urusi::windows::window::XamlImages> m_images
+            = std::make_shared<urusi::windows::window::XamlImages>();
         std::string m_log;
         std::set<std::wstring> m_seen;
         HWND m_emacsWindow{ nullptr };

@@ -125,6 +125,32 @@ TEST(DrawReaderTest, AGlyphRunIsAsLongAsBothOfItsLists)
     EXPECT_EQ(screen->commands[0].xs.size(), 2u);
 }
 
+TEST(DrawReaderTest, AnImageIsANumberAndTheCornerOfItThatIsDrawn)
+{
+    DrawReader reader;
+    auto screen = ReadAll(
+        reader,
+        { R"({"type":"draw","op":"begin","frame":"f","width":8,"height":6})",
+          R"({"type":"draw","op":"image","image":3,"fromX":0,"fromY":24,)"
+          R"("x":112,"y":300,"width":64,"height":12})",
+          R"({"type":"draw","op":"end","frame":"f"})" });
+
+    ASSERT_TRUE(screen);
+    ASSERT_EQ(screen->commands.size(), 1u);
+
+    // The pixels are not here and never are: the host asks for them once
+    // by the number and draws them as often as it is told to.
+    auto const& image = screen->commands[0];
+    EXPECT_EQ(image.op, DrawOp::Image);
+    EXPECT_EQ(image.image, 3);
+    EXPECT_EQ(image.fromX, 0);
+    EXPECT_EQ(image.fromY, 24);
+    EXPECT_EQ(image.x, 112);
+    EXPECT_EQ(image.y, 300);
+    EXPECT_EQ(image.width, 64);
+    EXPECT_EQ(image.height, 12);
+}
+
 TEST(DrawReaderTest, PixelsThatMovedSayWhereTheyWentTo)
 {
     DrawReader reader;

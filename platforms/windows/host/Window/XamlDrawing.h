@@ -13,6 +13,7 @@
 
 #include "Window/DrawCommand.h"
 #include "Window/XamlFonts.h"
+#include "Window/XamlImages.h"
 
 namespace urusi::windows::window
 {
@@ -34,8 +35,9 @@ namespace urusi::windows::window
     class XamlDrawing
     {
     public:
-        explicit XamlDrawing(std::shared_ptr<XamlFonts> fonts)
-            : m_fonts(std::move(fonts))
+        XamlDrawing(std::shared_ptr<XamlFonts> fonts,
+                    std::shared_ptr<XamlImages> images)
+            : m_fonts(std::move(fonts)), m_images(std::move(images))
         {
         }
 
@@ -68,12 +70,14 @@ namespace urusi::windows::window
 
         void Fill(core::window::DrawCommand const& command);
         void Glyphs(core::window::DrawCommand const& command);
+        void Image(core::window::DrawCommand const& command);
         void Copy(core::window::DrawCommand const& command);
         void Clip(core::window::DrawCommand const& command);
         void Unclip();
         winrt::com_ptr<ID2D1SolidColorBrush> Brush(uint32_t color);
 
         std::shared_ptr<XamlFonts> m_fonts;
+        std::shared_ptr<XamlImages> m_images;
 
         winrt::Microsoft::UI::Xaml::Controls::SwapChainPanel m_panel{ nullptr };
         winrt::Microsoft::UI::Xaml::Controls::Panel m_in{ nullptr };
