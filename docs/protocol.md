@@ -20,7 +20,9 @@ The table is `host_api`, in `libemacs/src/host.h` of Emacs, and the application 
 
 The application can instead start Emacs as a process of its own, which then sends each message as a line on its standard output and reads the application's as lines from its standard input: see [Emacs in another process](remote.md).
 
-**Today:** the table has a fourth field, `window`, the window Emacs makes its frames in on Windows, which frames of the host's own will not need. Messages to Emacs wait in a queue that Lisp looks at every 50 ms, so what is typed with the input method is 50 ms behind what is typed with keys.
+**Today:** the table has a fourth field, `window`, the window Emacs makes its frames in on Windows, which frames of the host's own will not need.
+
+Messages the application sends go into one of two queues. Keys, text, the pointer and the focus are input, and Emacs's C reads them as any other Emacs reads the events of its window system. The rest wait for Lisp, and Emacs is told that they are there: the application's message wakes Emacs, which is already waiting on a pipe for it, and the command loop calls `host-message-function`. Lisp also looks on a timer once a second, for a waking that never arrived; before there was any telling it was the only way, and it looked every 50 ms.
 
 ## Units
 
@@ -62,6 +64,14 @@ A side that gets a `hello` whose `version` it does not speak says so with `error
 | `call` | `id` (number), `method` (string), `args` (object) | Lisp asks the application to do something. Answered by `reply`. See [Calls](#calls). |
 | `log` | `text` (string) | A line for the application's log. |
 | `debug` | `on` (boolean) | `urusi-debug-mode` has been turned on or off. |
+| `draw` | `op` (string), and what that op has to say | Redisplay drew something. One line for each, in the order they were drawn. See [Drawing](#drawing). |
+| `picture` | `frame` (string), `width`, `height` (pixels), `moved` (array), `drawn` (array) | The pixels redisplay drew, for an application that does not draw them itself. See [Drawing](#drawing). |
+| `font` | `id` (number), and either which file it is or the file | A font that something to be drawn is in. See [Fonts](#fonts). |
+| `image` | `id` (number), `width`, `height` (pixels), `pixels` (base64) | The pixels of an image about to be drawn. See [Images](#images). |
+| `image-gone` | `id` (number) | An image Emacs has let go of, whose number may be given to another. |
+| `pointer` | `shape` (string) | The shape the pointer is to take over the frame, when it changes. One of `none`, `arrow`, `text`, `hand`, `busy`, `horizontal-drag`, `vertical-drag`, and the eight edges and corners: `left-edge`, `top-left-corner`, `top-edge`, `top-right-corner`, `right-edge`, `bottom-right-corner`, `bottom-edge`, `bottom-left-corner`. |
+
+`pointer` is the one name used for two unrelated things: this one says what the pointer is to look like, and the application's says what the pointer did. Which is which is decided by who sent it.
 
 **Today:** `frame` has `window`, a window handle, and no `id`; only the root frame sends it, and `frame-deleted` is not sent. `caret` has no `frame` and is counted from the root frame's corner.
 
@@ -69,7 +79,7 @@ A side that gets a `hello` whose `version` it does not speak says so with `error
 
 | Type | Fields | Sent when |
 | --- | --- | --- |
-| `hello` | `version` (number), `host` (string), `scale` (number), `debug` (boolean) | Answering Emacs's `hello`. |
+| `hello` | `version` (number), `host` (string), `scale` (number), `draws` (boolean), `debug` (boolean) | Answering Emacs's `hello`. `draws` is whether it draws what Emacs says to draw; see [Drawing](#drawing). |
 | `resize` | `frame` (string), `width`, `height` (pixels) | The room a frame has, when it changes. |
 | `key` | `frame` (string), see [Keys](#keys) | A key was pressed or let go. |
 | `text` | `frame` (string), `text` (string) | The input method settled on text. |
@@ -81,9 +91,15 @@ A side that gets a `hello` whose `version` it does not speak says so with `error
 | `measured` | `family`, `size`, `narrow`, `wide` (layout units) | Answering `measure`: how wide `0` and `あ` are drawn. |
 | `reply` | `id` (number), `value`, or `error` (string) | Answering `call`. |
 | `stale` | | The application does not have what Emacs thinks it has on the screen, and wants all of it again. |
+| `want-font` | `id` (number) | The application has something to draw from a font and has not the file it is in. |
+| `want-image` | `id` (number) | The application has an image to draw and has not its pixels. |
 | `error` | `message` (string) | The application could not do what a message asked. |
 
-`key`, `text`, `pointer`, `focus` and `resize` go to Emacs's C, which makes of them what the operating system's events would be to any other Emacs, in the order they came. The rest go to Lisp.
+`key`, `text`, `pointer` and `focus` go to Emacs's C, which makes of them what the operating system's events would be to any other Emacs, in the order they came. Everything else waits for Lisp, which takes it with `host-take-events`. The two are separate queues, each holding 4096 messages, the oldest dropped when one is full: what is newest is what is still worth acting on.
+
+`composition` is Lisp's on purpose, although it comes from the input method as `text` does: what the input method is still turning over is drawn by Lisp at the cursor, and is no input until it comes as `text`.
+
+**Today:** `resize` is Lisp's as well, and is to become C's.
 
 **Today:** keys, the pointer and the focus reach Emacs as Windows messages posted to its frame windows, not as messages. `text` is called `commit`. `resize` has no `frame` for the root frame.
 
@@ -124,11 +140,70 @@ A row that comes with only its key is the one the application already has. If it
 
 XAML is the application's on Windows; on macOS and Linux the tree is the same and is written in what the application there reads. The tree itself, what Lisp builds it out of, is on [Layout](layout.md) and the pages of each component.
 
+## Drawing
+
+The screen is the chrome Lisp built; this is what is inside it, the text of the buffers and everything redisplay puts there.
+
+An application that can draw says so in its `hello`, with `draws`. Emacs then says what it drew, and the application draws it. One that cannot is handed the pixels instead, in `picture` messages, and everything below about drawing is not sent to it.
+
+A `picture` is the frame as it now stands, said as what changed in it: `moved`, the boxes of pixels that were already on the screen and have been shifted (`x`, `y`, `width`, `height`, `toY`), which is what scrolling comes to; and `drawn`, the boxes that were drawn again (`x`, `y`, `width`, `height`, `cells`, base64, a row at a time). The moves are done before the boxes are drawn.
+
+Saying it rather than drawing it is the cheaper of the two by a long way — a screen of text is a few hundred things to do against the megabyte its pixels come to — and the text is then drawn by the same hand that draws the text around it, so it looks like the rest of the application rather than like a picture of Emacs.
+
+### The commands
+
+Each command is a line of its own, `{"type":"draw", "op": ...}`. A screen's worth comes between a `begin` and an `end`, and nothing is shown until the `end` arrives: a screen drawn halfway is a screen no one meant.
+
+Emacs writes a screen's lines in one go, so that a screen is one write and not a few hundred. How they then arrive is the transport's doing: down a pipe they come back a line at a time, and in the same process they arrive as they were written, every line in the one message. The application is to read either.
+
+Order is the whole of it. The text goes over the background that was filled before it, so an application that read them in any other order would show something else.
+
+| Op | Fields | What it is |
+| --- | --- | --- |
+| `begin` | `frame` (string), `width`, `height` (pixels) | A screen of this frame begins, and it is this big. |
+| `fill` | `x`, `y`, `width`, `height`, `color` | A box filled. |
+| `rectangle` | `x`, `y`, `width`, `height`, `color` | A box drawn around, a pixel wide. |
+| `line` | `x0`, `y0`, `x1`, `y1`, `color` | A line from one corner to the other. |
+| `copy` | `x`, `y`, `width`, `height`, `toY` | Pixels already on the screen, moved: what a window scrolling comes to. |
+| `clip` | `x`, `y`, `width`, `height` | Nothing outside this box is drawn until `unclip`. |
+| `unclip` | | |
+| `glyphs` | `font` (number), `size` (pixels), `y` (the baseline), `color`, `ids` (array), `xs` (array) | A run of glyphs of one font. See [Fonts](#fonts). |
+| `image` | `image` (number), `fromX`, `fromY`, `x`, `y`, `width`, `height` | The part of an image that begins at `fromX`,`fromY`, drawn in the box. See [Images](#images). |
+| `end` | `frame` (string) | The screen is whole. |
+
+A colour is `#rrggbb`. Everything else is in pixels, from the frame's corner.
+
+Emacs draws only what changed, so what a screen does not say is what is already there. That is why `copy` is a command and not a redrawing: the pixels of a scroll are on the screen already, and moving them is cheaper than saying them again. It also means these commands are not to be replayed — a `copy` done twice scrolls twice.
+
+### Fonts
+
+A glyph is numbered by the file it is in and nothing else. Emacs reads the font files itself, so what it says to draw is a glyph of a file rather than a character of a font: a font found by name at the application's end would be another file, numbering them otherwise. So the file itself is what goes over.
+
+Emacs says which file a font is the first time it draws in it, and sends the file when it is asked for:
+
+| Message | Fields |
+| --- | --- |
+| `font`, which file | `id`, `instance` (which font of the file), `file` (its path), `size` (bytes), `when` (when it was last written) |
+| `want-font` | `id` |
+| `font`, the file | `id`, `bytes` (base64) |
+
+The application keeps a file it has been sent, under what the first of these says of it, so that a later run asks for none of them. Two files of the same path, size and time are the same file; one that has changed since is another, and comes again under another number.
+
+### Images
+
+Emacs decodes an image itself, whatever format it was in, and the application draws the pixels. It cannot be the other way around: an image may never have been a file at all — an SVG Lisp wrote, or the data of a `create-image` — and Emacs is the one that knows how to read all of them.
+
+The pixels go over once, as the image is first said, and the `image` op names that number for every screen that draws it. They are sent as the application draws them and not as Emacs holds them: four bytes to a pixel, blue first, and already multiplied by the alpha that Emacs's mask decided. Emacs is the one that knows what a mask means, so the application is left with pixels and nothing to decide.
+
+`want-image` is for an application that has an image to draw and has not its pixels, which should not happen in the ordinary way of things: it is there for one that lost them, as after a graphics device is lost.
+
+`image-gone` says Emacs has let go of an image, so the application can let go of what it made from the pixels. The number may be given to another image afterwards.
+
 ## Host events
 
 | Event | Fields | When |
 | --- | --- | --- |
-| `close` | | The window is being closed. It is not, until Emacs closes it: it asks about the buffers that are not saved first. |
+| `close` | | The window is being closed. It is not, until Emacs closes it: it asks about the buffers that are not saved first. The application waits five seconds for Emacs to say something and closes anyway if it does not. |
 | `state` | `state`: `normal`, `maximized`, `minimized` or `fullscreen` | The window was maximized, restored, and so on, other than by Lisp. |
 | `theme` | `dark` (boolean) | The operating system switched between light and dark. |
 | `splitter` | `name`, `before`, `after` (layout units) | A splitter was let go, with the sizes of the parts either side of it. |
@@ -146,5 +221,8 @@ XAML is the application's on Windows; on macOS and Linux the tree is the same an
 | `window.resize` | `width`, `height` (pixels) | `null` |
 | `window.theme` | | `dark` (boolean) |
 | `dialog.open-file` | | The file chosen, or `null` |
+| `dialog.ask` | `message`, and `title`, `accept`, `other`, `cancel` for the ones offered | `accept`, `other` or `cancel`, whichever was chosen |
 
 A method the application does not have is answered with an `error`.
+
+`dialog.ask` is answered when the person answers the dialog, which may be long after it was asked; Emacs goes on in the meantime, and whatever is to happen after the answer happens in the reply. Only one dialog is up at a time: a second asked for while one is up is answered with an `error`, since a dialog laid under another is one nobody can answer.
