@@ -112,6 +112,17 @@ program that never comes back is the first thing to know about."
   ;; a startup is the one it sends.
   (urusi--log "site-start")
 
+  ;; This window system has no dialog box of Emacs's own, and Emacs
+  ;; puts what it asks in one whenever the asking began with the mouse:
+  ;; closing a window, clicking a tab shut.  With nothing to show it in,
+  ;; the question was never asked and never answered, which read as
+  ;; answering no.  Asked in the echo area it is asked.
+  ;;
+  ;; Set here rather than left to the init file, since it says what this
+  ;; display can do and not what anyone prefers.  A host that is asked
+  ;; to show the dialog itself would take this away again.
+  (setq use-dialog-box nil)
+
   (when urusi-site-start-trace
     (urusi-site-start--trace t))
 
