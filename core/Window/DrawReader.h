@@ -30,8 +30,10 @@ namespace urusi::core::window
             int toY{};
             int font{};
             int image{};
-            int fromX{};
-            int fromY{};
+            int imageWidth{};
+            int imageHeight{};
+            bool smooth{};
+            std::vector<double> matrix;
             uint32_t color{};
             double size{};
             std::vector<uint16_t> ids;
@@ -72,6 +74,22 @@ namespace urusi::core::window
                 ++at;
             }
             return text;
+        }
+
+        // The word that begins at AT, which is one of true, false and
+        // null: JSON writes these bare, and a reader that took one for
+        // a number would take none of it and lose its place.
+        inline std::string_view Word(std::string_view line, size_t& at)
+        {
+            auto const from = at;
+
+            while (at < line.size()
+                   && ((line[at] >= 'a' && line[at] <= 'z')
+                       || (line[at] >= 'A' && line[at] <= 'Z')))
+            {
+                ++at;
+            }
+            return line.substr(from, at - from);
         }
 
         inline long long Number(std::string_view line, size_t& at)
@@ -167,6 +185,33 @@ namespace urusi::core::window
                 }
             }
             return any ? commas + 1 : 0;
+        }
+
+        // As Numbers, for the ones that are not whole.
+        inline void Fractions(std::string_view line, size_t& at,
+                              std::vector<double>& into)
+        {
+            if (at >= line.size() || line[at] != '[')
+            {
+                return;
+            }
+            into.reserve(into.size() + Many(line, at));
+            ++at;
+
+            while (at < line.size() && line[at] != ']')
+            {
+                PassSpace(line, at);
+                into.push_back(Fraction(line, at));
+                PassSpace(line, at);
+                if (at < line.size() && line[at] == ',')
+                {
+                    ++at;
+                }
+            }
+            if (at < line.size())
+            {
+                ++at;
+            }
         }
 
         template <typename T>
@@ -297,13 +342,21 @@ namespace urusi::core::window
                 {
                     said.image = static_cast<int>(Number(line, at));
                 }
-                else if (key == "fromX")
+                else if (key == "imageWidth")
                 {
-                    said.fromX = static_cast<int>(Number(line, at));
+                    said.imageWidth = static_cast<int>(Number(line, at));
                 }
-                else if (key == "fromY")
+                else if (key == "imageHeight")
                 {
-                    said.fromY = static_cast<int>(Number(line, at));
+                    said.imageHeight = static_cast<int>(Number(line, at));
+                }
+                else if (key == "smooth")
+                {
+                    said.smooth = Word(line, at) == "true";
+                }
+                else if (key == "matrix")
+                {
+                    Fractions(line, at, said.matrix);
                 }
                 else
                 {
@@ -318,6 +371,11 @@ namespace urusi::core::window
                     {
                         std::vector<int> ignored;
                         Numbers(line, at, ignored);
+                    }
+                    else if ((line[at] >= 'a' && line[at] <= 'z')
+                             || (line[at] >= 'A' && line[at] <= 'Z'))
+                    {
+                        Word(line, at);
                     }
                     else
                     {
@@ -436,8 +494,16 @@ namespace urusi::core::window
             {
                 command.op = DrawOp::Image;
                 command.image = said.image;
-                command.fromX = said.fromX;
-                command.fromY = said.fromY;
+                command.imageWidth = said.imageWidth;
+                command.imageHeight = said.imageHeight;
+                command.smooth = said.smooth;
+                // Left as it is where six numbers did not arrive: the
+                // image is then drawn where the box is and no larger.
+                if (said.matrix.size() == 6)
+                {
+                    std::copy(said.matrix.begin(), said.matrix.end(),
+                              command.matrix);
+                }
                 command.x = said.x;
                 command.y = said.y;
                 command.width = said.width;

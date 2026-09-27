@@ -52,13 +52,23 @@ namespace urusi::core::window
         std::vector<uint16_t> ids;
         std::vector<int> xs;
 
-        // An image: which one, as Emacs numbers it, and where in it the
-        // part drawn begins.  The box is where that part goes, so a
-        // tall image is one command to a row, each naming the same
-        // image with another corner of it.
+        // An image: which one, as Emacs numbers it, and how big it is
+        // before anything is done to it.  The box is what it is drawn
+        // within, so a tall image is one command to a row, each naming
+        // the same image within another box.
+        //
+        // matrix carries the image from its own corner to where this
+        // row's part of it goes, scaled and turned as the image asked
+        // to be: apply it, draw the image at its own size, and leave
+        // out what falls outside the box.  Emacs worked all of that
+        // out; there is nothing here to decide.
         int image{};
-        int fromX{};
-        int fromY{};
+        int imageWidth{};
+        int imageHeight{};
+        double matrix[6]{ 1, 0, 0, 1, 0, 0 };
+        // Whether the pixels are to be blended, which is what keeps an
+        // image drawn smaller than it is from looking like a comb.
+        bool smooth{};
     };
 
     // A whole screen's worth, between a "begin" and an "end".  Nothing

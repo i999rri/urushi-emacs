@@ -322,20 +322,45 @@ namespace urusi::windows::window
             return;
         }
 
-        auto const to = D2D1::RectF(
+        auto const box = D2D1::RectF(
             static_cast<float>(command.x), static_cast<float>(command.y),
             static_cast<float>(command.x + command.width),
             static_cast<float>(command.y + command.height));
-        auto const from = D2D1::RectF(
-            static_cast<float>(command.fromX), static_cast<float>(command.fromY),
-            static_cast<float>(command.fromX + command.width),
-            static_cast<float>(command.fromY + command.height));
+        auto const size = bitmap->GetSize();
+        auto const whole = D2D1::RectF(
+            0.0f, 0.0f,
+            command.imageWidth ? static_cast<float>(command.imageWidth) : size.width,
+            command.imageHeight ? static_cast<float>(command.imageHeight) : size.height);
 
-        // Drawn pixel for pixel: Emacs sized the image as it laid the
-        // text out, so anything else here would be a second sizing.
-        m_context->DrawBitmap(bitmap.get(), to, 1.0f,
-                              D2D1_INTERPOLATION_MODE_NEAREST_NEIGHBOR, from,
-                              nullptr);
+        // Only this row's part of it: the image is drawn whole and the
+        // box keeps the rest of it off this row.  Kept apart from the
+        // clip the row already has, which stays where it was.
+        m_context->PushAxisAlignedClip(box, D2D1_ANTIALIAS_MODE_ALIASED);
+
+        // Where the image goes, as Emacs worked it out: the size it
+        // asked to be drawn at, any turn it asked for, and the move
+        // that brings its corner to this row's part of it.
+        D2D1_MATRIX_3X2_F was{};
+        m_context->GetTransform(&was);
+        m_context->SetTransform(D2D1::Matrix3x2F(
+            static_cast<float>(command.matrix[0]),
+            static_cast<float>(command.matrix[1]),
+            static_cast<float>(command.matrix[2]),
+            static_cast<float>(command.matrix[3]),
+            static_cast<float>(command.matrix[4]),
+            static_cast<float>(command.matrix[5])));
+
+        // Blended only where Emacs said to, which is where the image is
+        // drawn smaller than it is; drawn larger, the pixels are what
+        // is wanted to be seen.
+        m_context->DrawBitmap(
+            bitmap.get(), whole, 1.0f,
+            command.smooth ? D2D1_INTERPOLATION_MODE_LINEAR
+                           : D2D1_INTERPOLATION_MODE_NEAREST_NEIGHBOR,
+            whole, nullptr);
+
+        m_context->SetTransform(was);
+        m_context->PopAxisAlignedClip();
     }
 
     void XamlDrawing::Glyphs(DrawCommand const& command)

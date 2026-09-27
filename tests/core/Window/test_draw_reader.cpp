@@ -169,30 +169,65 @@ TEST(DrawReaderTest, ALineAtATimeComesToTheSameScreen)
     ASSERT_EQ(screens[0].commands.size(), 2u);
 }
 
-TEST(DrawReaderTest, AnImageIsANumberAndTheCornerOfItThatIsDrawn)
+TEST(DrawReaderTest, AnImageIsANumberAndTheMatrixThatPutsItThere)
 {
     DrawReader reader;
     auto screen = ReadAll(
         reader,
         { R"({"type":"draw","op":"begin","frame":"f","width":8,"height":6})",
-          R"({"type":"draw","op":"image","image":3,"fromX":0,"fromY":24,)"
-          R"("x":112,"y":300,"width":64,"height":12})",
+          R"({"type":"draw","op":"image","image":3,"x":112,"y":300,)"
+          R"("width":64,"height":12,"imageWidth":64,"imageHeight":48,)"
+          R"("smooth":false,"matrix":[2.0000,0.0000,0.0000,2.0000,112.0000,276.0000]})",
           R"({"type":"draw","op":"end","frame":"f"})" });
 
     ASSERT_TRUE(screen);
     ASSERT_EQ(screen->commands.size(), 1u);
 
     // The pixels are not here and never are: the host asks for them once
-    // by the number and draws them as often as it is told to.
+    // by the number and draws them as often as it is told to.  Nor is
+    // the size it is drawn at, which is the matrix's to say.
     auto const& image = screen->commands[0];
     EXPECT_EQ(image.op, DrawOp::Image);
     EXPECT_EQ(image.image, 3);
-    EXPECT_EQ(image.fromX, 0);
-    EXPECT_EQ(image.fromY, 24);
     EXPECT_EQ(image.x, 112);
     EXPECT_EQ(image.y, 300);
     EXPECT_EQ(image.width, 64);
     EXPECT_EQ(image.height, 12);
+    EXPECT_EQ(image.imageWidth, 64);
+    EXPECT_EQ(image.imageHeight, 48);
+    EXPECT_FALSE(image.smooth);
+    // Twice as big, and moved so that the row's part of it lands in the
+    // box: the row shows the image from 24 pixels down, and 300 - 24 is
+    // where the image's own corner goes.
+    EXPECT_DOUBLE_EQ(image.matrix[0], 2.0);
+    EXPECT_DOUBLE_EQ(image.matrix[3], 2.0);
+    EXPECT_DOUBLE_EQ(image.matrix[4], 112.0);
+    EXPECT_DOUBLE_EQ(image.matrix[5], 276.0);
+}
+
+TEST(DrawReaderTest, AnImageThatIsSmoothedSaysSo)
+{
+    // "true" and "false" are neither strings nor numbers, and a reader
+    // that took one for a number would take none of it and lose its
+    // place in the line: everything after it would be read as rubbish.
+    DrawReader reader;
+    auto screen = ReadAll(
+        reader,
+        { R"({"type":"draw","op":"begin","frame":"f","width":8,"height":6})",
+          R"({"type":"draw","op":"image","image":1,"smooth":true,"x":4,"y":5,)"
+          R"("width":6,"height":7})",
+          R"({"type":"draw","op":"end","frame":"f"})" });
+
+    ASSERT_TRUE(screen);
+    ASSERT_EQ(screen->commands.size(), 1u);
+
+    auto const& image = screen->commands[0];
+    EXPECT_TRUE(image.smooth);
+    // Read after the word, which says the word was passed over whole.
+    EXPECT_EQ(image.x, 4);
+    EXPECT_EQ(image.y, 5);
+    EXPECT_EQ(image.width, 6);
+    EXPECT_EQ(image.height, 7);
 }
 
 TEST(DrawReaderTest, PixelsThatMovedSayWhereTheyWentTo)

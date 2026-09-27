@@ -141,6 +141,10 @@ class Drawn(unittest.TestCase):
         self.assertEqual(said['width'], 4)
         self.assertEqual(said['height'], 2)
         self.assertNotIn('pixels', said)
+        # How big it is and where it goes, and nothing of what it is.
+        self.assertEqual(said['imageWidth'], 4)
+        self.assertEqual(said['imageHeight'], 2)
+        self.assertEqual(len(said['matrix']), 6)
 
     def test_the_pixels_come_when_they_are_asked_for(self):
         """The host asks by the number and Emacs answers with the pixels,
