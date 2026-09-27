@@ -35,6 +35,9 @@ cd "$build"
 # builds an ordinary Emacs, which answers a pipe with "standard input is
 # not a tty" and so fails every test of the host for a reason that says
 # nothing about the host.
+# Configured again by hand after shell.nix gains a library, too: configure
+# writes down what it found, and a Makefile that is already here is not
+# asked again.
 if [ ! -f Makefile ] || ! grep -q '^#define HAVE_HOST' src/config.h; then
     "$src/configure" --with-host --without-x --with-gnutls=ifavailable \
         --without-native-compilation --without-pop --without-mailutils

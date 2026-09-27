@@ -19,6 +19,18 @@ pkgs.mkShell {
     harfbuzz
     python3
     git
+
+    # Image formats, so that the host build reads what an Emacs on a
+    # desktop reads: without these image.c compiles only its own XBM and
+    # PBM readers, and an image of any other kind is one no test can
+    # reach.  The host draws what Emacs decoded, so which formats it
+    # knows is decided here and not there.
+    libpng
+    libjpeg
+    giflib
+    libtiff
+    librsvg
+    libwebp
   ];
 
   # Fonts for the host build of Emacs to measure text with: it reads
