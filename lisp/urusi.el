@@ -236,6 +236,11 @@ error: shown every time, it would be what keeps it coming."
     ("want-font"
      (when (fboundp 'host-send-font)
        (host-send-font (plist-get message :id))))
+    ;; The host has an image to draw and has not its pixels.  Emacs is
+    ;; the one that decoded it, so it is the one that has them.
+    ("want-image"
+     (when (fboundp 'host-send-image)
+       (host-send-image (plist-get message :id))))
     ("error" (urusi--host-error (plist-get message :message)))
     (_ (run-hook-with-args 'urusi-message-hook message))))
 

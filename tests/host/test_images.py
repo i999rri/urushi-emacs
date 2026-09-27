@@ -13,6 +13,7 @@ these, because none of them changes anything: they read what the first
 moment of a host frame already decided.
 """
 
+import base64
 import unittest
 
 from emacs_host import EmacsHost
@@ -97,6 +98,65 @@ class Images(unittest.TestCase):
             self.skipTest('this Emacs was built without librsvg')
         self.assertNotIn('error', self.said['svg'])
         self.assertIn('(12 . 7)', self.said['svg'])
+
+
+class Drawn(unittest.TestCase):
+    """An image said rather than drawn, and its pixels asked for.
+
+    The pixels go over once and are drawn as often as they are wanted, as
+    the file of a font does: a screen that showed an image would
+    otherwise carry it again every time anything on that row changed.
+    """
+
+    # The image is 4 by 2 and every pixel of it is white, so that what
+    # comes back can be checked without decoding anything.
+    SHOWN = '/tmp/urusi-test-shown.pbm'
+    SETUP = ' '.join((
+        '(progn',
+        '  (urusi--log "window-system %s" window-system)',
+        '  (with-temp-file "%s" (insert "P1\\n4 2\\n0 0 0 0\\n0 0 0 0\\n"))' % SHOWN,
+        '  (switch-to-buffer (get-buffer-create "shown"))',
+        '  (erase-buffer)',
+        '  (insert-image (create-image "%s" (quote pbm) nil))' % SHOWN,
+        '  (urusi--log "shown"))',
+    ))
+
+    def setUp(self):
+        class Host(EmacsHost):
+            DRAWS = True
+
+        self.emacs = Host('--eval', self.SETUP)
+        self.addCleanup(self.emacs.close)
+        self.emacs.wait_for('log', lambda m: m.get('text') == 'shown')
+        if 'window-system host' not in ' '.join(self.emacs.logs()):
+            self.skipTest('this Emacs has no host frames to draw images on')
+        self.emacs.send({'type': 'resize', 'width': 640, 'height': 480})
+
+    def test_an_image_is_said_with_a_number_and_not_its_pixels(self):
+        """What a row says of an image is where it goes and which one it
+        is; the pixels are nowhere in it."""
+        said = self.emacs.wait_for('draw', lambda m: m.get('op') == 'image')
+
+        self.assertIn('image', said)
+        self.assertEqual(said['width'], 4)
+        self.assertEqual(said['height'], 2)
+        self.assertNotIn('pixels', said)
+
+    def test_the_pixels_come_when_they_are_asked_for(self):
+        """The host asks by the number and Emacs answers with the pixels,
+        four bytes to a pixel, as they are to be drawn."""
+        said = self.emacs.wait_for('draw', lambda m: m.get('op') == 'image')
+        self.emacs.send({'type': 'want-image', 'id': said['image']})
+
+        sent = self.emacs.wait_for('image', lambda m: m.get('id') == said['image'])
+        self.assertEqual(sent['width'], 4)
+        self.assertEqual(sent['height'], 2)
+
+        pixels = base64.b64decode(sent['pixels'])
+        self.assertEqual(len(pixels), 4 * 2 * 4)
+        # White, and shown: the PBM says 0 for white, and with no mask
+        # every pixel of it is drawn.
+        self.assertEqual(pixels[:4], bytes((0xff, 0xff, 0xff, 0xff)))
 
 
 if __name__ == '__main__':

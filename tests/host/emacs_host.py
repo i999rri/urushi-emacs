@@ -58,6 +58,10 @@ class EmacsHost:
     SCALE = 1.0
     NARROW = 8.0
     WIDE = 16.0
+    # Whether this host draws what Emacs says to draw rather than being
+    # handed the pixels.  A test that looks at what Emacs says it drew
+    # sets it; the rest are handed pictures, as before.
+    DRAWS = False
 
     def __init__(self, *args, emacs=None):
         self.messages = queue.Queue()
@@ -154,7 +158,8 @@ class EmacsHost:
         kind = message.get('type')
         if kind == 'hello':
             self.send({'type': 'hello', 'host': 'tests', 'version': 1,
-                       'scale': self.SCALE, 'debug': False})
+                       'scale': self.SCALE, 'draws': self.DRAWS,
+                       'debug': False})
         elif kind == 'measure':
             self.send({'type': 'measured', 'family': message.get('family'),
                        'size': message.get('size'),
