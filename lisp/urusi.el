@@ -96,8 +96,17 @@ Grey and mostly clear, so that it shows on a background of any colour.")
                                             :object-type 'plist
                                             :false-object nil
                                             :null-object nil))
+      ;; Nothing gets out of here, a quit no more than an error: this is
+      ;; the function of a repeating timer, and `timer-event-handler'
+      ;; marks one as untriggered only once its function has returned.
+      ;; One that got out would leave the timer in `timer-list' and
+      ;; never run again, and this is the only thing that reads the
+      ;; host, so the window would go on answering the keyboard and
+      ;; nothing that is clicked.  A handler that prompts is one C-g
+      ;; leaves by signalling `quit', so that is the ordinary way in.
+      ;;
       ;; The echo area is drawn by whatever this was on its way to.
-      (error (urusi--log "%S in %s" err message)))))
+      ((error quit) (urusi--log "%S in %s" err message)))))
 
 (defun urusi--log (format &rest arguments)
   "Write FORMAT with ARGUMENTS where the host will show it.
@@ -351,6 +360,10 @@ method that waits on the person using the application."
         (if (eql (cdr (func-arity handler)) 0)
             (funcall handler)
           (funcall handler args))
+      ;; A handler is free to prompt, and a prompt is C-g's to leave.
+      ;; Caught here rather than left to the caller, so that the hook
+      ;; below still runs and the screen shows that it was left.
+      (quit (urusi--log "%s was left by quit" id))
       (error (message "urusi: Handler failed: %S" err)))
     (run-hooks 'urusi-after-event-hook)))
 

@@ -79,6 +79,78 @@
               (should after)))
         (urusi-stop)))))
 
+(defmacro urusi-test--with-fake-host (from-host &rest body)
+  "Run BODY with a host that sends whatever is pushed onto FROM-HOST.
+The three functions stood in for are what libemacs.dll adds when a host
+application loads it, and are missing in a plain Emacs."
+  (declare (indent 1))
+  `(cl-letf (((symbol-function 'host-available-p) (lambda () t))
+             ((symbol-function 'host-post) (lambda (_) t))
+             ((symbol-function 'host-take-events)
+              (lambda () (prog1 (nreverse ,from-host) (setq ,from-host nil)))))
+     ,@body))
+
+;; A handler is free to prompt: closing a tab whose buffer has changes
+;; asks whether to throw them away, and the asking is Emacs's own.  C-g
+;; and escape leave a prompt by signalling `quit', and that quit used to
+;; be let out of `urusi--take', whose `condition-case' took only `error'.
+;;
+;; On this machine that left the host unread for good.  The timer that
+;; reads it was still in `timer-list' with :repeat 0.05, and
+;; `timer--triggered' was t: `timer-event-handler' clears that only once
+;; its function has returned, and C skips a timer that is still marked
+;; triggered.  Nothing read the host again, so every click after that
+;; went nowhere while the keyboard went on working, keys being read in C
+;; and not through this timer.  Clearing the flag by hand let a queue of
+;; clicks through all at once, which is where they had been going.
+
+(ert-deftest urusi-quit-in-a-handler-goes-no-further ()
+  "A handler left by C-g is one the rest of the batch survives."
+  (let ((from-host nil)
+        (after nil)
+        (later nil))
+    (urusi-test--with-fake-host from-host
+      (unwind-protect
+          (progn
+            (urusi-start)
+            (urusi-render
+             `(StackPanel
+               ;; `signal' rather than a real C-g: a prompt reads with
+               ;; `inhibit-quit' nil and signals this itself, and there
+               ;; is no keyboard here to press.
+               (Button :Content "asks" :on-Click ,(lambda () (signal 'quit nil)))
+               (Button :Content "then" :on-Click ,(lambda () (setq later t)))))
+            (push "{\"type\":\"event\",\"id\":\"urusi2:Click\",\"args\":{}}" from-host)
+            (push "{\"type\":\"event\",\"id\":\"urusi1:Click\",\"args\":{}}" from-host)
+            (let ((urusi-after-event-hook (list (lambda () (setq after t)))))
+              ;; Returns, rather than signalling the quit onwards.
+              (urusi--take))
+            ;; The screen is redrawn for the handler that was left, so
+            ;; that it shows having been left.
+            (should after)
+            ;; And what came after it in the same batch is not lost.
+            (should later))
+        (urusi-stop)))))
+
+(ert-deftest urusi-quit-in-a-handler-leaves-the-timer-running ()
+  "The timer that reads the host still runs after a handler is left.
+Run through `timer-event-handler' itself, by the name C calls it by,
+since what has to hold is its own: a repeating timer is marked
+untriggered only once its function has returned."
+  (require 'timer)
+  (let ((from-host nil))
+    (urusi-test--with-fake-host from-host
+      (unwind-protect
+          (progn
+            (urusi-start)
+            (urusi-render
+             `(Button :Content "asks" :on-Click ,(lambda () (signal 'quit nil))))
+            (push "{\"type\":\"event\",\"id\":\"urusi1:Click\",\"args\":{}}" from-host)
+            (timer-event-handler urusi--timer)
+            (should (memq urusi--timer timer-list))
+            (should-not (timer--triggered urusi--timer)))
+        (urusi-stop)))))
+
 (ert-deftest urusi-call-gets-its-answer ()
   "A call reaches the host, and the answer reaches whoever asked."
   (let ((posted nil)
