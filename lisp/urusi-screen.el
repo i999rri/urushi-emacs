@@ -166,6 +166,16 @@ It takes the line, as `window-screen-rows' gives it."
 It takes the window."
   :type 'function)
 
+(defcustom urusi-screen-composing-function #'urusi-screen-composing
+  "Function that builds what the input method is composing.
+It takes the frame and returns a tree for `urusi-render', or nil while
+nothing is being composed.
+
+What it returns is laid over the frame, wherever the frame is put, so
+it is drawn over the text whether the text was built here or drawn by
+the host from what Emacs said it drew."
+  :type 'function)
+
 (defcustom urusi-screen-window-function #'urusi-screen-window
   "Function that draws one window.
 It takes the window and which one it is, counting from zero, which is
@@ -535,7 +545,16 @@ method left it."
 (defvar urusi-screen--caret nil
   "Where the cursor last was, as (X Y WIDTH HEIGHT), or nil.
 The host is told, so that the candidates of the input method appear
-beside the text rather than in a corner.")
+beside the text rather than in a corner.  What was told, and not where
+the cursor is: see `urusi-screen--caret-at'.")
+
+(defvar urusi-screen--caret-at nil
+  "Where the cursor is on the screen now, as (X Y WIDTH HEIGHT), or nil.
+
+Nil where the window has been scrolled away from it and there is no
+cursor to be seen.  Nothing is drawn beside a cursor that is not there:
+what was being composed would otherwise stay where the cursor was, over
+whatever the window was scrolled to.")
 
 (defun urusi-screen--tell-caret (x y width height)
   "Tell the host the cursor is at X, Y and is WIDTH by HEIGHT."
@@ -566,6 +585,46 @@ first character being composed onwards."
          frame)
         (urusi-screen-color (face-attribute 'default :background frame t)))))
 
+(defun urusi-screen-composing (frame)
+  "Return what the input method is composing, to be laid over FRAME.
+
+Laid over the frame and not put in a window: it belongs where the
+cursor is and to no line of any window, and where the host draws what
+Emacs said it drew there is no window built here to put it in.
+
+Where the cursor is comes from `urusi-screen--caret-at', which is worked
+out for every screen, so this is as far behind the cursor as the screen
+is; nothing is returned while the window has been scrolled away from the
+cursor and there is nowhere for this to go."
+  (when-let* (((not (string-empty-p urusi-screen--composing)))
+              (caret urusi-screen--caret-at)
+              (window (frame-selected-window frame)))
+    (let ((scale (float urusi-scale))
+          (color (or (urusi-screen-color (face-attribute 'cursor :background frame t))
+                     (urusi-screen-color (face-attribute 'default :foreground frame t)))))
+      `(Canvas :key "composing"
+               :IsHitTestVisible "False"
+               ,@(urusi-screen--composing-parts
+                  (/ (nth 0 caret) scale)
+                  (/ (nth 1 caret) scale)
+                  (/ (nth 3 caret) scale)
+                  (/ (default-font-width) scale)
+                  color
+                  (urusi-screen--line-background window))))))
+
+(defun urusi-screen--composing-over (frame)
+  "Return the place what is being composed on FRAME is laid over it in.
+
+Always there, and holding something only while something is being
+composed: it is a row of its own, and a row is sent by itself.  Put in
+the screen around the frame instead, the screen would be built again
+for every keystroke of a conversion -- the whole of it, the element the
+host draws the text in among it -- and the text would go out and come
+back under what is being composed."
+  (list `(Rows :key "composing" :panel "Canvas"
+               ,@(when-let* ((composing (funcall urusi-screen-composing-function frame)))
+                   (list composing)))))
+
 (defun urusi-screen--caret-from (window)
   "Say where the cursor of WINDOW is, for the input method to ask about.
 
@@ -575,15 +634,28 @@ one of the things Emacs said and no cursor is built for the screen, and
 the input method still has to know where what it is composing goes.
 Nothing told it, and it put the composition in the corner of the
 window."
-  (when-let* (((eq window (selected-window)))
-              (cursor (window-screen-cursor window)))
-    (let ((spacing (or (plist-get cursor :line-spacing) 0))
-          (above (or (plist-get cursor :line-spacing-above) 0))
-          (origin (urusi-screen--window-origin window)))
-      (urusi-screen--tell-caret (+ (car origin) (plist-get cursor :x))
-                                (+ (cdr origin) (plist-get cursor :y) above)
-                                (plist-get cursor :width)
-                                (- (plist-get cursor :height) spacing)))))
+  (setq urusi-screen--caret-at
+        (when-let* (((eq window (selected-window)))
+                    ;; And point is where it can be seen: a window
+                    ;; scrolled away from it with the wheel is one Emacs
+                    ;; draws the cursor at the edge of, point being
+                    ;; unable to move while an input method holds the
+                    ;; keys, and what is being composed would stick
+                    ;; there against a line it has nothing to do with.
+                    ((pos-visible-in-window-p (window-point window) window))
+                    (cursor (window-screen-cursor window)))
+          (let ((spacing (or (plist-get cursor :line-spacing) 0))
+                (above (or (plist-get cursor :line-spacing-above) 0))
+                (origin (urusi-screen--window-origin window)))
+            (list (+ (car origin) (plist-get cursor :x))
+                  (+ (cdr origin) (plist-get cursor :y) above)
+                  (plist-get cursor :width)
+                  (- (plist-get cursor :height) spacing)))))
+  ;; Told only where there is one.  A cursor that has been scrolled away
+  ;; from is at no place to tell, and the last place told is the best
+  ;; there is to leave the input method looking at.
+  (when urusi-screen--caret-at
+    (apply #'urusi-screen--tell-caret urusi-screen--caret-at)))
 
 (defun urusi-screen-cursor (window)
   "Return the cursor of WINDOW, to be laid over its text.
@@ -623,14 +695,7 @@ it blinks; what is being composed is drawn all the same."
                           ,@(unless (and (internal-show-cursor-p window)
                                          (string-empty-p urusi-screen--composing))
                               '(:Visibility "Collapsed")))
-               ,@(unless (string-empty-p urusi-screen--composing)
-                   ;; What is being composed goes where it will end up,
-                   ;; marked as the input method marked it, as it would
-                   ;; be drawn anywhere else.
-                   (urusi-screen--composing-parts
-                    left top height
-                    (/ (default-font-width) scale)
-                    color (urusi-screen--line-background window)))))))
+               ))))
 
 ;;;; The windows
 
@@ -1051,7 +1116,8 @@ the mouse to."
       `(Grid :Name "urusi-frame"
              :Background "Transparent"
              ,@(urusi-screen--echo-area-margin frame)
-             ,(funcall urusi-screen-frame-function frame))
+             ,(funcall urusi-screen-frame-function frame)
+             ,@(urusi-screen--composing-over frame))
     (puthash name frame urusi-screen--sites)
     `(Grid :Name ,(concat "urusi-frame:" name)
            :Tag ,(frame-parameter frame 'window-id)
@@ -1085,7 +1151,8 @@ parts take the room they need."
                       collect (if (urusi-screen--frame-part-p part)
                                   `(Grid :Name "urusi-frame" :Grid.Row ,row
                                          ,@(urusi-screen--echo-area-margin frame)
-                                         ,(cdr part))
+                                         ,(cdr part)
+                                         ,@(urusi-screen--composing-over frame))
                                 (urusi-screen--in-row (cdr part) row))))))
 
 (defun urusi-screen-tree (&optional frame)
