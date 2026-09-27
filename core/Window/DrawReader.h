@@ -469,6 +469,47 @@ namespace urusi::core::window
             return std::nullopt;
         }
 
+        // Take a message, which is one line or many, and return the
+        // screens its lines finished.
+        //
+        // Emacs writes a whole screen's lines in one go, so that a
+        // screen is one write rather than a few hundred, and how they
+        // arrive is the transport's doing: an Emacs of its own sends
+        // them down a pipe, where they come back a line at a time, and
+        // one loaded into this process posts them as they were written,
+        // all in the one message.  Neither is the reader's business.
+        std::vector<DrawFrame> TakeLines(std::string_view text)
+        {
+            std::vector<DrawFrame> screens;
+
+            for (size_t at = 0; at < text.size();)
+            {
+                auto const end = text.find('\n', at);
+                auto line = text.substr(at, end == std::string_view::npos
+                                                ? std::string_view::npos
+                                                : end - at);
+
+                at = end == std::string_view::npos ? text.size() : end + 1;
+
+                // As the pipe leaves them, where the line ends with a
+                // carriage return that nothing else wants.
+                if (!line.empty() && line.back() == '\r')
+                {
+                    line.remove_suffix(1);
+                }
+                if (line.empty())
+                {
+                    continue;
+                }
+
+                if (auto screen = Take(line))
+                {
+                    screens.push_back(std::move(*screen));
+                }
+            }
+            return screens;
+        }
+
         // Why the last line was not understood, or nothing.
         std::string const& Why() const { return m_why; }
 

@@ -125,6 +125,50 @@ TEST(DrawReaderTest, AGlyphRunIsAsLongAsBothOfItsLists)
     EXPECT_EQ(screen->commands[0].xs.size(), 2u);
 }
 
+TEST(DrawReaderTest, AScreenPostedAsOneMessageIsReadAsItsLines)
+{
+    // How Emacs posts it when it is loaded into this process: written in
+    // one go, and handed over as it was written.  Down a pipe the same
+    // screen arrives a line at a time; the reader is not to care which.
+    DrawReader reader;
+    auto screens = reader.TakeLines(
+        "{\"type\":\"draw\",\"op\":\"begin\",\"frame\":\"f\",\"width\":8,\"height\":6}\n"
+        "{\"type\":\"draw\",\"op\":\"fill\",\"x\":1,\"y\":2,\"width\":3,\"height\":4,"
+        "\"color\":\"#101010\"}\n"
+        "{\"type\":\"draw\",\"op\":\"unclip\"}\n"
+        "{\"type\":\"draw\",\"op\":\"end\",\"frame\":\"f\"}");
+
+    ASSERT_EQ(screens.size(), 1u);
+    EXPECT_EQ(screens[0].frame, L"f");
+    ASSERT_EQ(screens[0].commands.size(), 2u);
+    EXPECT_EQ(screens[0].commands[0].op, DrawOp::Fill);
+    EXPECT_EQ(screens[0].commands[1].op, DrawOp::Unclip);
+}
+
+TEST(DrawReaderTest, ALineAtATimeComesToTheSameScreen)
+{
+    // The same screen, one message to a line, as it arrives from an
+    // Emacs of its own down a pipe.
+    DrawReader reader;
+    std::vector<DrawFrame> screens;
+
+    for (auto const* line :
+         { R"({"type":"draw","op":"begin","frame":"f","width":8,"height":6})",
+           R"({"type":"draw","op":"fill","x":1,"y":2,"width":3,"height":4,"color":"#101010"})",
+           R"({"type":"draw","op":"unclip"})",
+           R"({"type":"draw","op":"end","frame":"f"})" })
+    {
+        for (auto& screen : reader.TakeLines(line))
+        {
+            screens.push_back(std::move(screen));
+        }
+    }
+
+    ASSERT_EQ(screens.size(), 1u);
+    EXPECT_EQ(screens[0].frame, L"f");
+    ASSERT_EQ(screens[0].commands.size(), 2u);
+}
+
 TEST(DrawReaderTest, AnImageIsANumberAndTheCornerOfItThatIsDrawn)
 {
     DrawReader reader;

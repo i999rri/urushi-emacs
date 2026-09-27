@@ -277,9 +277,9 @@ namespace winrt::urusi_emacs::implementation
             // are gathered here and the screen goes over in one.
             if (message.compare(0, kDraw.size(), kDraw) == 0)
             {
-                if (auto frame = drawing->Take(message))
+                for (auto& said : drawing->TakeLines(message))
                 {
-                    dispatcher.TryEnqueue([weak, said = std::move(*frame)] {
+                    dispatcher.TryEnqueue([weak, said = std::move(said)] {
                         if (auto self = weak.get())
                         {
                             self->Drawn(said);
