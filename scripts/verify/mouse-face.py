@@ -10,6 +10,7 @@ again with it and puts the old ones back -- so a window drawing from the
 matrix sees it only where hostscreen.c reads it back.
 """
 import json
+import os
 import re
 import subprocess
 import threading
@@ -24,10 +25,17 @@ SETUP = r"""(progn
   (insert " plain\n")
   (goto-char (point-min)))"""
 
+# This repository's Lisp, named as WSL sees it and worked out from where
+# this file is: -Q leaves the site file unread, so what would have loaded
+# urusi is named here instead.
+LISP = '/mnt/%s%s' % (os.path.abspath(__file__)[0].lower(),
+                      os.path.join(os.path.dirname(os.path.dirname(
+                          os.path.dirname(os.path.abspath(__file__)))),
+                                   'lisp')[2:].replace('\\', '/'))
+
 INNER = ('EMACS_HOST_PIPE=1 EMACSLOADPATH=$HOME/dev/urusi/site-lisp: '
          'exec ~/dev/urusi/emacs-build/src/emacs -Q '
-         '-L /mnt/c/Users/me/repos/urusi-emacs/lisp '
-         '-l /mnt/c/Users/me/repos/urusi-emacs/lisp/urusi-site-start.el --eval "$PROBE"')
+         '-L %s -l %s/urusi-site-start.el --eval "$PROBE"' % (LISP, LISP))
 emacs = subprocess.Popen(['wsl.exe', '-e', 'env', 'PROBE=' + SETUP, 'bash', '-lc', INNER],
                          stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                          stderr=subprocess.DEVNULL)
