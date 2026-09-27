@@ -132,11 +132,30 @@ application loads it, and are missing in a plain Emacs."
             (should later))
         (urusi-stop)))))
 
+(ert-deftest urusi-a-throw-from-a-handler-leaves-the-host-looked-at ()
+  "The next look is set even when a handler leaves in a way nothing catches.
+A throw is the one that makes the point: no `condition-case' takes it,
+so nothing here could have caught up with it after the fact."
+  (require 'timer)
+  (let ((from-host nil))
+    (urusi-test--with-fake-host from-host
+      (unwind-protect
+          (progn
+            (urusi-start)
+            (urusi-render
+             `(Button :Content "leaves"
+                      :on-Click ,(lambda () (throw 'urusi-test-away nil))))
+            (push "{\"type\":\"event\",\"id\":\"urusi1:Click\",\"args\":{}}" from-host)
+            (catch 'urusi-test-away
+              (timer-event-handler urusi--timer))
+            (should (memq urusi--timer timer-list))
+            (should-not (timer--triggered urusi--timer)))
+        (urusi-stop)))))
+
 (ert-deftest urusi-quit-in-a-handler-leaves-the-timer-running ()
-  "The timer that reads the host still runs after a handler is left.
-Run through `timer-event-handler' itself, by the name C calls it by,
-since what has to hold is its own: a repeating timer is marked
-untriggered only once its function has returned."
+  "The host is still looked at after a handler has been left by C-g.
+Run through `timer-event-handler', by the name C calls it by, since
+what has to hold is what it leaves behind."
   (require 'timer)
   (let ((from-host nil))
     (urusi-test--with-fake-host from-host

@@ -72,8 +72,7 @@ Grey and mostly clear, so that it shows on a background of any colour.")
   (unless (urusi-available-p)
     (user-error "urusi: This Emacs does not run inside the host"))
   (urusi-stop)
-  (setq urusi--timer
-        (run-with-timer urusi-poll-interval urusi-poll-interval #'urusi--take))
+  (urusi--next-look)
   (urusi--send '(:type "hello" :version 1)))
 
 (defun urusi-stop ()
@@ -88,22 +87,44 @@ Grey and mostly clear, so that it shows on a background of any colour.")
   (unless (host-post (json-serialize message))
     (user-error "urusi: This Emacs does not run inside the host")))
 
+(defun urusi--next-look ()
+  "Set the next look at the host, in place of one that is waiting.
+A timer of one look rather than a repeating one, because a repeating
+timer is put back only once its function has returned: `timer-event-
+handler' clears `timer--triggered' after the call, and a timer left
+marked triggered stays in `timer-list' and never runs again.  This is
+the only thing that reads the host, so one look that did not return
+used to be the last, and the window went on answering the keyboard,
+where keys are read in C, while everything clicked went nowhere."
+  (when (timerp urusi--timer)
+    (cancel-timer urusi--timer))
+  (setq urusi--timer (run-with-timer urusi-poll-interval nil #'urusi--look)))
+
+(defun urusi--look ()
+  "Look at the host, having first arranged to look again."
+  ;; The next look is set before anything is handled, so that no way of
+  ;; leaving this one can be the end of looking: not a quit from a
+  ;; prompt a handler opened, nor a throw, which no `condition-case'
+  ;; would catch.  The interval is then counted from the end of a look
+  ;; rather than the start of one, which at this interval is the same
+  ;; thing.
+  (urusi--next-look)
+  (urusi--take))
+
 (defun urusi--take ()
-  "Handle the messages the host has sent since the last look."
+  "Handle the messages the host has sent since the last look.
+Nothing is arranged here: this is what there is to do, and
+`urusi--look' is what keeps it being done."
   (dolist (message (host-take-events))
     (condition-case err
         (urusi--dispatch (json-parse-string message
                                             :object-type 'plist
                                             :false-object nil
                                             :null-object nil))
-      ;; Nothing gets out of here, a quit no more than an error: this is
-      ;; the function of a repeating timer, and `timer-event-handler'
-      ;; marks one as untriggered only once its function has returned.
-      ;; One that got out would leave the timer in `timer-list' and
-      ;; never run again, and this is the only thing that reads the
-      ;; host, so the window would go on answering the keyboard and
-      ;; nothing that is clicked.  A handler that prompts is one C-g
-      ;; leaves by signalling `quit', so that is the ordinary way in.
+      ;; A quit as well as an error, so that the messages after the one
+      ;; being handled are handled too: C-g leaves a prompt a handler
+      ;; opened by signalling quit, and the rest of what the host said
+      ;; is waiting behind it.
       ;;
       ;; The echo area is drawn by whatever this was on its way to.
       ((error quit) (urusi--log "%S in %s" err message)))))
