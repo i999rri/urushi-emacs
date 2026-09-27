@@ -26,7 +26,7 @@ import threading
 import time
 
 FILE = (sys.argv[sys.argv.index('--file') + 1] if '--file' in sys.argv
-        else '~/dev/urusi/host-src/src/keyboard.c')
+        else '~/dev/urusi/emacs/src/keyboard.c')
 RECORD = (sys.argv[sys.argv.index('--record') + 1] if '--record' in sys.argv
           else None)
 SETTLE = 22

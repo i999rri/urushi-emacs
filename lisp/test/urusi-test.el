@@ -132,6 +132,22 @@ application loads it, and are missing in a plain Emacs."
             (should later))
         (urusi-stop)))))
 
+;; Bound in C by an Emacs inside the host, and by nothing here, so
+;; declared for the `let' below to bind it as that Emacs would.
+(defvar host-message-function)
+
+(ert-deftest urusi-starting-asks-to-be-told-of-the-messages ()
+  "Starting asks to be told, and stopping gives that up with the looking.
+Being told is what the host's messages arrive by; the timer is what is
+left for when a telling does not."
+  (let ((from-host nil)
+        (host-message-function nil))
+    (urusi-test--with-fake-host from-host
+      (urusi-start)
+      (should (eq host-message-function #'urusi--take))
+      (urusi-stop)
+      (should-not host-message-function))))
+
 (ert-deftest urusi-a-throw-from-a-handler-leaves-the-host-looked-at ()
   "The next look is set even when a handler leaves in a way nothing catches.
 A throw is the one that makes the point: no `condition-case' takes it,

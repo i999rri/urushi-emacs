@@ -23,11 +23,13 @@ from emacs_host import EmacsHost
 
 # One argument, so no newlines: what Emacs is asked to do once urusi has
 # started.  The asking is hung on `urusi-start' rather than done here,
-# because the command line is read before urusi starts and there would
-# be no timer to stop yet.
+# because the command line is read before urusi starts and there is no
+# looking to call off yet.
 #
-# `host-message-function' is set here as well as wherever urusi sets it,
-# so that what these tests are about does not depend on that.
+# The looking is called off by putting the interval out of reach and
+# setting the next look with it, rather than by stopping urusi, which
+# would give up being told as well.  Nothing here asks to be told: that
+# is urusi's own doing, and these tests are of what it does.
 SETUP = ' '.join((
     '(progn',
     '  (urusi--log "window-system %s" window-system)',
@@ -41,12 +43,13 @@ SETUP = ' '.join((
     '                              (point-min) (point-max)))))))',
     "  (advice-add 'urusi-start :after",
     '              (lambda (&rest _)',
-    '                (urusi-stop)',
-    "                (setq host-message-function #'urusi--take)",
+    '                (setq urusi-poll-interval 3600)',
+    '                (urusi--next-look)',
     '                (urusi--log "told, not looking"))))',
 ))
 
-# What the timer would have cost, for the measurement to be read against.
+# What looking would have cost, for the measurement to be read against:
+# what urusi asked of the timer before it was told instead.
 POLL_INTERVAL = 0.05
 
 

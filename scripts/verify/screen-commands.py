@@ -14,7 +14,7 @@ import threading
 import time
 
 FILE = (sys.argv[sys.argv.index('--file') + 1] if '--file' in sys.argv
-        else '~/dev/urusi/host-src/src/keyboard.c')
+        else '~/dev/urusi/emacs/src/keyboard.c')
 SHOW = int(sys.argv[sys.argv.index('--show') + 1]) if '--show' in sys.argv else 0
 SETTLE = 22
 
