@@ -151,6 +151,29 @@ namespace winrt::urusi_emacs::implementation
     {
         m_dispatcher = Microsoft::UI::Dispatching::DispatcherQueue::GetForCurrentThread();
         SetThreadDescription(GetCurrentThread(), L"window");
+
+        {
+            auto weak = get_weak();
+
+            urusi::windows::emacs::HostCalls::OnLog(
+                [weak](std::string const& what) {
+                    if (auto self = weak.get())
+                    {
+                        self->AppendLog("host", what + "\n");
+                    }
+                });
+
+            // A dialog is a window of its own over this one, and while
+            // it is up Windows forgets which parts of the title bar
+            // this window draws can be clicked.  Said again once it has
+            // gone, or the buttons on it stop answering.
+            m_asking.OnEnded([weak] {
+                if (auto self = weak.get())
+                {
+                    self->UpdateTitleBarRegions();
+                }
+            });
+        }
         auto weak = get_weak();
 
         m_emacs = std::make_shared<urusi::windows::emacs::Emacs>(urusi::windows::emacs::Emacs::Events{
@@ -1468,8 +1491,12 @@ namespace winrt::urusi_emacs::implementation
             : JsonObject{};
         std::weak_ptr<urusi::windows::emacs::Emacs> emacs = m_emacs;
 
+        urusi::windows::emacs::HostCalls::Where where{
+            get_strong().as<Window>(), m_asking
+        };
+
         urusi::windows::emacs::HostCalls::Call(
-            get_strong().as<Window>(), method, args,
+            where, method, args,
             [emacs, id](IJsonValue const& value, std::wstring const& error) {
                 if (auto self = emacs.lock())
                 {

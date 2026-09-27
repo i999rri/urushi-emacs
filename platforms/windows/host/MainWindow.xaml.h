@@ -2,6 +2,7 @@
 
 #include "MainWindow.g.h"
 #include "Input/TextServices.h"
+#include "Emacs/Asking.h"
 #include "Emacs/Emacs.h"
 #include "Emacs/HostCalls.h"
 #include "Input/KeyTranslation.h"
@@ -108,6 +109,8 @@ namespace winrt::urusi_emacs::implementation
         // known by, since a child frame has a picture of its own.
         std::map<std::wstring, urusi::windows::window::XamlPicture> m_pictures;
         std::shared_ptr<urusi::windows::window::XamlGlyphs> m_glyphs;
+        // Whether a dialog is up on this window.
+        urusi::windows::emacs::Asking m_asking;
         // The screens drawn from what Emacs said, one for each
         // frame, beside the pictures of an Emacs that draws its
         // own.

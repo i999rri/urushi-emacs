@@ -18,7 +18,8 @@ using namespace Windows::Data::Json;
 namespace
 {
     using Reply = urusi::windows::emacs::HostCalls::Reply;
-    using Method = void (*)(Window const&, JsonObject const&, Reply const&);
+    using Where = urusi::windows::emacs::HostCalls::Where;
+    using Method = void (*)(Where const&, JsonObject const&, Reply const&);
 
     void Done(Reply const& reply)
     {
@@ -36,8 +37,10 @@ namespace
         return window.Presenter().as<OverlappedPresenter>();
     }
 
-    void Title(Window const& window, JsonObject const& args, Reply const& reply)
+    void Title(Where const& where, JsonObject const& args, Reply const& reply)
     {
+        auto const& window = where.window;
+
         window.AppWindow().Title(args.GetNamedString(L"title", L""));
         Done(reply);
     }
@@ -45,8 +48,10 @@ namespace
     // How the window takes up the screen: "normal", "maximized",
     // "minimized" or "fullscreen", which are the ways Emacs's fullscreen
     // frame parameter and its iconified state can have a frame.
-    void State(Window const& window, JsonObject const& args, Reply const& reply)
+    void State(Where const& where, JsonObject const& args, Reply const& reply)
     {
+        auto const& window = where.window;
+
         auto state = args.GetNamedString(L"state", L"normal");
         auto app = window.AppWindow();
 
@@ -74,16 +79,20 @@ namespace
         Done(reply);
     }
 
-    void Topmost(Window const& window, JsonObject const& args, Reply const& reply)
+    void Topmost(Where const& where, JsonObject const& args, Reply const& reply)
     {
+        auto const& window = where.window;
+
         Overlapped(window.AppWindow()).IsAlwaysOnTop(args.GetNamedBoolean(L"on", true));
         Done(reply);
     }
 
     // The size of the whole window, frame and all, in the pixels of
     // the screen: the size a person would drag it to.
-    void Size(Window const& window, JsonObject const&, Reply const& reply)
+    void Size(Where const& where, JsonObject const&, Reply const& reply)
     {
+        auto const& window = where.window;
+
         auto size = window.AppWindow().Size();
         JsonObject value;
         value.SetNamedValue(L"width", JsonValue::CreateNumberValue(size.Width));
@@ -91,8 +100,10 @@ namespace
         reply(value, L"");
     }
 
-    void Resize(Window const& window, JsonObject const& args, Reply const& reply)
+    void Resize(Where const& where, JsonObject const& args, Reply const& reply)
     {
+        auto const& window = where.window;
+
         window.AppWindow().Resize({ static_cast<int32_t>(args.GetNamedNumber(L"width", 800)),
                                     static_cast<int32_t>(args.GetNamedNumber(L"height", 600)) });
         Done(reply);
@@ -100,8 +111,10 @@ namespace
 
     // Whether the window is being drawn dark, which is what the person
     // using it chose in Windows unless the application says otherwise.
-    void Theme(Window const& window, JsonObject const&, Reply const& reply)
+    void Theme(Where const& where, JsonObject const&, Reply const& reply)
     {
+        auto const& window = where.window;
+
         auto root = window.Content().try_as<FrameworkElement>();
         JsonObject value;
         value.SetNamedValue(L"dark", JsonValue::CreateBooleanValue(
@@ -141,8 +154,29 @@ namespace
     // it closes on, which is also what pressing Escape comes to.  An
     // answer left unnamed is not offered.  Answers with "accept",
     // "other" or "cancel".
-    fire_and_forget AskAsync(Window window, JsonObject args, Reply reply)
+    std::function<void(std::string const&)> g_log;
+
+    void Ask(Where const& where, JsonObject const& args, Reply const& reply)
     {
+        auto const& window = where.window;
+
+        auto root = window.Content() ? window.Content().XamlRoot() : nullptr;
+
+        if (!where.asking.Begin())
+        {
+            reply(JsonValue::CreateNullValue(), L"a dialog is up already");
+            return;
+        }
+
+        // Without a root a dialog has nothing to be shown in.
+        if (!root)
+        {
+            where.asking.End();
+            reply(JsonValue::CreateNullValue(), L"the window has nothing to"
+                                                L" show a dialog in");
+            return;
+        }
+
         try
         {
             Controls::ContentDialog dialog;
@@ -150,7 +184,7 @@ namespace
             auto other = args.GetNamedString(L"other", L"");
             auto cancel = args.GetNamedString(L"cancel", L"");
 
-            dialog.XamlRoot(window.Content().XamlRoot());
+            dialog.XamlRoot(root);
             dialog.Title(box_value(args.GetNamedString(L"title", L"")));
             dialog.Content(box_value(args.GetNamedString(L"message", L"")));
             if (!accept.empty())
@@ -167,26 +201,42 @@ namespace
                 dialog.CloseButtonText(cancel);
             }
 
-            auto chosen = co_await dialog.ShowAsync();
-            reply(JsonValue::CreateStringValue(
-                      chosen == Controls::ContentDialogResult::Primary     ? L"accept"
-                      : chosen == Controls::ContentDialogResult::Secondary ? L"other"
-                                                                          : L"cancel"),
-                  L"");
+            // Answered in the completion rather than awaited: what
+            // happens after an answer is not the rest of this.
+            dialog.ShowAsync().Completed(
+                [reply, asking = &where.asking](
+                    auto&& sender, Windows::Foundation::AsyncStatus status) {
+                    asking->End();
+                    if (status != Windows::Foundation::AsyncStatus::Completed)
+                    {
+                        reply(JsonValue::CreateStringValue(L"cancel"), L"");
+                        return;
+                    }
+
+                    auto const chosen = sender.GetResults();
+
+                    reply(JsonValue::CreateStringValue(
+                              chosen == Controls::ContentDialogResult::Primary
+                                  ? L"accept"
+                              : chosen == Controls::ContentDialogResult::Secondary
+                                  ? L"other"
+                                  : L"cancel"),
+                          L"");
+                });
         }
         catch (hresult_error const& error)
         {
+            where.asking.End();
+            urusi::windows::emacs::HostCalls::Log("it would not show: "
+                                                  + to_string(error.message()));
             reply(JsonValue::CreateNullValue(), std::wstring{ error.message() });
         }
     }
 
-    void Ask(Window const& window, JsonObject const& args, Reply const& reply)
+    void OpenFile(Where const& where, JsonObject const& args, Reply const& reply)
     {
-        AskAsync(window, args, reply);
-    }
+        auto const& window = where.window;
 
-    void OpenFile(Window const& window, JsonObject const& args, Reply const& reply)
-    {
         OpenFileAsync(window, args, reply);
     }
 
@@ -208,7 +258,20 @@ namespace
 
 namespace urusi::windows::emacs
 {
-    void HostCalls::Call(Window const& window, std::wstring const& method,
+    void HostCalls::OnLog(std::function<void(std::string const&)> log)
+    {
+        g_log = std::move(log);
+    }
+
+    void HostCalls::Log(std::string const& what)
+    {
+        if (g_log)
+        {
+            g_log(what);
+        }
+    }
+
+    void HostCalls::Call(Where const& where, std::wstring const& method,
                          JsonObject const& args, Reply reply)
     {
         auto found = Methods().find(method);
@@ -220,7 +283,7 @@ namespace urusi::windows::emacs
 
         try
         {
-            found->second(window, args, reply);
+            found->second(where, args, reply);
         }
         catch (hresult_error const& error)
         {
