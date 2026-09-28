@@ -23,6 +23,9 @@ class ProtocolTest(unittest.TestCase):
         """Emacs says hello first, and once answered, shows its screen."""
         hello = self.emacs.wait_for('hello')
         self.assertEqual(hello.get('version'), 1)
+        # Which window system draws the frames, which is how the host
+        # knows whether they are windows it can post input to.
+        self.assertEqual(hello.get('window-system'), 'host')
 
         screen = self.emacs.wait_for('screen', lambda m: 'xaml' in m)
         self.assertIn('urusi-frame', screen['xaml'])

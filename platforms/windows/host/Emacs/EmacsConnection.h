@@ -8,11 +8,10 @@ namespace urusi::windows::emacs
     // How the application reaches Emacs: the messages that go each way,
     // and starting it.
     //
-    // Emacs is either loaded into this process, where its frames are
-    // windows of its own that the keys and the pointer are posted to,
-    // or a process of its own on the host window system, which has no
-    // windows and takes them as messages. Everything else is messages
-    // either way.
+    // Emacs is either loaded into this process or a process of its
+    // own; either way everything between them is messages. What it
+    // draws its frames with is a separate question, which Emacs
+    // answers in its hello (see Emacs::InputAsMessages).
     class EmacsConnection
     {
     public:
@@ -36,10 +35,5 @@ namespace urusi::windows::emacs
 
         // Send one message to Emacs. Safe from any thread.
         virtual void Send(std::string const& message) = 0;
-
-        // Whether the keys, the pointer and the focus go to Emacs as
-        // messages, rather than as the Windows messages of its frames'
-        // windows.
-        virtual bool InputAsMessages() const noexcept = 0;
     };
 }

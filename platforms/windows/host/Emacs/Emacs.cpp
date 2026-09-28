@@ -64,9 +64,11 @@ namespace urusi::windows::emacs
         return message;
     }
 
-    void Emacs::Hello(bool debug, double scale)
+    void Emacs::Hello(JsonObject const& said, bool debug, double scale)
     {
         m_ready = true;
+        m_windowSystem = said.GetNamedString(L"window-system", L"");
+        Log("host", "Emacs draws with " + to_string(m_windowSystem) + "\n");
 
         JsonObject reply;
         reply.SetNamedValue(L"type", String(L"hello"));

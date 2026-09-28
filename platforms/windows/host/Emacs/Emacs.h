@@ -50,18 +50,23 @@ namespace urusi::windows::emacs
         void Start(EmacsConnection::OutputFn output, EmacsConnection::ExitFn exited);
 
         // Whether the keys, the pointer and the focus go to Emacs as
-        // messages: an Emacs of its own process has no windows to post
-        // them to, and no frame window to say it has made a frame.
-        bool InputAsMessages() const noexcept { return m_connection->InputAsMessages(); }
+        // messages rather than to the windows of its frames. Only the
+        // w32 window system makes frames that are windows of this
+        // process, which is the one case where there is anything to
+        // post to; Emacs says which it draws with in its hello, and
+        // until then there is no frame to tell either way.
+        bool InputAsMessages() const noexcept { return m_windowSystem != L"w32"; }
 
         // The message LINE is, or null if it is not one, which Emacs is
         // told.
         winrt::Windows::Data::Json::JsonObject Receive(std::string const& line);
 
-        // Answer Emacs's hello, after which it can be asked things.
-        // DEBUG says whether the keyboard is being written down, SCALE
-        // how many pixels of the screen go to one of XAML's.
-        void Hello(bool debug, double scale);
+        // Answer Emacs's hello, SAID, after which it can be asked
+        // things. DEBUG says whether the keyboard is being written
+        // down, SCALE how many pixels of the screen go to one of
+        // XAML's.
+        void Hello(winrt::Windows::Data::Json::JsonObject const& said,
+                   bool debug, double scale);
         bool Ready() const noexcept { return m_ready; }
 
         // Emacs has gone, and cannot be asked anything again.
@@ -94,6 +99,8 @@ namespace urusi::windows::emacs
         // The command the Emacs of its own process is started with, or
         // empty for the one in this process.
         std::string m_command;
+        // What Emacs draws its frames with, from its hello.
+        winrt::hstring m_windowSystem;
         bool m_ready{ false };
         std::set<std::wstring> m_seen;
         std::chrono::steady_clock::time_point m_lastHeard{};

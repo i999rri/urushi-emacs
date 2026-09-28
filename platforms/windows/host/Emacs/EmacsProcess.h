@@ -37,7 +37,6 @@ namespace urusi::windows::emacs
         void OnMessage(MessageFn fn) override;
         void Start(OutputFn output, ExitFn exited) override;
         void Send(std::string const& message) override;
-        bool InputAsMessages() const noexcept override { return true; }
 
     private:
         bool Launch(std::string& error);

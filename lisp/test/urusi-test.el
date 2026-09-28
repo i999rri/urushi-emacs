@@ -63,8 +63,12 @@
             (urusi-start)
             (urusi-render `(Button :Content "OK" :on-Click ,(lambda () (setq clicked t))))
             (setq posted (nreverse posted))
-            (should (equal (json-parse-string (nth 0 posted) :object-type 'plist)
-                           '(:type "hello" :version 1)))
+            (let ((hello (json-parse-string (nth 0 posted) :object-type 'plist)))
+              (should (equal (plist-get hello :type) "hello"))
+              (should (equal (plist-get hello :version) 1))
+              ;; Which window system draws the frames, which is how the
+              ;; host knows whether they are windows it can post to.
+              (should (stringp (plist-get hello :window-system))))
             (let ((screen (json-parse-string (nth 1 posted) :object-type 'plist)))
               (should (equal (plist-get screen :type) "screen"))
               (should (equal (plist-get screen :events)

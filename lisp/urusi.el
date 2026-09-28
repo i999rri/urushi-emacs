@@ -86,7 +86,12 @@ Grey and mostly clear, so that it shows on a background of any colour.")
   (when (boundp 'host-message-function)
     (setq host-message-function #'urusi--take))
   (urusi--next-look)
-  (urusi--send '(:type "hello" :version 1)))
+  ;; Which window system draws the frames, which is how the host knows
+  ;; what to do with a key: only the w32 one makes frames that are
+  ;; windows of the host's own process, and only those can be posted
+  ;; to.  Every other way round, input comes back as a message.
+  (urusi--send (list :type "hello" :version 1
+                     :window-system (symbol-name (or (window-system) 'none)))))
 
 (defun urusi-stop ()
   "Stop looking for messages from the host, and being told of them."

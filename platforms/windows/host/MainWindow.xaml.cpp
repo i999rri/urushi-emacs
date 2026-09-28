@@ -1347,12 +1347,13 @@ namespace winrt::urusi_emacs::implementation
         if (type == L"hello")
         {
             ShowStatus(L"");
-            m_emacs->Hello(m_debug, Content() && Content().XamlRoot()
-                                        ? Content().XamlRoot().RasterizationScale()
-                                        : 1.0);
+            m_emacs->Hello(message, m_debug, Content() && Content().XamlRoot()
+                                         ? Content().XamlRoot().RasterizationScale()
+                                         : 1.0);
 
-            // An Emacs of its own process says nothing of its frame,
-            // which has no window: it made it before it said hello.
+            // Only a frame of the w32 window system has a window to
+            // say it has made; every other kind is drawn here, and
+            // there is nothing left to wait for.
             if (m_emacs->InputAsMessages())
             {
                 TakeEmacsWindow(nullptr);
