@@ -36,17 +36,21 @@
   "Native WinUI 3 UI built from Emacs Lisp."
   :group 'environment)
 
-(defcustom urusi-poll-interval 1.0
+(defcustom urusi-poll-interval 30.0
   "How often to look for messages from the host, in seconds.
 
 Emacs is told of them as they are sent, so this is what is left over
-when a telling does not arrive: the host writes to a pipe Emacs waits
-on, and `host-message-function' carries the rest of the way.  Long
-enough that looking costs nothing, short enough that a window nobody
-told is a window that answers late rather than one that never answers.
+when a telling does not arrive: the host wakes Emacs where it waits
+for input, and `host-message-function' carries the rest of the way.
 
-It is all there is in an Emacs whose host cannot tell it, where the
-messages wait in a queue until Emacs looks at it."
+Rare, because looking is not free: a look answers whatever has
+gathered and draws what it changed, and doing that on a timer as well
+as when told is slower to answer than being told alone.  This is what
+catches a message nobody was told of, and a window that answers a
+moment late is the worst it has to prevent.
+
+Set it low in an Emacs whose host cannot tell it, where looking is all
+there is and the messages wait in a queue until Emacs looks."
   :type 'number)
 
 (defvar urusi--timer nil
