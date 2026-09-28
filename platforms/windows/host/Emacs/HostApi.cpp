@@ -13,12 +13,7 @@ namespace
         urusi::windows::emacs::HostApi::Instance().SetSink(fn, data);
     }
 
-    void* HostWindow()
-    {
-        return urusi::windows::emacs::HostApi::Instance().Window();
-    }
-
-    constexpr host_api kApi{ HOST_API_VERSION, HostPost, HostOnEvent, HostWindow };
+    constexpr host_api kApi{ HOST_API_VERSION, HostPost, HostOnEvent };
 }
 
 // What Emacs looks for in this executable, and the only thing it does.
@@ -64,19 +59,6 @@ namespace urusi::windows::emacs
         std::lock_guard<std::mutex> held{ m_lock };
         m_sink = fn;
         m_sinkData = data;
-    }
-
-    void HostApi::SetWindow(HWND window)
-    {
-        std::lock_guard<std::mutex> held{ m_lock };
-        m_window = window;
-    }
-
-    HWND HostApi::Window() const
-    {
-        // Set once, before Emacs is started, and read from Emacs's
-        // thread from then on.
-        return m_window;
     }
 
     void HostApi::Send(std::string const& message)

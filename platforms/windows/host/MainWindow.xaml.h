@@ -49,9 +49,8 @@ namespace winrt::urusi_emacs::implementation
         // how big the frame is is this window's business from then on.
         // An Emacs of its own process has no window, and its frame is
         // there once it has said hello.
-        void TakeEmacsWindow(HWND window);
+        void TakeEmacsFrame();
         void EmacsExited();
-        void TakeInputToEmacs();
         void TellEmacsFocus(bool focused);
         void StartComposition();
         void RecordKeyboard();
@@ -128,7 +127,6 @@ namespace winrt::urusi_emacs::implementation
             = std::make_shared<urusi::windows::window::XamlImages>();
         std::string m_log;
         std::set<std::wstring> m_seen;
-        HWND m_emacsWindow{ nullptr };
         bool m_hasFrame{ false };
 
         // How big each frame was last told it is, so that it is only
@@ -142,7 +140,6 @@ namespace winrt::urusi_emacs::implementation
         // The part of the window that moves it, where Lisp drew a title
         // bar: made once the window has an AppWindow to tell.
         std::optional<urusi::windows::window::XamlCaptionRegions> m_captionRegions;
-        bool m_attached{ false };
 
         // The window itself, to ask Windows whether it is in front.
         HWND m_window{ nullptr };

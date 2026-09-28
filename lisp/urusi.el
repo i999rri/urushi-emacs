@@ -83,12 +83,10 @@ Grey and mostly clear, so that it shows on a background of any colour.")
   (unless (urusi-available-p)
     (user-error "urusi: This Emacs does not run inside the host"))
   (urusi-stop)
-  ;; Told as they are sent: the host writes to a pipe Emacs is already
-  ;; waiting on, so a message costs nothing to learn of and arrives at
-  ;; once, where looking for it cost the interval to find.  An Emacs
-  ;; whose host has no way to say so has only the looking.
-  (when (boundp 'host-message-function)
-    (setq host-message-function #'urusi--take))
+  ;; Told as they are sent: the host wakes Emacs where it waits for
+  ;; input, so a message costs nothing to learn of and arrives at once,
+  ;; where looking for it cost the interval to find.
+  (setq host-message-function #'urusi--take)
   (urusi--next-look)
   ;; Which window system draws the frames, which is how the host knows
   ;; what to do with a key: only the w32 one makes frames that are
@@ -100,8 +98,7 @@ Grey and mostly clear, so that it shows on a background of any colour.")
 (defun urusi-stop ()
   "Stop looking for messages from the host, and being told of them."
   (interactive)
-  (when (boundp 'host-message-function)
-    (setq host-message-function nil))
+  (setq host-message-function nil)
   (when urusi--timer
     (cancel-timer urusi--timer)
     (setq urusi--timer nil)))

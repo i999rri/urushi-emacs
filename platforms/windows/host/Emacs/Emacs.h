@@ -49,13 +49,12 @@ namespace urusi::windows::emacs
         // goes; both on a thread that is not the window's.
         void Start(EmacsConnection::OutputFn output, EmacsConnection::ExitFn exited);
 
-        // Whether the keys, the pointer and the focus go to Emacs as
-        // messages rather than to the windows of its frames. Only the
-        // w32 window system makes frames that are windows of this
-        // process, which is the one case where there is anything to
-        // post to; Emacs says which it draws with in its hello, and
-        // until then there is no frame to tell either way.
-        bool InputAsMessages() const noexcept { return m_windowSystem != L"w32"; }
+        // Whether Emacs's frames are windows of their own, which this
+        // window has nowhere to put and never shows. Only the w32
+        // window system makes them; an Emacs that says nothing of what
+        // it draws with is left alone, since every other answer is one
+        // this window can show.
+        bool DrawsItsOwnWindows() const noexcept { return m_windowSystem == L"w32"; }
 
         // The message LINE is, or null if it is not one, which Emacs is
         // told.

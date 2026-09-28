@@ -300,11 +300,6 @@ namespace winrt::urusi_emacs::implementation
         check_hresult(try_as<::IWindowNative>()->get_WindowHandle(&window));
         m_window = window;
 
-        // Emacs asks for this to know that a host is here, and makes
-        // its frame a message-only window when one is. It is not a
-        // parent: nothing of Emacs is ever on this window.
-        urusi::windows::emacs::HostApi::Instance().SetWindow(window);
-
         // Emacs lays its text out to the size of its frame, and the
         // frame is as big as the area the screen is drawn in.
         EditorSite().SizeChanged([weak](IInspectable const&, SizeChangedEventArgs const&) {
@@ -314,9 +309,6 @@ namespace winrt::urusi_emacs::implementation
             }
         });
 
-        // Emacs reads the modifier keys from the input queue of the
-        // thread its frame belongs to, so this thread's queue has to be
-        // joined to it again whenever the window comes back.
         Activated([weak](IInspectable const&, WindowActivatedEventArgs const& args) {
             auto self = weak.get();
             if (!self)
@@ -328,7 +320,6 @@ namespace winrt::urusi_emacs::implementation
             self->TraceFocus(active ? "activated" : "deactivated");
             if (active)
             {
-                self->TakeInputToEmacs();
                 self->KeepFocus();
                 self->m_keyboard.Activated();
             }
@@ -444,13 +435,11 @@ namespace winrt::urusi_emacs::implementation
         ShowEventually();
     }
 
-    void MainWindow::TakeEmacsWindow(HWND window)
+    void MainWindow::TakeEmacsFrame()
     {
-        m_emacsWindow = window;
         m_hasFrame = true;
         ShowStatus(L"");
         SizeEmacsFrame();
-        TakeInputToEmacs();
 
         // The window may have come to the front before there was a
         // frame to tell.
@@ -461,68 +450,14 @@ namespace winrt::urusi_emacs::implementation
     }
 
     // Tell Emacs that its frame has the focus, or has lost it, when
-    // this window does. Emacs learns it from the frame's window being
-    // given the focus and having it taken away, and the frame's window
-    // is one that is never shown, so it is never given anything: the
-    // same messages are sent to it instead, and Emacs does with them
-    // what it does for any frame, from how the cursor is drawn to
-    // running the hooks that wait for the focus to change.
-    //
-    // An Emacs that takes its input as messages is told in one.
+    // this window does. Emacs does with it what it does for a frame of
+    // any window system, from how the cursor is drawn to running the
+    // hooks that wait for the focus to change.
     void MainWindow::TellEmacsFocus(bool focused)
     {
-        if (m_emacs->InputAsMessages())
+        if (m_hasFrame)
         {
-            if (m_hasFrame)
-            {
-                m_emacs->Send(urusi::windows::emacs::FocusMessage(focused));
-            }
-        }
-        else if (m_emacsWindow)
-        {
-            PostMessageW(m_emacsWindow, focused ? WM_SETFOCUS : WM_KILLFOCUS, 0, 0);
-        }
-    }
-
-    void MainWindow::TakeInputToEmacs()
-    {
-        if (!m_emacsWindow)
-        {
-            return;
-        }
-
-        // The frame window belongs to a thread of Emacs's own, and a
-        // thread may only give the focus to a window on its own input
-        // queue. Joining the two queues lets this one hand the focus
-        // over, and lets Emacs read the modifier keys as they really
-        // are, which is what its own key handling asks the system for.
-        DWORD emacs = GetWindowThreadProcessId(m_emacsWindow, nullptr);
-        BOOL attached = TRUE;
-
-        if (emacs && emacs != GetCurrentThreadId() && !m_attached)
-        {
-            attached = AttachThreadInput(GetCurrentThreadId(), emacs, TRUE);
-            m_attached = attached != FALSE;
-        }
-
-        // The focus stays with XAML, which is where the input method
-        // talks; the keys are passed on from there. A frame that took
-        // the focus would take the input method with it, into a window
-        // that cannot be seen.
-
-        if (m_seen.insert(L"focus").second)
-        {
-            HWND focus = GetFocus();
-            wchar_t name[64]{};
-
-            if (focus)
-            {
-                GetClassNameW(focus, name, ARRAYSIZE(name));
-            }
-            AppendLog("host", "attach " + std::to_string(attached) + ", focus "
-                      + std::to_string(reinterpret_cast<INT_PTR>(focus)) + " ("
-                      + to_string(hstring{ name }) + "), frame "
-                      + std::to_string(reinterpret_cast<INT_PTR>(m_emacsWindow)) + "\n");
+            m_emacs->Send(urusi::windows::emacs::FocusMessage(focused));
         }
     }
 
@@ -620,7 +555,7 @@ namespace winrt::urusi_emacs::implementation
         // takes its input as messages, its C does, in the order of the
         // keys around it.
         JsonObject message;
-        message.SetNamedValue(L"type", String(m_emacs->InputAsMessages() ? L"text" : L"commit"));
+        message.SetNamedValue(L"type", String(L"text"));
         message.SetNamedValue(L"text", String(hstring{ text }));
         m_emacs->Send(message);
     }
@@ -778,28 +713,16 @@ namespace winrt::urusi_emacs::implementation
             return;
         }
 
-        if (m_emacs->InputAsMessages())
-        {
-            if (auto typed = urusi::windows::input::ReadKey(key))
-            {
-                m_emacs->Send(urusi::windows::emacs::KeyMessage(*typed));
-                args.Handled(true);
-            }
-            return;
-        }
-
-        auto message = urusi::windows::input::TranslateKey(key);
-        if (!message)
-        {
-            return;
-        }
-
         if (down && m_debug)
         {
             AppendLog("host", "key " + std::to_string(static_cast<int>(args.Key())) + "\n");
         }
-        PostMessageW(m_emacsWindow, message->message, message->wParam, message->lParam);
-        args.Handled(true);
+
+        if (auto typed = urusi::windows::input::ReadKey(key))
+        {
+            m_emacs->Send(urusi::windows::emacs::KeyMessage(*typed));
+            args.Handled(true);
+        }
     }
 
     // Emacs lays its text out to the size of its frame, so the frame is
@@ -861,10 +784,6 @@ namespace winrt::urusi_emacs::implementation
         // pointer instead, as it has no windows.
         m_frameViews.clear();
         urusi::windows::window::XamlFrameView::Frame root{
-            .window = [weak]() -> HWND {
-                auto self = weak.get();
-                return self ? self->m_emacsWindow : nullptr;
-            },
             .tellSize = [weak](std::wstring const& id, urusi::core::window::PixelSize size) {
                 if (auto self = weak.get())
                 {
@@ -872,7 +791,6 @@ namespace winrt::urusi_emacs::implementation
                 }
             },
         };
-        if (m_emacs->InputAsMessages())
         {
             root.sendPointer = [weak](std::wstring const& id,
                                       urusi::core::input::PointerEvent const& event, double scale) {
@@ -1351,13 +1269,19 @@ namespace winrt::urusi_emacs::implementation
                                          ? Content().XamlRoot().RasterizationScale()
                                          : 1.0);
 
-            // Only a frame of the w32 window system has a window to
-            // say it has made; every other kind is drawn here, and
-            // there is nothing left to wait for.
-            if (m_emacs->InputAsMessages())
+            // An Emacs whose frames are windows of its own is one
+            // this window cannot show: it draws them itself, on no
+            // screen, and nothing of it would ever appear here.
+            if (m_emacs->DrawsItsOwnWindows())
             {
-                TakeEmacsWindow(nullptr);
+                ShowStatus(L"This Emacs draws its own windows, which this "
+                           L"window cannot show.");
+                return;
             }
+
+            // The frame is drawn here and has no window of its own,
+            // so there is nothing left to wait for.
+            TakeEmacsFrame();
         }
         else if (type == L"screen")
         {
@@ -1388,11 +1312,6 @@ namespace winrt::urusi_emacs::implementation
             m_debug = message.GetNamedBoolean(L"on", false);
             RecordKeyboard();
             AppendLog("host", std::string{ "debug " } + (m_debug ? "on" : "off") + "\n");
-        }
-        else if (type == L"frame")
-        {
-            TakeEmacsWindow(reinterpret_cast<HWND>(
-                static_cast<INT_PTR>(message.GetNamedNumber(L"window", 0))));
         }
         else if (type == L"call")
         {
