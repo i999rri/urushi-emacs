@@ -1461,9 +1461,21 @@ namespace winrt::urusi_emacs::implementation
 
         // The element may not be there yet: Emacs draws a frame before
         // the screen saying where it goes has been built.
-        if (auto site = Walked(L"urusi-emacs:" + said.frame))
+        auto site = Walked(L"urusi-emacs:" + said.frame);
+
+        if (site)
         {
             found->second.Attach(site);
+        }
+
+        // Which frame was drawn, and whether there is anywhere to show
+        // it: a drawing with no element of its own is not seen at all,
+        // and nothing else says so.
+        if (m_seen.insert((site ? L"drawn:" : L"undrawn:") + said.frame).second)
+        {
+            AppendLog("host", "frame " + to_string(said.frame)
+                      + (site ? " drawn on its element\n"
+                              : " drawn with no element to show it on\n"));
         }
 
         if (auto why = found->second.Draw(said); !why.empty())
