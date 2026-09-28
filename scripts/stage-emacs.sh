@@ -40,7 +40,12 @@ rm -rf "$stage"
 make -C "$build" install prefix="$stage" >/dev/null
 
 # The installed programs are Emacs as a program, which is not how this
-# runs it.  The dump under libexec belongs to emacs.exe.
+# runs it.  The dump under libexec belongs to emacs.exe.  emacsclient
+# is not Emacs: it is what a program Emacs runs opens a file with, and
+# what `with-editor' looks for before it will let magit commit, so it
+# is kept and put back below.
+client=$(ls "$stage"/bin/emacsclient* 2>/dev/null || true)
+[ -z "$client" ] || cp $client "$stage/"
 rm -rf "$stage/bin" "$stage/include" "$stage/lib"
 rm -f "$stage"/libexec/emacs/*/*/*.pdmp
 rm -rf "$stage/share/applications" "$stage/share/icons" \
@@ -49,6 +54,10 @@ rm -rf "$stage/share/applications" "$stage/share/icons" \
 "$here/scripts/install-urusi-lisp.sh" "$stage"
 
 mkdir -p "$stage/bin"
+for kept in "$stage"/emacsclient*; do
+    [ -e "$kept" ] || continue
+    mv "$kept" "$stage/bin/"
+done
 cp "$build/src/libemacs.dll" "$stage/bin/"
 cp "$build/src/libemacs.pdmp" "$stage/bin/"
 [ -n "$debug" ] || strip --strip-debug "$stage/bin/libemacs.dll"
