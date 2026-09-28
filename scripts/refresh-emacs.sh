@@ -15,11 +15,20 @@
 #
 # urusi's own Lisp goes along too, since where it runs from is some way
 # from where it is edited.
+#
+# Pass --host to refresh from the host window system's build, which
+# scripts/build-emacs.sh --host makes beside the other.
 
 set -euo pipefail
 
+host=
+if [ "${1-}" = --host ]; then
+    host=1
+    shift
+fi
+
 here=$(cd "$(dirname "$0")/.." && pwd)
-build=$here/external/emacs-build/src
+build=$here/external/emacs${host:+-host}-build/src
 
 # A change to one file compiles one file, so more at a time buys
 # nothing; this is for the odd change to a header a few files share.

@@ -8,20 +8,34 @@
 # Then scripts/stage-emacs.sh puts the result where the build finds it.
 # Pass --deps to install the mingw64 packages Emacs is built against
 # first, which is only needed once on a machine.
+#
+# Pass --host for the host window system, whose frames this application
+# draws itself, into external/emacs-host-build:
+#
+#   scripts/build-emacs.sh --host
+#   scripts/stage-emacs.sh external/emacs-host-build
 
 set -euo pipefail
 
 deps=
-if [ "${1-}" = --deps ]; then
-    deps=1
-    shift
-fi
+host=
+while :; do
+    case "${1-}" in
+        --deps) deps=1; shift ;;
+        # The host window system: frames with no window of their own,
+        # which this application draws from what Emacs says to draw.
+        # Built beside the w32 one rather than over it, so that both
+        # are there to compare.
+        --host) host=1; shift ;;
+        *) break ;;
+    esac
+done
 
 here=$(cd "$(dirname "$0")/.." && pwd)
 src=$here/external/emacs
 # Somewhere else with URUSI_BUILD_DIR, to keep a build of another shape
 # beside the one this application loads rather than over it.
-build=${URUSI_BUILD_DIR:-$here/external/emacs-build}
+build=${URUSI_BUILD_DIR:-$here/external/emacs${host:+-host}-build}
 
 [ -f "$src/configure.ac" ] || {
     echo "no Emacs in $src: git submodule update --init" >&2
@@ -82,7 +96,7 @@ fi
 if [ ! -f "$build/Makefile" ]; then
     echo "=== configure"
     mkdir -p "$build"
-    (cd "$build" && "$src/configure" --without-dbus --with-native-compilation=no)
+    (cd "$build" && "$src/configure" ${host:+--with-host}         --without-dbus --with-native-compilation=no)
 fi
 
 # Four at a time.  Recompiling everything takes about three and a half

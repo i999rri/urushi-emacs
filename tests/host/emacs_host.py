@@ -24,11 +24,19 @@ LISP = os.path.join(REPO, 'lisp')
 
 
 def default_emacs():
-    """The Emacs built in the tree, unless URUSI_TEST_EMACS says another."""
+    """The Emacs built in the tree, unless URUSI_TEST_EMACS says another.
+
+    The host window system's build first: this is its protocol, and on
+    Windows the other build there draws its own frames.  Where there is
+    one build it is that one.
+    """
     if os.environ.get('URUSI_TEST_EMACS'):
         return os.environ['URUSI_TEST_EMACS']
     name = 'emacs.exe' if sys.platform == 'win32' else 'emacs'
-    return os.path.join(REPO, 'external', 'emacs-build', 'src', name)
+    builds = ('emacs-host-build', 'emacs-build')
+    paths = [os.path.join(REPO, 'external', build, 'src', name)
+             for build in builds]
+    return next((path for path in paths if os.path.exists(path)), paths[-1])
 
 
 def emacs_path():
