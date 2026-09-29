@@ -20,9 +20,9 @@ The table is `host_api`, in `libemacs/src/host.h` of Emacs, and the application 
 
 The application can instead start Emacs as a process of its own, which then sends each message as a line on its standard output and reads the application's as lines from its standard input: see [Emacs in another process](remote.md).
 
-**Today:** the table has a fourth field, `window`, the window Emacs makes its frames in on Windows, which frames of the host's own will not need.
+Messages the application sends go into one of two queues. Keys, text, the pointer and the focus are input, and Emacs's C reads them as any other Emacs reads the events of its window system. The rest wait for Lisp, and Emacs is told that they are there: the application's message wakes Emacs, which is already waiting for it as it waits for a key, and the command loop calls `host-message-function`. Lisp also looks on a timer every thirty seconds, for a waking that never arrived; before there was any telling it was the only way, and it looked every 50 ms.
 
-Messages the application sends go into one of two queues. Keys, text, the pointer and the focus are input, and Emacs's C reads them as any other Emacs reads the events of its window system. The rest wait for Lisp, and Emacs is told that they are there: the application's message wakes Emacs, which is already waiting on a pipe for it, and the command loop calls `host-message-function`. Lisp also looks on a timer once a second, for a waking that never arrived; before there was any telling it was the only way, and it looked every 50 ms.
+How Emacs is woken is the system's to decide. Everywhere but Windows it is a pipe of Emacs's own, waited on beside the keyboard; on Windows it is the message queue every Emacs there already has, a pipe being something `sys_select` would pass over.
 
 ## Units
 
@@ -41,7 +41,7 @@ A frame is known by an `id`, a string Emacs gives it. The first frame is the roo
 
 Emacs has no window of its own for a frame: the application draws each frame out of what Emacs laid out, and Emacs does not draw.
 
-**Today:** frames are windows of Emacs's that are on no screen, known by their window handles. The root frame's comes in the `frame` message, a panel frame's in the `Tag` of the element it is drawn in.
+**Today:** no `frame` message is sent. A frame is first heard of in the `begin` of what it draws, under the name Emacs makes of it — the hash of the frame, printed in hexadecimal, which Lisp makes the same name from — and the element it is drawn on is named `urusi-emacs:` and that name.
 
 ## Starting
 
@@ -73,7 +73,7 @@ A side that gets a `hello` whose `version` it does not speak says so with `error
 
 `pointer` is the one name used for two unrelated things: this one says what the pointer is to look like, and the application's says what the pointer did. Which is which is decided by who sent it.
 
-**Today:** `frame` has `window`, a window handle, and no `id`; only the root frame sends it, and `frame-deleted` is not sent. `caret` has no `frame` and is counted from the root frame's corner.
+**Today:** neither `frame` nor `frame-deleted` is sent. `caret` has no `frame` and is counted from the root frame's corner. `hello` carries `window-system` as well, the name of what draws Emacs's frames, which the application reads to refuse an Emacs that draws its own.
 
 ## The application to Emacs
 
@@ -101,7 +101,7 @@ A side that gets a `hello` whose `version` it does not speak says so with `error
 
 **Today:** `resize` is Lisp's as well, and is to become C's.
 
-**Today:** keys, the pointer and the focus reach Emacs as Windows messages posted to its frame windows, not as messages. `text` is called `commit`. `resize` has no `frame` for the root frame.
+**Today:** `resize` has no `frame` for the root frame.
 
 ## Keys
 
