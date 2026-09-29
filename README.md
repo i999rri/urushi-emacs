@@ -4,7 +4,7 @@ A WinUI 3 application that owns the window and takes its contents from Emacs, so
 
 Emacs runs inside this process. The application loads `libemacs.dll` — Emacs built as a DLL, from the [`urusi` branch of the fork](https://github.com/i999rri/emacs/tree/urusi) — and calls its exported `w32_emacs_init` on a thread with the 8 MB stack Emacs expects.
 
-The two then talk by calling each other. The application exports `w32_host_get_api`, Emacs asks for it as it starts, and from then on Lisp sends a message with `w32-host-post` and takes the ones coming back with `w32-host-take-events`. That interface is `external/emacs/src/w32host.h`, included straight from the fork so the two sides cannot drift. No socket is listening and nothing crosses a process boundary.
+The two then talk by calling each other. The application exports `host_get_api`, Emacs asks for it as it starts, and from then on Lisp sends a message with `host-post` and takes the ones coming back with `host-take-events`. That interface is `external/emacs/libemacs/src/host.h`, included straight from the fork so the two sides cannot drift. Nothing in it is particular to Windows, so that an application on another system is the same thing to Emacs. No socket is listening and nothing crosses a process boundary.
 
 ## Building
 
@@ -64,7 +64,7 @@ Emacs's standard output and error are shown in the window, which is where a fail
 
 Emacs はこのプロセスの中で動く。アプリが `libemacs.dll`（[fork の `urusi` ブランチ](https://github.com/i999rri/emacs/tree/urusi)で DLL としてビルドした Emacs）を読み込んで、export されている `w32_emacs_init` を 8 MB スタックのスレッドで呼ぶ。
 
-やり取りはお互いを呼ぶだけ。アプリが `w32_host_get_api` を export していて、Emacs が起動時にそれを取りに来る。あとは Lisp から `w32-host-post` で送って、`w32-host-take-events` で受け取る。インターフェースは `external/emacs/src/w32host.h`。fork から直接 include しているので、両側がズレようがない。ソケットは開かないし、プロセス境界を越えるものもない。
+やり取りはお互いを呼ぶだけ。アプリが `host_get_api` を export していて、Emacs が起動時にそれを取りに来る。あとは Lisp から `host-post` で送って、`host-take-events` で受け取る。インターフェースは `external/emacs/libemacs/src/host.h`。fork から直接 include しているので、両側がズレようがない。中身に Windows 固有のものはないので、別のシステムのアプリでも Emacs から見れば同じものになる。ソケットは開かないし、プロセス境界を越えるものもない。
 
 ### ビルド
 
