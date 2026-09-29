@@ -105,9 +105,74 @@ namespace
 
 namespace urusi::windows::window
 {
+    XamlFonts::~XamlFonts()
+    {
+        {
+            std::scoped_lock held{ m_waitingLock };
+
+            m_going = false;
+            m_waiting.clear();
+        }
+        m_waking.notify_all();
+        if (m_worker.joinable())
+        {
+            m_worker.join();
+        }
+    }
+
     void XamlFonts::OnWanting(std::function<void(int)> ask)
     {
         m_ask = std::move(ask);
+    }
+
+    void XamlFonts::OnMade(std::function<void()> again)
+    {
+        m_again = std::move(again);
+    }
+
+    void XamlFonts::Later(std::string line)
+    {
+        std::unique_lock held{ m_waitingLock };
+
+        if (!m_worker.joinable())
+        {
+            m_going = true;
+            m_worker = std::thread{ [this] { Work(); } };
+        }
+        m_waiting.push_back(std::move(line));
+        held.unlock();
+        m_waking.notify_one();
+    }
+
+    void XamlFonts::Work()
+    {
+        for (;;)
+        {
+            std::string line;
+            {
+                std::unique_lock held{ m_waitingLock };
+
+                m_waking.wait(held, [this] { return !m_waiting.empty() || !m_going; });
+                if (m_waiting.empty())
+                {
+                    return;
+                }
+                line = std::move(m_waiting.front());
+                m_waiting.pop_front();
+            }
+
+            urusi::core::window::FontSaid said;
+            if (!urusi::core::window::ReadFont(line, said))
+            {
+                continue;
+            }
+            if (Take(said).empty() && m_again)
+            {
+                // A face that was not there before: what was left
+                // undrawn for want of it is to be drawn now.
+                m_again();
+            }
+        }
     }
 
     com_ptr<IDWriteFactory5> XamlFonts::Writer()

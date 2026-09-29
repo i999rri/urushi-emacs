@@ -1354,9 +1354,12 @@ chosen for a light window when Windows has turned dark."
        (urusi-screen-render)))
     ("commit"
      (urusi-screen--commit (or (plist-get message :text) "")))
-    ;; The shape the pointer takes is said by Emacs itself as redisplay
-    ;; settles on it, and nothing is left for this to do.
-    ("redraw")))
+    ;; The host has come by something it had not when the screen was
+    ;; drawn -- the file of a font, which it asks for and is sent while
+    ;; the screen goes on being drawn without it -- so what was left out
+    ;; then is to be said again.  Everything, because what was left out
+    ;; is whatever was in that font, and Emacs holds no note of it.
+    ("redraw" (redraw-display))))
 
 (defun urusi-screen--commit (text)
   "Take TEXT, what the input method settled on, as typed.

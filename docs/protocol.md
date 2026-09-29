@@ -91,6 +91,7 @@ A side that gets a `hello` whose `version` it does not speak says so with `error
 | `measured` | `family`, `size`, `narrow`, `wide` (layout units) | Answering `measure`: how wide `0` and `あ` are drawn. |
 | `reply` | `id` (number), `value`, or `error` (string) | Answering `call`. |
 | `stale` | | The application does not have what Emacs thinks it has on the screen, and wants all of it again. |
+| `redraw` | | The application has come by something it had not when the screen was drawn, and wants everything drawn again. |
 | `want-font` | `id` (number) | The application has something to draw from a font and has not the file it is in. |
 | `want-image` | `id` (number) | The application has an image to draw and has not its pixels. |
 | `error` | `message` (string) | The application could not do what a message asked. |
@@ -188,6 +189,8 @@ Emacs says which file a font is the first time it draws in it, and sends the fil
 | `font`, the file | `id`, `bytes` (base64) |
 
 The application keeps a file it has been sent, under what the first of these says of it, so that a later run asks for none of them. Two files of the same path, size and time are the same file; one that has changed since is another, and comes again under another number.
+
+A file is tens of megabytes, and the screen goes on being drawn while it is asked for and sent: what is in that font is left undrawn until the application has it, and the application says `redraw` once it has, for what was left out to be said again. Nothing is to wait on a font.
 
 ### Images
 

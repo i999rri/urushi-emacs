@@ -3,12 +3,15 @@
 #include <dwrite_3.h>
 #include <winrt/base.h>
 
+#include <condition_variable>
 #include <cstdint>
+#include <deque>
 #include <filesystem>
 #include <functional>
 #include <mutex>
 #include <map>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "Window/FontReader.h"
@@ -34,9 +37,27 @@ namespace urusi::windows::window
     class XamlFonts
     {
     public:
+        ~XamlFonts();
+
         // Ask Emacs for the file of the font it knows by this number.
         // Called where a face is wanted and the file is not here.
         void OnWanting(std::function<void(int)> ask);
+
+        // Say that a face has been made that was not there before, so
+        // that whatever was left undrawn for want of it can be drawn.
+        // Called on the thread the files are taken on.
+        void OnMade(std::function<void()> again);
+
+        // Take a "font" message that carries the file, on a thread of
+        // this window's own rather than where it arrived.
+        //
+        // The file is tens of megabytes: read, decoded, written and
+        // made into a face where the messages are read, it would hold
+        // that thread -- and so everything Emacs says next -- for as
+        // long as all that takes.  Nothing is drawn in the font until
+        // the face is there, which the drawing is written to bear, and
+        // OnMade says when it is.
+        void Later(std::string line);
 
         // Take a "font" message, read where it lay: which file a font
         // is, or the file.  Return what went wrong, or nothing.
@@ -77,10 +98,24 @@ namespace urusi::windows::window
             int face;
         };
 
+        // Take what is waiting, one after another, until there is
+        // nothing and this window is going.
+        void Work();
+
         mutable std::mutex m_lock;
         std::function<void(int)> m_ask;
+        std::function<void()> m_again;
         winrt::com_ptr<IDWriteFactory5> m_writer;
         winrt::com_ptr<IDWriteInMemoryFontFileLoader> m_loader;
+
+        // The files waiting to be taken, and the thread that takes
+        // them: one at a time, a file at once being tens of megabytes
+        // and two of them twice that.
+        std::mutex m_waitingLock;
+        std::condition_variable m_waking;
+        std::deque<std::string> m_waiting;
+        std::thread m_worker;
+        bool m_going{ false };
         std::map<int, Whence> m_files;
         std::map<int, winrt::com_ptr<IDWriteFontFace>> m_faces;
     };

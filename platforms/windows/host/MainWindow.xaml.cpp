@@ -204,6 +204,17 @@ namespace winrt::urusi_emacs::implementation
             emacs->Send(wanted);
         });
 
+        // The screen went on being drawn while the file was asked for
+        // and sent, with nothing drawn in that font: whatever was left
+        // out then is Emacs's to say again, now that there is something
+        // to draw it with.
+        fonts->OnMade([emacs = m_emacs] {
+            JsonObject again;
+
+            again.SetNamedValue(L"type", String(L"redraw"));
+            emacs->Send(again);
+        });
+
         // The same for an image, and for the same reason: its pixels
         // may be megabytes, and Emacs sends them once however many
         // screens draw them.
@@ -233,17 +244,30 @@ namespace winrt::urusi_emacs::implementation
                 // Emacs says next -- for as long as that takes.
                 urusi::core::window::FontSaid said;
 
-                if (urusi::core::window::ReadFont(message, said))
+                if (!urusi::core::window::ReadFont(message, said))
                 {
-                    if (auto why = fonts->Take(said); !why.empty())
-                    {
-                        dispatcher.TryEnqueue([weak, why = std::move(why)] {
-                            if (auto self = weak.get())
-                            {
-                                self->AppendLog("host", "font: " + why + "\n");
-                            }
-                        });
-                    }
+                    return;
+                }
+
+                // The file itself goes to the fonts' own thread: it is
+                // tens of megabytes, and taking it here would leave
+                // everything Emacs says next unread until it was done.
+                // Which file a font is stays here, being a line of no
+                // length and the thing a want-font is answered from.
+                if (said.hasBytes)
+                {
+                    fonts->Later(std::move(message));
+                    return;
+                }
+
+                if (auto why = fonts->Take(said); !why.empty())
+                {
+                    dispatcher.TryEnqueue([weak, why = std::move(why)] {
+                        if (auto self = weak.get())
+                        {
+                            self->AppendLog("host", "font: " + why + "\n");
+                        }
+                    });
                 }
                 return;
             }
