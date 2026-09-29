@@ -215,6 +215,15 @@ namespace winrt::urusi_emacs::implementation
             emacs->Send(again);
         });
 
+        fonts->OnSaying([weak, dispatcher](std::string note) {
+            dispatcher.TryEnqueue([weak, note = std::move(note)] {
+                if (auto self = weak.get())
+                {
+                    self->AppendLog("host", note);
+                }
+            });
+        });
+
         // The same for an image, and for the same reason: its pixels
         // may be megabytes, and Emacs sends them once however many
         // screens draw them.

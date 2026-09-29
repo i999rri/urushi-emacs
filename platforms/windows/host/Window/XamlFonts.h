@@ -48,6 +48,11 @@ namespace urusi::windows::window
         // Called on the thread the files are taken on.
         void OnMade(std::function<void()> again);
 
+        // Where to say what taking a file cost, the wait for it being
+        // a wait the person sees: the text in that font is not drawn
+        // until it is done.
+        void OnSaying(std::function<void(std::string)> say);
+
         // Take a "font" message that carries the file, on a thread of
         // this window's own rather than where it arrived.
         //
@@ -59,12 +64,22 @@ namespace urusi::windows::window
         // OnMade says when it is.
         void Later(std::string line);
 
+        // What each part of taking a file cost, in milliseconds: the
+        // person waits all of it, the text in the font being undrawn
+        // until it is done.
+        struct Cost
+        {
+            double decode{};
+            double kept{};
+            double face{};
+        };
+
         // Take a "font" message, read where it lay: which file a font
         // is, or the file.  Return what went wrong, or nothing.
         //
         // It is read rather than parsed because the file may be eighty
         // megabytes; see core/Window/FontReader.h.
-        std::string Take(urusi::core::window::FontSaid const& said);
+        std::string Take(urusi::core::window::FontSaid const& said, Cost* cost = nullptr);
 
         // The face Emacs knows by ID, or null if there is none yet, in
         // which case the file is asked for.
@@ -75,17 +90,18 @@ namespace urusi::windows::window
         winrt::com_ptr<IDWriteInMemoryFontFileLoader> Loader();
 
         // Make the face of ID out of FILE, whichever way the file was
-        // come by.
-        std::string Made(int id, IDWriteFontFile* file);
+        // come by, taking WHICH font of the file it is rather than
+        // looking that up: none of this is done holding the lock.
+        std::string Made(int id, IDWriteFontFile* file, int which);
         // Out of a file kept here, which DirectWrite reads itself.
-        std::string MadeOfFile(int id, std::filesystem::path const& path);
+        std::string MadeOfFile(int id, std::filesystem::path const& path, int which);
         // Out of bytes this window holds, for a file it has nowhere to
         // keep and a machine it cannot read the file on.
-        std::string MadeOfBytes(int id, uint8_t const* bytes, uint32_t length);
+        std::string MadeOfBytes(int id, uint8_t const* bytes, uint32_t length, int which);
 
-        // Keep BYTES as the file of the font ID, and say where.
-        std::filesystem::path KeepFile(int id, std::vector<uint8_t> const& bytes);
-        int FaceOf(int id) const;
+        // Keep BYTES under the name KEPT, and say where.
+        std::filesystem::path KeepFile(std::wstring const& kept,
+                                       std::vector<uint8_t> const& bytes);
 
         // Which file each font is, as Emacs said of it, and what this
         // window keeps that file under.
@@ -105,6 +121,7 @@ namespace urusi::windows::window
         mutable std::mutex m_lock;
         std::function<void(int)> m_ask;
         std::function<void()> m_again;
+        std::function<void(std::string)> m_say;
         winrt::com_ptr<IDWriteFactory5> m_writer;
         winrt::com_ptr<IDWriteInMemoryFontFileLoader> m_loader;
 

@@ -4,6 +4,8 @@
 
 #include <winrt/Windows.Storage.h>
 
+#include <chrono>
+#include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <vector>
@@ -130,6 +132,11 @@ namespace urusi::windows::window
         m_again = std::move(again);
     }
 
+    void XamlFonts::OnSaying(std::function<void(std::string)> say)
+    {
+        m_say = std::move(say);
+    }
+
     void XamlFonts::Later(std::string line)
     {
         std::unique_lock held{ m_waitingLock };
@@ -166,7 +173,39 @@ namespace urusi::windows::window
             {
                 continue;
             }
-            if (Take(said).empty() && m_again)
+
+            Cost cost;
+            auto const began = std::chrono::steady_clock::now();
+            auto const why = Take(said, &cost);
+            auto const took = std::chrono::duration<double, std::milli>(
+                std::chrono::steady_clock::now() - began).count();
+
+            if (m_say)
+            {
+                // What this cost is what the person waited: the text in
+                // this font is not drawn until it is done.  Said in its
+                // parts, so that what is worth mending is known and not
+                // guessed at.
+                char note[192]{};
+
+                sprintf_s(note,
+                          "font %d: %.1f MB taken in %.0f ms"
+                          " (decode %.0f, kept %.0f, face %.0f)%s\n",
+                          said.id,
+                          static_cast<double>(said.bytes.size()) * 3 / 4 / (1024 * 1024),
+                          took, cost.decode, cost.kept, cost.face,
+                          why.empty() ? "" : ", and not made");
+                m_say(note);
+            }
+            if (!why.empty())
+            {
+                if (m_say)
+                {
+                    m_say("font: " + why + "\n");
+                }
+                continue;
+            }
+            if (m_again)
             {
                 // A face that was not there before: what was left
                 // undrawn for want of it is to be drawn now.
@@ -206,7 +245,7 @@ namespace urusi::windows::window
     // wants, where bytes handed to it are a font file this window must
     // keep whole for as long as the face lives -- eighty megabytes for
     // a CJK collection, and again for every run.
-    std::string XamlFonts::MadeOfFile(int id, std::filesystem::path const& path)
+    std::string XamlFonts::MadeOfFile(int id, std::filesystem::path const& path, int which)
     {
         try
         {
@@ -214,7 +253,7 @@ namespace urusi::windows::window
 
             check_hresult(Writer()->CreateFontFileReference(
                 path.c_str(), nullptr, file.put()));
-            return Made(id, file.get());
+            return Made(id, file.get(), which);
         }
         catch (hresult_error const& error)
         {
@@ -225,7 +264,8 @@ namespace urusi::windows::window
     // The face of a font that is not on a disk of this machine's: the
     // file Emacs read may be on another altogether, as it is when
     // Emacs runs in WSL and nothing has been kept here yet.
-    std::string XamlFonts::MadeOfBytes(int id, uint8_t const* bytes, uint32_t length)
+    std::string XamlFonts::MadeOfBytes(int id, uint8_t const* bytes, uint32_t length,
+                                       int which)
     {
         try
         {
@@ -233,7 +273,7 @@ namespace urusi::windows::window
 
             check_hresult(Loader()->CreateInMemoryFontFileReference(
                 Writer().get(), bytes, length, nullptr, file.put()));
-            return Made(id, file.get());
+            return Made(id, file.get(), which);
         }
         catch (hresult_error const& error)
         {
@@ -241,7 +281,7 @@ namespace urusi::windows::window
         }
     }
 
-    std::string XamlFonts::Made(int id, IDWriteFontFile* file)
+    std::string XamlFonts::Made(int id, IDWriteFontFile* file, int which)
     {
         try
         {
@@ -255,21 +295,28 @@ namespace urusi::windows::window
                 return "font " + std::to_string(id) + " is of no kind DirectWrite knows";
             }
 
-            // Which font of the file, as Emacs said: a collection
+            // WHICH font of the file, as Emacs said: a collection
             // holds many -- the one the screen is drawn in holds 48,
             // Japanese and Korean among them -- and the glyph numbers
             // Emacs measured in one are other letters in another.
-            auto const which = static_cast<uint32_t>(FaceOf(id));
-            if (which >= faces)
+            //
+            // Handed in rather than looked up, so that nothing of this
+            // is done holding the lock: the drawing asks for a face
+            // while this runs, and reading a font file of tens of
+            // megabytes with the lock held would stop it for as long.
+            auto const one = static_cast<uint32_t>(which);
+            if (one >= faces)
             {
                 return "font " + std::to_string(id) + " is not the "
-                       + std::to_string(which) + " of " + std::to_string(faces);
+                       + std::to_string(one) + " of " + std::to_string(faces);
             }
 
             IDWriteFontFile* files[] = { file };
             com_ptr<IDWriteFontFace> made;
-            check_hresult(Writer()->CreateFontFace(face, 1, files, which,
+            check_hresult(Writer()->CreateFontFace(face, 1, files, one,
                                                    DWRITE_FONT_SIMULATIONS_NONE, made.put()));
+
+            std::scoped_lock held{ m_lock };
             m_faces[id] = made;
         }
         catch (hresult_error const& error)
@@ -279,18 +326,19 @@ namespace urusi::windows::window
         return {};
     }
 
-    // Which font of its file the font ID is, or the first where
-    // nothing said.
-    int XamlFonts::FaceOf(int id) const
-    {
-        auto found = m_files.find(id);
 
-        return found == m_files.end() ? 0 : found->second.face;
-    }
-
-    std::string XamlFonts::Take(urusi::core::window::FontSaid const& said)
+    // Take a font message.  The lock is held only where the maps are
+    // read or written, and never while a file is decoded, written or
+    // read into a face: the drawing asks for a face on its own thread,
+    // and a lock held through any of that would stop the window for as
+    // long as it took -- which is the whole of why this is on a thread
+    // of its own.
+    std::string XamlFonts::Take(urusi::core::window::FontSaid const& said, Cost* cost)
     {
-        std::scoped_lock held{ m_lock };
+        auto const since = [](std::chrono::steady_clock::time_point from) {
+            return std::chrono::duration<double, std::milli>(
+                       std::chrono::steady_clock::now() - from).count();
+        };
         int const id = said.id;
         if (id < 0)
         {
@@ -309,7 +357,11 @@ namespace urusi::windows::window
                                static_cast<int64_t>(said.when),
                                said.instance);
 
-            m_files[id] = { kept, false, said.face };
+            {
+                std::scoped_lock held{ m_lock };
+
+                m_files[id] = { kept, false, said.face };
+            }
 
             auto where = FontsDirectory();
             if (where.empty())
@@ -325,15 +377,31 @@ namespace urusi::windows::window
                 // for until there is something to draw from it.
                 return {};
             }
-            return MadeOfFile(id, path);
+            return MadeOfFile(id, path, said.face);
         }
 
         // Decoded out of the line itself: see core/Text/Base64.h for
         // what taking it through the platform's own would cost.
+        auto began = std::chrono::steady_clock::now();
         auto const bytes = urusi::core::text::DecodeBase64(said.bytes);
+        if (cost) { cost->decode = since(began); }
         if (bytes.empty())
         {
             return "font " + std::to_string(id) + " came empty";
+        }
+
+        // What was said of this font when it was named, which is all
+        // the maps are wanted for here.
+        std::wstring kept;
+        int which = 0;
+        {
+            std::scoped_lock held{ m_lock };
+
+            if (auto found = m_files.find(id); found != m_files.end())
+            {
+                kept = found->second.kept;
+                which = found->second.face;
+            }
         }
 
         // Kept first, and the face made of what was kept: a face made
@@ -341,25 +409,31 @@ namespace urusi::windows::window
         // they are the file over again.  Written whole and then moved
         // into place, so that a run that ends midway leaves nothing a
         // later one would take for the file.
-        auto const kept = KeepFile(id, bytes);
+        began = std::chrono::steady_clock::now();
+        auto const path = KeepFile(kept, bytes);
+        if (cost) { cost->kept = since(began); }
 
-        if (!kept.empty())
+        began = std::chrono::steady_clock::now();
+        if (!path.empty())
         {
-            return MadeOfFile(id, kept);
+            auto why = MadeOfFile(id, path, which);
+            if (cost) { cost->face = since(began); }
+            return why;
         }
 
         // Nowhere to keep it, or it could not be written: the bytes
         // are all there is, and they are held for as long as the face.
-        return MadeOfBytes(id, bytes.data(), static_cast<uint32_t>(bytes.size()));
+        auto why = MadeOfBytes(id, bytes.data(), static_cast<uint32_t>(bytes.size()), which);
+        if (cost) { cost->face = since(began); }
+        return why;
     }
 
-    // Write BYTES where the font ID is kept, and return where that is,
-    // or nothing where it could not be written.
-    std::filesystem::path XamlFonts::KeepFile(int id, std::vector<uint8_t> const& bytes)
+    // Write BYTES under the name KEPT, and return where that is, or
+    // nothing where it could not be written.
+    std::filesystem::path XamlFonts::KeepFile(std::wstring const& kept,
+                                              std::vector<uint8_t> const& bytes)
     {
-        auto found = m_files.find(id);
-
-        if (found == m_files.end())
+        if (kept.empty())
         {
             return {};
         }
@@ -370,7 +444,7 @@ namespace urusi::windows::window
             return {};
         }
 
-        auto const path = where / found->second.kept;
+        auto const path = where / kept;
         auto const partly = path.wstring() + L".part";
 
         {
