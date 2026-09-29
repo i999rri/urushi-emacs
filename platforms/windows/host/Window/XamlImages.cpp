@@ -7,7 +7,7 @@
 
 using namespace winrt;
 
-namespace urusi::windows::window
+namespace urushi::windows::window
 {
     void XamlImages::OnWanting(std::function<void(int)> ask)
     {

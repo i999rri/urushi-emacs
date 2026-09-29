@@ -4,16 +4,16 @@
 
 #include <vector>
 
-using urusi::core::window::ParseSplitter;
-using urusi::core::input::PointerButton;
-using urusi::core::input::PointerEvent;
-using urusi::core::input::PointerKind;
-using urusi::core::window::Splitter;
+using urushi::core::window::ParseSplitter;
+using urushi::core::input::PointerButton;
+using urushi::core::input::PointerEvent;
+using urushi::core::input::PointerKind;
+using urushi::core::window::Splitter;
 
 namespace
 {
     // A pointer that says what was asked of it.
-    struct Pointer : urusi::core::input::IPointerInputDevice
+    struct Pointer : urushi::core::input::IPointerInputDevice
     {
         void Capture() override { captured = true; }
         void Release() override { captured = false; }
@@ -21,7 +21,7 @@ namespace
     };
 
     // The parts either side of a splitter, as a grid would have them.
-    struct Tracks : urusi::core::window::ISplitterTracks
+    struct Tracks : urushi::core::window::ISplitterTracks
     {
         double Length(bool before) const override { return before ? before_ : after_; }
         bool Shares(bool before) const override { return before ? beforeShares : afterShares; }
@@ -86,22 +86,22 @@ namespace
 
 TEST(SplitterTest, NameSaysTheWayAndThePartsEitherSide)
 {
-    auto side = ParseSplitter(L"urusi-splitter:h:explorer:editor");
+    auto side = ParseSplitter(L"urushi-splitter:h:explorer:editor");
     ASSERT_TRUE(side);
     EXPECT_TRUE(side->horizontal);
     EXPECT_EQ(side->before, L"explorer");
     EXPECT_EQ(side->after, L"editor");
 
-    auto stacked = ParseSplitter(L"urusi-splitter:v:editor:output");
+    auto stacked = ParseSplitter(L"urushi-splitter:v:editor:output");
     ASSERT_TRUE(stacked);
     EXPECT_FALSE(stacked->horizontal);
 }
 
 TEST(SplitterTest, OtherNamesAreNotSplitters)
 {
-    EXPECT_FALSE(ParseSplitter(L"urusi-frame"));
-    EXPECT_FALSE(ParseSplitter(L"urusi-splitter:"));
-    EXPECT_FALSE(ParseSplitter(L"urusi-splitter:x:a:b"));
+    EXPECT_FALSE(ParseSplitter(L"urushi-frame"));
+    EXPECT_FALSE(ParseSplitter(L"urushi-splitter:"));
+    EXPECT_FALSE(ParseSplitter(L"urushi-splitter:x:a:b"));
 }
 
 // The editor shares what is left and the output panel has a size of its

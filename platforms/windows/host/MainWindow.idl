@@ -1,4 +1,4 @@
-namespace urusi_emacs
+namespace urushi_emacs
 {
     [default_interface]
     runtimeclass MainWindow : Microsoft.UI.Xaml.Window

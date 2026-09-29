@@ -2,10 +2,10 @@
 
 #include "Input/PointerMessage.h"
 
-using urusi::core::input::PointerButton;
-using urusi::core::input::PointerEvent;
-using urusi::core::input::PointerKind;
-using urusi::windows::input::PointerForEmacs;
+using urushi::core::input::PointerButton;
+using urushi::core::input::PointerEvent;
+using urushi::core::input::PointerKind;
+using urushi::windows::input::PointerForEmacs;
 
 // Where the pointer is, in the pixels of the screen from the frame's
 // corner, as the mouse messages of the frame's window say it.

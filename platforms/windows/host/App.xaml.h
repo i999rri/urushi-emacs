@@ -2,7 +2,7 @@
 
 #include "App.xaml.g.h"
 
-namespace winrt::urusi_emacs::implementation
+namespace winrt::urushi_emacs::implementation
 {
     struct App : AppT<App>
     {

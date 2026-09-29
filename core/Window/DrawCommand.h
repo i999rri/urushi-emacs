@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-namespace urusi::core::window
+namespace urushi::core::window
 {
     // One thing Emacs says to draw.
     //

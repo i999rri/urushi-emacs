@@ -21,7 +21,7 @@
     <MinimalCoreWin>true</MinimalCoreWin>
     <ProjectGuid>{3220ffce-015c-48f0-8f85-c40af85ba8c5}</ProjectGuid>
     <ProjectName>host</ProjectName>
-    <RootNamespace>urusi_emacs</RootNamespace>
+    <RootNamespace>urushi_emacs</RootNamespace>
     <!--
       $(TargetName) should be same as $(RootNamespace) so that the produced binaries (.exe/.pri/etc.)
       have a name that matches the .winmd

@@ -21,13 +21,13 @@ MAKE_CHILD = r'''
     (let* ((root (selected-frame))
            (child (make-frame `((parent-frame . ,root) (left . 30) (top . 40)
                                 (width . 20) (height . 5) (minibuffer . nil)))))
-      (urusi--log "child parent %s position %S size %S root-size %S"
+      (urushi--log "child parent %s position %S size %S root-size %S"
                   (eq (frame-parent child) root)
                   (frame-position child)
                   (cons (frame-pixel-width child) (frame-pixel-height child))
                   (cons (frame-pixel-width root) (frame-pixel-height root)))
       (set-frame-position child 50 60)
-      (urusi--log "moved position %S" (frame-position child)))))
+      (urushi--log "moved position %S" (frame-position child)))))
 '''
 
 

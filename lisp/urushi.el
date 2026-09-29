@@ -1,8 +1,8 @@
-;;; urusi.el --- Native WinUI 3 UI built from Emacs Lisp  -*- lexical-binding: t; -*-
+;;; urushi.el --- Native WinUI 3 UI built from Emacs Lisp  -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
-;; Builds the window of the urusi-emacs host, a WinUI 3 application that
+;; Builds the window of the urushi-emacs host, a WinUI 3 application that
 ;; loads Emacs into its own process.  Messages go by calling the host,
 ;; with `host-post' and `host-take-events'; each one is a line of
 ;; JSON.
@@ -16,7 +16,7 @@
 ;; called with a plist of event arguments (or with none, if the handler
 ;; takes none):
 ;;
-;;   (urusi-render
+;;   (urushi-render
 ;;    `(StackPanel :Padding 24
 ;;       (Button :Content "OK" :on-Click ,(lambda () (message "clicked")))))
 ;;
@@ -32,11 +32,11 @@
 (declare-function host-post "w32host.c" (message))
 (declare-function host-take-events "w32host.c")
 
-(defgroup urusi nil
+(defgroup urushi nil
   "Native WinUI 3 UI built from Emacs Lisp."
   :group 'environment)
 
-(defcustom urusi-poll-interval 30.0
+(defcustom urushi-poll-interval 30.0
   "How often to look for messages from the host, in seconds.
 
 Emacs is told of them as they are sent, so this is what is left over
@@ -53,62 +53,62 @@ Set it low in an Emacs whose host cannot tell it, where looking is all
 there is and the messages wait in a queue until Emacs looks."
   :type 'number)
 
-(defvar urusi--timer nil
+(defvar urushi--timer nil
   "Timer that looks for messages from the host.")
 
-(defvar urusi--handlers (make-hash-table :test #'equal)
+(defvar urushi--handlers (make-hash-table :test #'equal)
   "Event handlers of the UI currently shown, keyed by event id.
 An id is a string that says where the event is, the row and the
 element, so that a row the host keeps from one screen to the next goes
 on reaching the handler of the same element in the screen after.")
 
-(defconst urusi-hover-color "#28808080"
+(defconst urushi-hover-color "#28808080"
   "Colour laid over something that can be clicked, under the pointer.
 Grey and mostly clear, so that it shows on a background of any colour.")
 
-(defconst urusi--namespaces
+(defconst urushi--namespaces
   (concat " xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\""
           " xmlns:x=\"http://schemas.microsoft.com/winfx/2006/xaml\"")
   "Namespace declarations the root element needs for XamlReader.Load.")
 
 ;;;; Talking to the host
 
-(defun urusi-available-p ()
-  "Return non-nil if this Emacs runs inside the urusi-emacs host."
+(defun urushi-available-p ()
+  "Return non-nil if this Emacs runs inside the urushi-emacs host."
   (and (fboundp 'host-available-p) (host-available-p)))
 
-(defun urusi-start ()
-  "Start talking to the urusi-emacs host."
+(defun urushi-start ()
+  "Start talking to the urushi-emacs host."
   (interactive)
-  (unless (urusi-available-p)
-    (user-error "urusi: This Emacs does not run inside the host"))
-  (urusi-stop)
+  (unless (urushi-available-p)
+    (user-error "urushi: This Emacs does not run inside the host"))
+  (urushi-stop)
   ;; Told as they are sent: the host wakes Emacs where it waits for
   ;; input, so a message costs nothing to learn of and arrives at once,
   ;; where looking for it cost the interval to find.
-  (setq host-message-function #'urusi--take)
-  (urusi--next-look)
+  (setq host-message-function #'urushi--take)
+  (urushi--next-look)
   ;; Which window system draws the frames, which is how the host knows
   ;; what to do with a key: only the w32 one makes frames that are
   ;; windows of the host's own process, and only those can be posted
   ;; to.  Every other way round, input comes back as a message.
-  (urusi--send (list :type "hello" :version 1
+  (urushi--send (list :type "hello" :version 1
                      :window-system (symbol-name (or (window-system) 'none)))))
 
-(defun urusi-stop ()
+(defun urushi-stop ()
   "Stop looking for messages from the host, and being told of them."
   (interactive)
   (setq host-message-function nil)
-  (when urusi--timer
-    (cancel-timer urusi--timer)
-    (setq urusi--timer nil)))
+  (when urushi--timer
+    (cancel-timer urushi--timer)
+    (setq urushi--timer nil)))
 
-(defun urusi--send (message)
+(defun urushi--send (message)
   "Send MESSAGE, a plist, to the host as one JSON object."
   (unless (host-post (json-serialize message))
-    (user-error "urusi: This Emacs does not run inside the host")))
+    (user-error "urushi: This Emacs does not run inside the host")))
 
-(defun urusi--next-look ()
+(defun urushi--next-look ()
   "Set the next look at the host, in place of one that is waiting.
 A timer of one look rather than a repeating one, because a repeating
 timer is put back only once its function has returned: `timer-event-
@@ -117,11 +117,11 @@ marked triggered stays in `timer-list' and never runs again.  This is
 the only thing that reads the host, so one look that did not return
 used to be the last, and the window went on answering the keyboard,
 where keys are read in C, while everything clicked went nowhere."
-  (when (timerp urusi--timer)
-    (cancel-timer urusi--timer))
-  (setq urusi--timer (run-with-timer urusi-poll-interval nil #'urusi--look)))
+  (when (timerp urushi--timer)
+    (cancel-timer urushi--timer))
+  (setq urushi--timer (run-with-timer urushi-poll-interval nil #'urushi--look)))
 
-(defun urusi--look ()
+(defun urushi--look ()
   "Look at the host, having first arranged to look again."
   ;; The next look is set before anything is handled, so that no way of
   ;; leaving this one can be the end of looking: not a quit from a
@@ -129,16 +129,16 @@ where keys are read in C, while everything clicked went nowhere."
   ;; would catch.  The interval is then counted from the end of a look
   ;; rather than the start of one, which at this interval is the same
   ;; thing.
-  (urusi--next-look)
-  (urusi--take))
+  (urushi--next-look)
+  (urushi--take))
 
-(defun urusi--take ()
+(defun urushi--take ()
   "Handle the messages the host has sent since the last look.
 Nothing is arranged here: this is what there is to do, and
-`urusi--look' is what keeps it being done."
+`urushi--look' is what keeps it being done."
   (dolist (message (host-take-events))
     (condition-case err
-        (urusi--dispatch (json-parse-string message
+        (urushi--dispatch (json-parse-string message
                                             :object-type 'plist
                                             :false-object nil
                                             :null-object nil))
@@ -148,9 +148,9 @@ Nothing is arranged here: this is what there is to do, and
       ;; is waiting behind it.
       ;;
       ;; The echo area is drawn by whatever this was on its way to.
-      ((error quit) (urusi--log "%S in %s" err message)))))
+      ((error quit) (urushi--log "%S in %s" err message)))))
 
-(defun urusi--log (format &rest arguments)
+(defun urushi--log (format &rest arguments)
   "Write FORMAT with ARGUMENTS where the host will show it.
 The echo area is no use for what goes wrong on the way to drawing it.
 Neither is the standard error: by the time a host loads Emacs, its C
@@ -158,59 +158,59 @@ runtime has taken the handles the process started with, and what Emacs
 writes there goes nowhere.  So this asks the host, the way everything
 else does."
   (let ((text (apply #'format format arguments)))
-    (if (urusi-available-p)
+    (if (urushi-available-p)
         (host-post (json-serialize (list :type "log" :text text)))
-      (princ (concat "urusi: " text "\n") #'external-debugging-output))))
+      (princ (concat "urushi: " text "\n") #'external-debugging-output))))
 
-(defvar urusi-scale 1.0
+(defvar urushi-scale 1.0
   "How many pixels of the screen go to one of the pixels XAML counts in.
 Emacs measures in the pixels of the screen, XAML in 96ths of an inch,
 and on a display that is scaled the two are not the same.  The host
 says which it is when it answers the first message.")
 
-(defvar urusi-message-hook nil
+(defvar urushi-message-hook nil
   "Functions to run with a message from the host this file does not know.
 Each takes the message, as a plist.")
 
-(defvar urusi-stale-hook nil
+(defvar urushi-stale-hook nil
   "Functions to run when the host has lost track of what it shows.
 Whatever is drawing has to draw the whole of it again.")
 
-(defvar urusi-after-event-hook nil
+(defvar urushi-after-event-hook nil
   "Functions to run after a handler has run for an event from the host.
 A handler runs from a timer and not as a command, so what it changed
 is not followed by `post-command-hook', and whatever shows the changes
 waits for one unless it is told here.")
 
-(defvar urusi--seen nil
+(defvar urushi--seen nil
   "Kinds of message the host has sent, so each is only remarked on once.")
 
 ;; Within reach of M-x and of the init file, and of the host's hello,
 ;; without any of them having to know which file it is in.
-(autoload 'urusi-debug-mode "urusi-debug"
+(autoload 'urushi-debug-mode "urushi-debug"
   "Write down what happens, in the log the host keeps beside it." t)
 
-(defvar urusi--last-host-error nil
+(defvar urushi--last-host-error nil
   "The error the host last reported, which has been shown once already.")
 
-(defun urusi--host-error (text)
+(defun urushi--host-error (text)
   "Show TEXT, an error the host reported, unless it was the last one too.
 Showing a message changes the echo area, which draws the screen again,
 and a screen with the same mistake in it has the host report the same
 error: shown every time, it would be what keeps it coming."
-  (unless (equal text urusi--last-host-error)
-    (setq urusi--last-host-error text)
-    (message "urusi: %s" text)))
+  (unless (equal text urushi--last-host-error)
+    (setq urushi--last-host-error text)
+    (message "urushi: %s" text)))
 
-(defun urusi--dispatch (message)
+(defun urushi--dispatch (message)
   "Handle MESSAGE, a plist parsed from the host."
   (let ((type (plist-get message :type)))
-    (unless (member type urusi--seen)
-      (push type urusi--seen)
-      (urusi--log "first %s from the host" type)))
+    (unless (member type urushi--seen)
+      (push type urushi--seen)
+      (urushi--log "first %s from the host" type)))
   (pcase (plist-get message :type)
     ("hello"
-     (setq urusi-scale (or (plist-get message :scale) 1.0))
+     (setq urushi-scale (or (plist-get message :scale) 1.0))
      ;; A host that draws what Emacs says to draw is told to say it
      ;; rather than to draw it: a screen is then a few hundred things
      ;; to do instead of a megabyte of pixels, and its text is drawn by
@@ -227,14 +227,14 @@ error: shown every time, it would be what keeps it coming."
      ;; Run under a debugger, the host wants an account of what
      ;; happens from the start, before anything has gone wrong.
      (when (plist-get message :debug)
-       (urusi-debug-mode 1))
-     (message "urusi: Talking to %s" (plist-get message :host)))
-    ("event" (urusi--call-handler (plist-get message :id) (plist-get message :args)))
-    ("reply" (urusi--reply message))
+       (urushi-debug-mode 1))
+     (message "urushi: Talking to %s" (plist-get message :host)))
+    ("event" (urushi--call-handler (plist-get message :id) (plist-get message :args)))
+    ("reply" (urushi--reply message))
     ("host-event"
-     (run-hook-with-args 'urusi-host-event-functions
+     (run-hook-with-args 'urushi-host-event-functions
                          (intern (plist-get message :event)) message))
-    ("stale" (urusi-forget) (run-hooks 'urusi-stale-hook))
+    ("stale" (urushi-forget) (run-hooks 'urushi-stale-hook))
     ;; The host has something to draw from a font and has not the file
     ;; it is in.  Emacs reads the font files itself, so it is the one
     ;; that has it; a glyph is numbered by the file it is in, and a
@@ -247,10 +247,10 @@ error: shown every time, it would be what keeps it coming."
     ("want-image"
      (when (fboundp 'host-send-image)
        (host-send-image (plist-get message :id))))
-    ("error" (urusi--host-error (plist-get message :message)))
-    (_ (run-hook-with-args 'urusi-message-hook message))))
+    ("error" (urushi--host-error (plist-get message :message)))
+    (_ (run-hook-with-args 'urushi-message-hook message))))
 
-(defun urusi-when-idle (function)
+(defun urushi-when-idle (function)
   "Call FUNCTION as soon as Emacs is next waiting for input.
 Return the timer that will.
 
@@ -263,7 +263,7 @@ the next chance is the next time timers run."
       (run-at-time 0 nil function)
     (run-with-idle-timer 0 nil function)))
 
-(defun urusi-root-frame (&optional frame)
+(defun urushi-root-frame (&optional frame)
   "Return the frame FRAME is a child of, or of a child of, and so on.
 That is the frame the host window shows; child frames are drawn on top
 of it, and while one is selected, as a minibuffer that floats over the
@@ -276,7 +276,7 @@ defaults to the selected one."
 
 ;;;; Asking the host
 
-(defvar urusi-host-event-functions '(urusi--note-window-state)
+(defvar urushi-host-event-functions '(urushi--note-window-state)
   "Functions to run when something happens to the host window.
 Each is called with the event, a symbol, and the message it came in,
 a plist.  The events are `activated' and `deactivated', when the window
@@ -286,26 +286,26 @@ maximized, minimized, restored or made full screen by anyone; and
 `close', when someone asks for the window to be closed, which it is
 only if something here decides it should be.")
 
-(defvar urusi-window-state "normal"
+(defvar urushi-window-state "normal"
   "How the host window takes up the screen, as the host last said.
 One of \"normal\", \"maximized\", \"minimized\" and \"fullscreen\".  It
 changes whenever the window does, whoever changed it: from Lisp, from
 its title bar, or from Windows.")
 
-(defun urusi--note-window-state (event message)
-  "Keep `urusi-window-state' up to date with the state EVENT brings in MESSAGE."
+(defun urushi--note-window-state (event message)
+  "Keep `urushi-window-state' up to date with the state EVENT brings in MESSAGE."
   (when (eq event 'state)
-    (setq urusi-window-state (plist-get message :state))))
+    (setq urushi-window-state (plist-get message :state))))
 
-(defvar urusi--calls (make-hash-table :test #'eql)
+(defvar urushi--calls (make-hash-table :test #'eql)
   "What to do with the answer to each call still waiting for one.
 The value is a function of the value and the error, one of which is
 nil.")
 
-(defvar urusi--next-call 0
+(defvar urushi--next-call 0
   "The number of the last call made.")
 
-(defun urusi-call (method &optional args callback)
+(defun urushi-call (method &optional args callback)
   "Ask the host to do METHOD with ARGS, a plist, and return at once.
 CALLBACK, if given, is called with the value the host answers with once
 it has; an error is logged.  Return the number of the call.
@@ -328,21 +328,21 @@ The methods:
   dialog.ask       :title :message :accept :other :cancel
                                  which of the answers was chosen, as
                                  \"accept\", \"other\" or \"cancel\";
-                                 see `urusi-ask'"
-  (let ((id (cl-incf urusi--next-call)))
+                                 see `urushi-ask'"
+  (let ((id (cl-incf urushi--next-call)))
     (puthash id
              (lambda (value error)
                (if error
-                   (urusi--log "%s: %s" method error)
+                   (urushi--log "%s: %s" method error)
                  (when callback
                    (funcall callback value))))
-             urusi--calls)
-    (urusi--send (list :type "call" :id id :method method
+             urushi--calls)
+    (urushi--send (list :type "call" :id id :method method
                        ;; An empty plist is not an object to JSON.
                        :args (or args (make-hash-table))))
     id))
 
-(cl-defun urusi-ask (message &key title accept other cancel then)
+(cl-defun urushi-ask (message &key title accept other cancel then)
   "Ask MESSAGE in a dialog of the host\='s, and call THEN with the answer.
 
 ACCEPT, OTHER and CANCEL name the answers offered: the dialog opens on
@@ -355,7 +355,7 @@ after is THEN\='s to do, and nothing waits for it.
 
 The dialog is the host\='s own: it looks as the dialogs of the system
 do, and is not a frame of Emacs\='s."
-  (urusi-call "dialog.ask"
+  (urushi-call "dialog.ask"
               (nconc (list :message message)
                      (when title (list :title title))
                      (when accept (list :accept accept))
@@ -365,44 +365,44 @@ do, and is not a frame of Emacs\='s."
                 (when then
                   (funcall then (intern (or answer "cancel")))))))
 
-(defun urusi-call-wait (method &optional args timeout)
+(defun urushi-call-wait (method &optional args timeout)
   "Ask the host to do METHOD with ARGS, a plist, and return its answer.
 Wait no more than TIMEOUT seconds, 5 by default, and signal an error if
-the host answers with one or does not answer.  Use `urusi-call' for a
+the host answers with one or does not answer.  Use `urushi-call' for a
 method that waits on the person using the application."
   (let* ((done nil)
          (answer nil)
          (failure nil)
-         (id (cl-incf urusi--next-call))
+         (id (cl-incf urushi--next-call))
          (deadline (+ (float-time) (or timeout 5))))
     (puthash id
              (lambda (value error)
                (setq done t answer value failure error))
-             urusi--calls)
-    (urusi--send (list :type "call" :id id :method method
+             urushi--calls)
+    (urushi--send (list :type "call" :id id :method method
                        :args (or args (make-hash-table))))
     ;; The answer comes the way everything from the host does, so look
     ;; for it here rather than wait for the timer to.
     (while (and (not done) (< (float-time) deadline))
       (sleep-for 0.01)
-      (urusi--take))
-    (remhash id urusi--calls)
-    (cond (failure (error "urusi: %s: %s" method failure))
-          ((not done) (error "urusi: %s: no answer from the host" method))
+      (urushi--take))
+    (remhash id urushi--calls)
+    (cond (failure (error "urushi: %s: %s" method failure))
+          ((not done) (error "urushi: %s: no answer from the host" method))
           (t answer))))
 
-(defun urusi--reply (message)
+(defun urushi--reply (message)
   "Pass the answer in MESSAGE to whatever is waiting for it."
   ;; The host sends numbers as JSON numbers, which may come back as floats.
   (let* ((id (truncate (plist-get message :id)))
-         (waiting (gethash id urusi--calls)))
+         (waiting (gethash id urushi--calls)))
     (when waiting
-      (remhash id urusi--calls)
+      (remhash id urushi--calls)
       (funcall waiting (plist-get message :value) (plist-get message :error)))))
 
-(defun urusi--call-handler (id args)
+(defun urushi--call-handler (id args)
   "Call the handler registered for event ID with ARGS."
-  (when-let* ((handler (gethash id urusi--handlers)))
+  (when-let* ((handler (gethash id urushi--handlers)))
     (condition-case err
         (if (eql (cdr (func-arity handler)) 0)
             (funcall handler)
@@ -410,19 +410,19 @@ method that waits on the person using the application."
       ;; A handler is free to prompt, and a prompt is C-g's to leave.
       ;; Caught here rather than left to the caller, so that the hook
       ;; below still runs and the screen shows that it was left.
-      (quit (urusi--log "%s was left by quit" id))
-      (error (message "urusi: Handler failed: %S" err)))
-    (run-hooks 'urusi-after-event-hook)))
+      (quit (urushi--log "%s was left by quit" id))
+      (error (message "urushi: Handler failed: %S" err)))
+    (run-hooks 'urushi-after-event-hook)))
 
 ;;;; Tree to XAML
 
-(defvar urusi--row-xaml (make-hash-table :test #'eq)
+(defvar urushi--row-xaml (make-hash-table :test #'eq)
   "What each row of the last screen compiled to, keyed by the row itself.
 A screen is mostly the screen before it, and compiling a row that has
 not changed arrives at the string that is already here.  It holds the
 last screen only: what a screen does not use is what the next one drops.")
 
-(defun urusi--escape (text attribute)
+(defun urushi--escape (text attribute)
   "Escape TEXT for XAML, as an ATTRIBUTE value if non-nil."
   (let ((escaped (replace-regexp-in-string "&" "&amp;" text t t)))
     (setq escaped (replace-regexp-in-string "<" "&lt;" escaped t t))
@@ -431,7 +431,7 @@ last screen only: what a screen does not use is what the next one drops.")
         (replace-regexp-in-string "\"" "&quot;" escaped t t)
       escaped)))
 
-(defun urusi-literal (text)
+(defun urushi-literal (text)
   "Return TEXT as a property value XAML takes to be that text.
 A value that begins with a brace is read as a markup extension, a
 {Binding} or a {ThemeResource}, and text that happens to begin with one,
@@ -441,16 +441,16 @@ of braces in front says that what follows is text."
       (concat "{}" text)
     text))
 
-(defun urusi--value (value)
+(defun urushi--value (value)
   "Return VALUE as the string XAML expects for a property."
   (cond ((stringp value) value)
         ((eq value t) "True")
         ((null value) "False")
         ((numberp value) (number-to-string value))
         ((symbolp value) (symbol-name value))
-        (t (error "urusi: Cannot use %S as a property value" value))))
+        (t (error "urushi: Cannot use %S as a property value" value))))
 
-(defun urusi--compile (tree)
+(defun urushi--compile (tree)
   "Turn TREE into XAML.
 Return (XAML EVENTS HANDLERS ROWS NESTED).
 
@@ -484,9 +484,9 @@ was in it goes with it, and the rows inside have to be built again too."
         (rows nil)
         (nested nil)
         (owner nil)
-        (was urusi--row-xaml)
+        (was urushi--row-xaml)
         (handlers (make-hash-table :test #'equal)))
-    (setq urusi--row-xaml (make-hash-table :test #'eq))
+    (setq urushi--row-xaml (make-hash-table :test #'eq))
     (cl-labels
         ((row-xaml (child group key)
            ;; A row built out of the same thing twice is the same row,
@@ -516,11 +516,11 @@ was in it goes with it, and the rows inside have to be built again too."
                  ;; skipping that would leave it unreachable.  So is one
                  ;; with rows in it, which are registered the same way.
                  (if (and (null row-events) (eq before-nested nested))
-                     (puthash child (list xaml) urusi--row-xaml)
+                     (puthash child (list xaml) urushi--row-xaml)
                    (cons xaml row-events)))))
          (node (form root)
            (cond
-            ((stringp form) (urusi--escape form nil))
+            ((stringp form) (urushi--escape form nil))
             ((eq (car-safe form) 'Rows)
              (let ((rest (cdr form))
                    (properties nil)
@@ -530,13 +530,13 @@ was in it goes with it, and the rows inside have to be built again too."
                  (push (cons (substring (symbol-name (pop rest)) 1) (pop rest))
                        properties))
                (setq properties (nreverse properties))
-               (setq name (urusi--value
+               (setq name (urushi--value
                            (or (cdr (assoc "key" properties))
-                               (error "urusi: Rows needs a :key: %S" form))))
+                               (error "urushi: Rows needs a :key: %S" form))))
                (dolist (property properties)
                  (unless (member (car property) '("key" "panel"))
                    (push (format " %s=\"%s\"" (car property)
-                                 (urusi--escape (urusi--value (cdr property)) t))
+                                 (urushi--escape (urushi--value (cdr property)) t))
                          attributes)))
                (when owner
                  (push (cons name owner) nested))
@@ -546,7 +546,7 @@ was in it goes with it, and the rows inside have to be built again too."
                  (push group rows)
                  (setcdr group
                          (mapcar (lambda (child)
-                                   (let ((key (urusi--row-key child)))
+                                   (let ((key (urushi--row-key child)))
                                      (cons key (row-xaml child name key))))
                                  rest)))
                ;; :panel says what holds the rows.  A StackPanel puts
@@ -555,7 +555,7 @@ was in it goes with it, and the rows inside have to be built again too."
                ;; which is what a screen wants.
                (format "<%s x:Name=\"%s\"%s />"
                        (or (cdr (assoc "panel" properties)) "StackPanel")
-                       (urusi--escape name t)
+                       (urushi--escape name t)
                        (apply #'concat (nreverse attributes)))))
             ((and (consp form) (symbolp (car form)))
              (let ((tag (symbol-name (car form)))
@@ -569,49 +569,49 @@ was in it goes with it, and the rows inside have to be built again too."
                    (cond
                     ((string-prefix-p "on-" key)
                      (unless (functionp value)
-                       (error "urusi: %s handler is not a function: %S" key value))
+                       (error "urushi: %s handler is not a function: %S" key value))
                      (push (cons (substring key 3) value) element-handlers))
                     ((string= key "Name")
-                     (setq name (urusi--value value)))
+                     (setq name (urushi--value value)))
                     ;; A key says which element this is between one
                     ;; screen and the next, and is not XAML's business.
                     ((string= key "key"))
                     (t
-                     (push (format " %s=\"%s\"" key (urusi--escape (urusi--value value) t))
+                     (push (format " %s=\"%s\"" key (urushi--escape (urushi--value value) t))
                            attributes)))))
                ;; The host finds elements by name to attach events.
                (when (and element-handlers (not name))
-                 (setq name (format "urusi%d" (cl-incf next-name))))
+                 (setq name (format "urushi%d" (cl-incf next-name))))
                (dolist (handler (nreverse element-handlers))
                  (let ((id (format "%s%s:%s" where name (car handler))))
                    (puthash id (cdr handler) handlers)
                    (push (list :name name :event (car handler) :id id) events)))
                (let ((open (concat "<" tag
-                                   (and root urusi--namespaces)
-                                   (and name (format " x:Name=\"%s\"" (urusi--escape name t)))
+                                   (and root urushi--namespaces)
+                                   (and name (format " x:Name=\"%s\"" (urushi--escape name t)))
                                    (apply #'concat (nreverse attributes))))
                      (children (mapconcat (lambda (child) (node child nil)) rest "")))
                  (if (string-empty-p children)
                      (concat open " />")
                    (concat open ">" children "</" tag ">")))))
-            (t (error "urusi: Cannot render %S" form)))))
+            (t (error "urushi: Cannot render %S" form)))))
       (let ((xaml (node tree t)))
         (list xaml (nreverse events) handlers (nreverse rows) nested)))))
 
-(defun urusi--row-key (form)
+(defun urushi--row-key (form)
   "Return the :key of FORM, which a child of `Rows' must have."
   (let ((key (plist-get (cdr-safe form) :key)))
     (unless key
-      (error "urusi: A row needs a :key: %S" form))
-    (urusi--value key)))
+      (error "urushi: A row needs a :key: %S" form))
+    (urushi--value key)))
 
 ;;;; Rendering
 
-(defvar urusi--shown nil
+(defvar urushi--shown nil
   "What the host was last sent, as (XAML . ROWS), or nil for nothing.
 It is what a screen is compared against to find what has changed.")
 
-(defun urusi-render (tree)
+(defun urushi-render (tree)
   "Show TREE, a UI written as s-expressions, in the host window.
 
 Only what has changed since the last call is sent.  The XAML around the
@@ -622,8 +622,8 @@ alone, so that what they were doing they go on doing.
 
 Returns what was sent, in words, which is worth having when the screen
 is slower than it should be."
-  (pcase-let* ((`(,xaml ,events ,handlers ,rows ,nested) (urusi--compile tree))
-               (`(,shown-xaml . ,shown-rows) urusi--shown)
+  (pcase-let* ((`(,xaml ,events ,handlers ,rows ,nested) (urushi--compile tree))
+               (`(,shown-xaml . ,shown-rows) urushi--shown)
                (same-chrome (equal xaml shown-xaml))
                ;; Rows sent whole this time, as (GROUP . KEY): the ones
                ;; inside them are new, empty panels, and are sent whole
@@ -631,7 +631,7 @@ is slower than it should be."
                (built nil)
                (changed 0)
                (total 0))
-    (urusi--send
+    (urushi--send
      (nconc (list :type "screen")
             (unless same-chrome (list :xaml xaml :events (vconcat events)))
             (list :rows
@@ -659,32 +659,32 @@ is slower than it should be."
                                              (list :events (vconcat (cddr row)))))))
                                 (cdr group))))))
                     rows)))))
-    (setq urusi--shown (cons xaml rows))
-    (setq urusi--handlers handlers)
+    (setq urushi--shown (cons xaml rows))
+    (setq urushi--handlers handlers)
     (format "%s, %d/%d rows" (if same-chrome "same chrome" "NEW CHROME")
             changed total)))
 
-(defun urusi-forget ()
+(defun urushi-forget ()
   "Forget what the host is showing, so that the next screen is sent whole."
-  (setq urusi--shown nil)
-  (setq urusi--row-xaml (make-hash-table :test #'eq)))
+  (setq urushi--shown nil)
+  (setq urushi--row-xaml (make-hash-table :test #'eq)))
 
-(defun urusi-demo ()
+(defun urushi-demo ()
   "Show a small UI in the host, to check that everything is connected."
   (interactive)
-  (unless urusi--timer
-    (urusi-start))
+  (unless urushi--timer
+    (urushi-start))
   (let ((count 0))
-    (urusi-render
+    (urushi-render
      `(StackPanel :Padding 24 :Spacing 12
-                  (TextBlock :Text "urusi-emacs" :FontSize 28)
+                  (TextBlock :Text "urushi-emacs" :FontSize 28)
                   (TextBox :PlaceholderText "Type something"
                            :on-TextChanged ,(lambda (args)
-                                              (message "urusi: Text is %S" (plist-get args :text))))
+                                              (message "urushi: Text is %S" (plist-get args :text))))
                   (Button :Content "Click me"
                           :on-Click ,(lambda ()
                                        (setq count (1+ count))
-                                       (message "urusi: Clicked %d times" count)))))))
+                                       (message "urushi: Clicked %d times" count)))))))
 
-(provide 'urusi)
-;;; urusi.el ends here
+(provide 'urushi)
+;;; urushi.el ends here

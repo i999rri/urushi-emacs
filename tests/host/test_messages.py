@@ -21,35 +21,35 @@ import unittest
 
 from emacs_host import EmacsHost
 
-# One argument, so no newlines: what Emacs is asked to do once urusi has
-# started.  The asking is hung on `urusi-start' rather than done here,
-# because the command line is read before urusi starts and there is no
+# One argument, so no newlines: what Emacs is asked to do once urushi has
+# started.  The asking is hung on `urushi-start' rather than done here,
+# because the command line is read before urushi starts and there is no
 # looking to call off yet.
 #
 # The looking is called off by putting the interval out of reach and
-# setting the next look with it, rather than by stopping urusi, which
+# setting the next look with it, rather than by stopping urushi, which
 # would give up being told as well.  Nothing here asks to be told: that
-# is urusi's own doing, and these tests are of what it does.
+# is urushi's own doing, and these tests are of what it does.
 SETUP = ' '.join((
     '(progn',
-    '  (urusi--log "window-system %s" window-system)',
-    "  (add-hook 'urusi-message-hook",
+    '  (urushi--log "window-system %s" window-system)',
+    "  (add-hook 'urushi-message-hook",
     '            (lambda (message)',
     '              (pcase (plist-get message :type)',
-    '                ("probe" (urusi--log "probe %s" (plist-get message :n)))',
+    '                ("probe" (urushi--log "probe %s" (plist-get message :n)))',
     '                ("say-buffer"',
-    '                 (urusi--log "buffer %s"',
+    '                 (urushi--log "buffer %s"',
     '                             (buffer-substring-no-properties',
     '                              (point-min) (point-max)))))))',
-    "  (advice-add 'urusi-start :after",
+    "  (advice-add 'urushi-start :after",
     '              (lambda (&rest _)',
-    '                (setq urusi-poll-interval 3600)',
-    '                (urusi--next-look)',
-    '                (urusi--log "told, not looking"))))',
+    '                (setq urushi-poll-interval 3600)',
+    '                (urushi--next-look)',
+    '                (urushi--log "told, not looking"))))',
 ))
 
 # What looking would have cost, for the measurement to be read against:
-# what urusi asked of the timer before it was told instead.
+# what urushi asked of the timer before it was told instead.
 POLL_INTERVAL = 0.05
 
 

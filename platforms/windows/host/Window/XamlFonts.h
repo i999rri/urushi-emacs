@@ -16,7 +16,7 @@
 
 #include "Window/FontReader.h"
 
-namespace urusi::windows::window
+namespace urushi::windows::window
 {
     // The fonts Emacs draws in, as this window has them.
     //
@@ -79,7 +79,7 @@ namespace urusi::windows::window
         //
         // It is read rather than parsed because the file may be eighty
         // megabytes; see core/Window/FontReader.h.
-        std::string Take(urusi::core::window::FontSaid const& said, Cost* cost = nullptr);
+        std::string Take(urushi::core::window::FontSaid const& said, Cost* cost = nullptr);
 
         // The face Emacs knows by ID, or null if there is none yet, in
         // which case the file is asked for.

@@ -7,7 +7,7 @@
 #include <cmath>
 #include <optional>
 
-namespace urusi::windows::input
+namespace urushi::windows::input
 {
     // The message the frame's window is to be posted, and what to do
     // with the pointer: take it while a button is down, so that a drag

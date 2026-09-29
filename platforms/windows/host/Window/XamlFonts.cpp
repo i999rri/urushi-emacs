@@ -105,7 +105,7 @@ namespace
     }
 }
 
-namespace urusi::windows::window
+namespace urushi::windows::window
 {
     XamlFonts::~XamlFonts()
     {
@@ -168,8 +168,8 @@ namespace urusi::windows::window
                 m_waiting.pop_front();
             }
 
-            urusi::core::window::FontSaid said;
-            if (!urusi::core::window::ReadFont(line, said))
+            urushi::core::window::FontSaid said;
+            if (!urushi::core::window::ReadFont(line, said))
             {
                 continue;
             }
@@ -333,7 +333,7 @@ namespace urusi::windows::window
     // and a lock held through any of that would stop the window for as
     // long as it took -- which is the whole of why this is on a thread
     // of its own.
-    std::string XamlFonts::Take(urusi::core::window::FontSaid const& said, Cost* cost)
+    std::string XamlFonts::Take(urushi::core::window::FontSaid const& said, Cost* cost)
     {
         auto const since = [](std::chrono::steady_clock::time_point from) {
             return std::chrono::duration<double, std::milli>(
@@ -352,7 +352,7 @@ namespace urusi::windows::window
         // until there is something to draw from it.
         if (!said.hasBytes)
         {
-            auto kept = NameOf(urusi::core::text::FromUtf8(said.file),
+            auto kept = NameOf(urushi::core::text::FromUtf8(said.file),
                                static_cast<int64_t>(said.size),
                                static_cast<int64_t>(said.when),
                                said.instance);
@@ -383,7 +383,7 @@ namespace urusi::windows::window
         // Decoded out of the line itself: see core/Text/Base64.h for
         // what taking it through the platform's own would cost.
         auto began = std::chrono::steady_clock::now();
-        auto const bytes = urusi::core::text::DecodeBase64(said.bytes);
+        auto const bytes = urushi::core::text::DecodeBase64(said.bytes);
         if (cost) { cost->decode = since(began); }
         if (bytes.empty())
         {

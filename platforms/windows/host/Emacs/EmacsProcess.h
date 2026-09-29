@@ -8,7 +8,7 @@
 #include <mutex>
 #include <string>
 
-namespace urusi::windows::emacs
+namespace urushi::windows::emacs
 {
     // Emacs as a process of its own, talking the protocol a line to a
     // message over its standard input and output: an Emacs on the host
@@ -28,7 +28,7 @@ namespace urusi::windows::emacs
         EmacsProcess(EmacsProcess const&) = delete;
         EmacsProcess& operator=(EmacsProcess const&) = delete;
 
-        // The command line %USERPROFILE%\.urusi-emacs-remote says to
+        // The command line %USERPROFILE%\.urushi-emacs-remote says to
         // start, or empty if there is no such file or no command in it.
         // A file, because a packaged application is given none of the
         // environment it is started from.

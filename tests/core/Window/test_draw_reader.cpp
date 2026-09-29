@@ -2,9 +2,9 @@
 
 #include "Window/DrawReader.h"
 
-using urusi::core::window::DrawFrame;
-using urusi::core::window::DrawOp;
-using urusi::core::window::DrawReader;
+using urushi::core::window::DrawFrame;
+using urushi::core::window::DrawOp;
+using urushi::core::window::DrawReader;
 
 namespace
 {

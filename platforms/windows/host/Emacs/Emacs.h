@@ -10,13 +10,13 @@
 #include <set>
 #include <string>
 
-namespace urusi::windows::emacs
+namespace urushi::windows::emacs
 {
     // Emacs, as the window talks to it: starting it, the messages that
     // go to it and come from it, and whether it can answer yet.
     //
     // Which Emacs it is is chosen as this is made: the one loaded into
-    // this process, unless %USERPROFILE%\.urusi-emacs-remote names a
+    // this process, unless %USERPROFILE%\.urushi-emacs-remote names a
     // command that starts one as a process of its own
     // (docs/remote.md).
     //

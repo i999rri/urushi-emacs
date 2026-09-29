@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-namespace urusi::windows::input
+namespace urushi::windows::input
 {
     // What the pointer did, as the protocol's `pointer` says it.
     struct EmacsPointer

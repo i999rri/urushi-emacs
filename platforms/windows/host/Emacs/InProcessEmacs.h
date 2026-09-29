@@ -2,7 +2,7 @@
 
 #include "Emacs/EmacsConnection.h"
 
-namespace urusi::windows::emacs
+namespace urushi::windows::emacs
 {
     // Emacs loaded into this process from libemacs.dll, talking through
     // the table of host.h: EmacsHost starts it and HostApi carries the

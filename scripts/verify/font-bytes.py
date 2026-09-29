@@ -1,6 +1,6 @@
 """Whether Emacs answers `want-font' with the file, and how long it takes.
 
-  URUSI_TEST_EMACS=~/dev/urusi/emacs-build/src/emacs python3 scripts/verify/font-bytes.py
+  URUSHI_TEST_EMACS=~/dev/urushi/emacs-build/src/emacs python3 scripts/verify/font-bytes.py
 
 The host draws a glyph by the file it is in, so it must have the file.
 Where Emacs is loaded into the application, `font' says the path and the

@@ -7,10 +7,10 @@
 # HTCLIENT (1) is the control's; HTCAPTION (2) is the bar's, and a button
 # that hit tests as the bar is a button that cannot be pressed.
 #
-#   scripts/verify/titlebar-hit.ps1 [-Name urusi-close]
+#   scripts/verify/titlebar-hit.ps1 [-Name urushi-close]
 
 param(
-    [string] $Name = 'urusi-close'
+    [string] $Name = 'urushi-close'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -27,7 +27,7 @@ public static class TitleBarHit {
 }
 '@
 
-$process = Get-Process urusi_emacs -ErrorAction Stop |
+$process = Get-Process urushi_emacs -ErrorAction Stop |
     Where-Object MainWindowHandle -ne 0 | Select-Object -First 1
 $root = [System.Windows.Automation.AutomationElement]::FromHandle($process.MainWindowHandle)
 $condition = New-Object System.Windows.Automation.PropertyCondition(

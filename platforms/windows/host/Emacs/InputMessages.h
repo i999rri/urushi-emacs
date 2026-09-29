@@ -7,7 +7,7 @@
 
 #include <string>
 
-namespace urusi::windows::emacs
+namespace urushi::windows::emacs
 {
     // The protocol's input messages, for an Emacs that takes the keys,
     // the pointer and the focus as messages (docs/protocol.md).

@@ -114,10 +114,10 @@ namespace
 
     // How a stretch of the composition is to be drawn, from the atom the
     // input method put on it.
-    urusi::core::input::CompositionRun MarkOf(ITfCategoryMgr* categories,
+    urushi::core::input::CompositionRun MarkOf(ITfCategoryMgr* categories,
                                        ITfDisplayAttributeMgr* attributes, TfGuidAtom atom)
     {
-        urusi::core::input::CompositionRun mark;
+        urushi::core::input::CompositionRun mark;
         com_ptr<ITfDisplayAttributeInfo> info;
         TF_DISPLAYATTRIBUTE display{};
         GUID which{};
@@ -126,7 +126,7 @@ namespace
         // other windows draw for those.
         if (atom == TF_INVALID_GUIDATOM || !categories || !attributes)
         {
-            mark.underline = urusi::core::input::Underline::Dashed;
+            mark.underline = urushi::core::input::Underline::Dashed;
             return mark;
         }
         if (FAILED(categories->GetGUID(atom, &which))
@@ -145,12 +145,12 @@ namespace
             mark.background = ColourOf(display.crBk);
         }
 
-        static constexpr urusi::core::input::Underline lines[] = {
-            urusi::core::input::Underline::None,     // TF_LS_NONE
-            urusi::core::input::Underline::Solid,    // TF_LS_SOLID
-            urusi::core::input::Underline::Dotted,   // TF_LS_DOT
-            urusi::core::input::Underline::Dashed,   // TF_LS_DASH
-            urusi::core::input::Underline::Wavy,     // TF_LS_SQUIGGLE
+        static constexpr urushi::core::input::Underline lines[] = {
+            urushi::core::input::Underline::None,     // TF_LS_NONE
+            urushi::core::input::Underline::Solid,    // TF_LS_SOLID
+            urushi::core::input::Underline::Dotted,   // TF_LS_DOT
+            urushi::core::input::Underline::Dashed,   // TF_LS_DASH
+            urushi::core::input::Underline::Wavy,     // TF_LS_SQUIGGLE
         };
         if (display.lsStyle >= TF_LS_NONE && display.lsStyle <= TF_LS_SQUIGGLE)
         {
@@ -161,13 +161,13 @@ namespace
         // two thin ones say the same thing.
         if (display.fBoldLine)
         {
-            mark.underline = urusi::core::input::Underline::Double;
+            mark.underline = urushi::core::input::Underline::Double;
         }
         return mark;
     }
 }
 
-namespace urusi::windows::input
+namespace urushi::windows::input
 {
     // What the text services ask of the window, and what they tell it.
     struct TextServices::Owner : implements<Owner, ITfContextOwner,

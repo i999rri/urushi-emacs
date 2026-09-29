@@ -22,7 +22,7 @@ POLL = '--poll' in sys.argv
 ROUNDS = 20
 
 ANSWER = r"""(progn
-  (add-hook 'urusi-message-hook
+  (add-hook 'urushi-message-hook
             (lambda (message)
               (when (equal (plist-get message :type) "ping")
                 (host-post (json-serialize
@@ -32,15 +32,15 @@ ANSWER = r"""(progn
   PUT-BACK-THE-TIMER)"""
 
 TIMER = r"""(progn (setq host-message-function nil)
-         (setq urusi--timer
-               (run-with-timer urusi-poll-interval urusi-poll-interval
-                               #'urusi--take)))"""
+         (setq urushi--timer
+               (run-with-timer urushi-poll-interval urushi-poll-interval
+                               #'urushi--take)))"""
 
 form = ANSWER.replace('PUT-BACK-THE-TIMER', TIMER if POLL else '(ignore)')
 
-INNER = ('EMACS_HOST_PIPE=1 EMACSLOADPATH=$HOME/dev/urusi/site-lisp: '
-         'exec ~/dev/urusi/emacs-build/src/emacs '
-         '--init-directory ~/dev/urusi/emacs-config/.config/emacs --eval "$PROBE"')
+INNER = ('EMACS_HOST_PIPE=1 EMACSLOADPATH=$HOME/dev/urushi/site-lisp: '
+         'exec ~/dev/urushi/emacs-build/src/emacs '
+         '--init-directory ~/dev/urushi/emacs-config/.config/emacs --eval "$PROBE"')
 
 emacs = subprocess.Popen(
     ['wsl.exe', '-d', 'NixOS', '-e', 'env', 'PROBE=' + form, 'bash', '-lc', INNER],

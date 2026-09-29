@@ -16,7 +16,7 @@ namespace
     // The character the layout types for KEY with the keys held in
     // STATE, or 0 if it types none, or only begins one, as a dead key
     // does.
-    char32_t Character(urusi::core::input::KeyEvent const& key, BYTE const* state)
+    char32_t Character(urushi::core::input::KeyEvent const& key, BYTE const* state)
     {
         wchar_t text[4]{};
         int count = ToUnicodeEx(static_cast<UINT>(key.key), key.scanCode, state, text,
@@ -37,7 +37,7 @@ namespace
     }
 }
 
-namespace urusi::windows::input
+namespace urushi::windows::input
 {
     std::optional<EmacsKey> ReadKey(core::input::KeyEvent const& key)
     {

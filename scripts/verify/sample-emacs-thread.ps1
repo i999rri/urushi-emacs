@@ -5,7 +5,7 @@
 #
 #   scripts\verify\sample-emacs-thread.ps1 [-Samples 5] [-Depth 20]
 
-param([int] $Samples = 5, [int] $Depth = 20, [string] $Name = 'urusi_emacs')
+param([int] $Samples = 5, [int] $Depth = 20, [string] $Name = 'urushi_emacs')
 
 $ErrorActionPreference = 'Stop'
 $cdb = 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe'

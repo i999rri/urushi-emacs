@@ -7,9 +7,9 @@
 #include "Text/Base64.h"
 #include "Window/FontReader.h"
 
-using urusi::core::text::DecodeBase64;
-using urusi::core::window::FontSaid;
-using urusi::core::window::ReadFont;
+using urushi::core::text::DecodeBase64;
+using urushi::core::window::FontSaid;
+using urushi::core::window::ReadFont;
 
 TEST(FontReaderTest, WhichFileAFontIs)
 {

@@ -5,7 +5,7 @@
 #include <string>
 #include <string_view>
 
-namespace urusi::core::text::json
+namespace urushi::core::text::json
 {
     // Reading one line of JSON where it lies, rather than parsing it
     // into objects of its own.

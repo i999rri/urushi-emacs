@@ -2,7 +2,7 @@
 
   python -m unittest discover -s tests/host
 
-Each test starts an Emacs of its own, with urusi and none of the
+Each test starts an Emacs of its own, with urushi and none of the
 user's init, and talks to it as an application would (emacs_host.py).
 On Windows the frames are still Emacs's own windows, and one shows for
 as long as each test runs.
@@ -28,7 +28,7 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(hello.get('window-system'), 'host')
 
         screen = self.emacs.wait_for('screen', lambda m: 'xaml' in m)
-        self.assertIn('urusi-frame', screen['xaml'])
+        self.assertIn('urushi-frame', screen['xaml'])
         self.assertTrue(rows_of(screen, 'window-0'), 'the first window has rows')
 
     def test_a_smaller_frame_has_fewer_rows(self):

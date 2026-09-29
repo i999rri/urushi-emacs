@@ -11,8 +11,8 @@
 # where it is, with the keys and the focus it had.
 
 param(
-    [string] $Path = 'urusi-emacs.png',
-    [string] $Process = 'urusi_emacs',
+    [string] $Path = 'urushi-emacs.png',
+    [string] $Process = 'urushi_emacs',
     # Photograph it off the screen instead, which is the only way to
     # see what a swap chain shows: it is composed by the desktop, and
     # a window asked to draw itself leaves it out. The window comes to

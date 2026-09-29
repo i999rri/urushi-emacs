@@ -9,7 +9,7 @@
 using namespace winrt;
 using namespace Microsoft::UI::Xaml;
 
-namespace urusi::windows::window
+namespace urushi::windows::window
 {
     XamlCaptionRegions::XamlCaptionRegions(Microsoft::UI::Windowing::AppWindow const& window)
         : m_window(window)

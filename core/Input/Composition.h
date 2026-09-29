@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-namespace urusi::core::input
+namespace urushi::core::input
 {
     // How a stretch of what is being composed is marked.
     //

@@ -5,7 +5,7 @@
 #include <optional>
 #include <vector>
 
-namespace urusi::core::window
+namespace urushi::core::window
 {
     // Where something is on the window, in XAML's units, from the corner
     // of the window's client area.
@@ -30,7 +30,7 @@ namespace urusi::core::window
     };
 
     // The caption of a window whose title bar Lisp drew: the element it
-    // named urusi-titlebar is the caption, and the controls on it are
+    // named urushi-titlebar is the caption, and the controls on it are
     // left to be clicked. With no such element, or while the window has
     // a title bar of its own, there is none.
     //

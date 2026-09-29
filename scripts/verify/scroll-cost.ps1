@@ -32,7 +32,7 @@ param(
     [int] $Every = 60,          # milliseconds between notches
     [int] $Notches = 1,         # notches each time
     [int] $Turn = 30,           # notches before it goes the other way
-    [string] $Process = 'urusi_emacs'
+    [string] $Process = 'urushi_emacs'
 )
 
 $ErrorActionPreference = 'Stop'

@@ -8,7 +8,7 @@
 
 #include "Emacs/Asking.h"
 
-namespace urusi::windows::emacs
+namespace urushi::windows::emacs
 {
     // What Lisp can ask the host to do, besides draw.
     //

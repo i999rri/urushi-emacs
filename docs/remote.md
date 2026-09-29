@@ -4,22 +4,22 @@ The application loads Emacs into itself from `libemacs.dll`, and that is what it
 
 ## Telling the application
 
-Put the command line that starts Emacs in a file called `.urusi-emacs-remote` in your user folder (`%USERPROFILE%`), then start the application again. The first line of the file that is not empty and does not start with `#` is the command; the rest of the file is not read. With no such file, or no command in it, Emacs is the one in the application, as before.
+Put the command line that starts Emacs in a file called `.urushi-emacs-remote` in your user folder (`%USERPROFILE%`), then start the application again. The first line of the file that is not empty and does not start with `#` is the command; the rest of the file is not read. With no such file, or no command in it, Emacs is the one in the application, as before.
 
 It is a file and not an environment variable because the packaged application is given none of the environment it is started from.
 
-For the Emacs that `scripts/linux/build-emacs.sh` builds, with the Lisp of this repository, where `/mnt/c/path/to/urusi-emacs` is where the repository is, seen from WSL:
+For the Emacs that `scripts/linux/build-emacs.sh` builds, with the Lisp of this repository, where `/mnt/c/path/to/urushi-emacs` is where the repository is, seen from WSL:
 
 ```
 # Emacs for Linux, in WSL
-wsl.exe -e bash -lc "EMACS_HOST_PIPE=1 exec ~/dev/urusi/emacs-build/src/emacs -Q -L /mnt/c/path/to/urusi-emacs/lisp -l /mnt/c/path/to/urusi-emacs/lisp/urusi-site-start.el"
+wsl.exe -e bash -lc "EMACS_HOST_PIPE=1 exec ~/dev/urushi/emacs-build/src/emacs -Q -L /mnt/c/path/to/urushi-emacs/lisp -l /mnt/c/path/to/urushi-emacs/lisp/urushi-site-start.el"
 ```
 
 `EMACS_HOST_PIPE=1` is what has Emacs talk to a host over its standard input and output. The command is started in your user folder, with no console window.
 
 ## What is different
 
-The log (`urusi-emacs.log`, beside the application) says which Emacs was chosen and with what command. What the process writes to its standard error goes to the log as Emacs's, and so does anything on its standard output that is not a message, a login shell's greeting for one. When the process exits, the log says its exit code.
+The log (`urushi-emacs.log`, beside the application) says which Emacs was chosen and with what command. What the process writes to its standard error goes to the log as Emacs's, and so does anything on its standard output that is not a message, a login shell's greeting for one. When the process exits, the log says its exit code.
 
 An Emacs of its own process has no windows, so it is sent the keys, the pointer and the focus as the protocol's `key`, `pointer` and `focus`, what the input method settles on as `text`, and the size of its frame as `resize` once the window is laid out. It sends no `frame`: its frame is there once it has said `hello`.
 

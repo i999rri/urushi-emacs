@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <optional>
 
-namespace urusi::windows::input
+namespace urushi::windows::input
 {
     // The message Emacs's frame is to be posted for a key.
     struct KeyMessage

@@ -50,7 +50,7 @@ public static class PostKeys {
 }
 '@
 
-$process = Get-Process urusi_emacs -ErrorAction Stop | Select-Object -First 1
+$process = Get-Process urushi_emacs -ErrorAction Stop | Select-Object -First 1
 $frame = [PostKeys]::FrameOf([uint32]$process.Id)
 if ($frame -eq [IntPtr]::Zero) {
     throw 'no Emacs frame window'

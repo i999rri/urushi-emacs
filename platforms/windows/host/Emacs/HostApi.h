@@ -7,7 +7,7 @@
 #include <mutex>
 #include <string>
 
-namespace urusi::windows::emacs
+namespace urushi::windows::emacs
 {
     // This application's side of host.h.
     //

@@ -33,9 +33,9 @@ done
 
 here=$(cd "$(dirname "$0")/.." && pwd)
 src=$here/external/emacs
-# Somewhere else with URUSI_BUILD_DIR, to keep a build of another shape
+# Somewhere else with URUSHI_BUILD_DIR, to keep a build of another shape
 # beside the one this application loads rather than over it.
-build=${URUSI_BUILD_DIR:-$here/external/emacs${host:+-host}-build}
+build=${URUSHI_BUILD_DIR:-$here/external/emacs${host:+-host}-build}
 
 [ -f "$src/configure.ac" ] || {
     echo "no Emacs in $src: git submodule update --init" >&2

@@ -52,11 +52,11 @@ class Screen:
 class HostInput:
     """Starting Emacs to type into, and typing."""
 
-    # More of Emacs's command line, after urusi is loaded.
+    # More of Emacs's command line, after urushi is loaded.
     ARGS = ()
 
     def setUp(self):
-        self.emacs = EmacsHost('--eval', '(urusi--log "window-system %s" window-system)',
+        self.emacs = EmacsHost('--eval', '(urushi--log "window-system %s" window-system)',
                                *self.ARGS)
         self.addCleanup(self.emacs.close)
         self.screen = Screen()

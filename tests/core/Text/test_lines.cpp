@@ -9,9 +9,9 @@
 #include "Measured.h"
 #include "Text/Lines.h"
 
-using urusi::core::text::Lines;
-using urusi::tests::kChecked;
-using urusi::tests::Measured;
+using urushi::core::text::Lines;
+using urushi::tests::kChecked;
+using urushi::tests::Measured;
 
 namespace
 {

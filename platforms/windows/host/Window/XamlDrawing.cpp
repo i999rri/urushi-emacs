@@ -9,9 +9,9 @@
 
 using namespace winrt;
 using namespace winrt::Microsoft::UI::Xaml;
-using urusi::core::window::DrawCommand;
-using urusi::core::window::DrawFrame;
-using urusi::core::window::DrawOp;
+using urushi::core::window::DrawCommand;
+using urushi::core::window::DrawFrame;
+using urushi::core::window::DrawOp;
 
 namespace
 {
@@ -30,7 +30,7 @@ namespace
     }
 }
 
-namespace urusi::windows::window
+namespace urushi::windows::window
 {
     void XamlDrawing::Attach(FrameworkElement const& site)
     {

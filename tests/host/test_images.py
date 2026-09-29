@@ -20,7 +20,7 @@ from emacs_host import EmacsHost
 
 # A file of bytes, written rather than kept beside this: what is tested
 # is the decoding, and two lines of PBM say as much as a file would.
-PBM = '/tmp/urusi-test-image.pbm'
+PBM = '/tmp/urushi-test-image.pbm'
 
 # An SVG given as text rather than as a file, because that is the path a
 # file name cannot stand in for: Lisp makes the image up, librsvg draws
@@ -30,24 +30,24 @@ SVG = ('<svg xmlns=\\"http://www.w3.org/2000/svg\\" width=\\"12\\" height=\\"7\\
 
 PROBE = ' '.join((
     '(progn',
-    '  (urusi--log "window-system %s" window-system)',
-    '  (urusi--log "types %S"',
+    '  (urushi--log "window-system %s" window-system)',
+    '  (urushi--log "types %S"',
     "              (seq-filter #'image-type-available-p",
     "                          '(pbm xbm png jpeg gif tiff svg webp)))",
     '  (with-temp-file "%s" (insert "P1\\n4 2\\n1 0 1 0\\n0 1 0 1\\n"))' % PBM,
-    '  (urusi--log "empty %S" (image-cache-size))',
-    '  (urusi--log "pbm %S"',
+    '  (urushi--log "empty %S" (image-cache-size))',
+    '  (urushi--log "pbm %S"',
     '              (condition-case error',
     '                  (let ((image (create-image "%s" (quote pbm) nil)))' % PBM,
     '                    (list :size (image-size image t)',
     '                          :cache (image-cache-size)))',
     '                (error error)))',
-    '  (urusi--log "svg %S"',
+    '  (urushi--log "svg %S"',
     '              (condition-case error',
     '                  (let ((image (create-image "%s" (quote svg) t)))' % SVG,
     '                    (list :size (image-size image t)))',
     '                (error error)))',
-    '  (urusi--log "asked"))',
+    '  (urushi--log "asked"))',
 ))
 
 
@@ -110,15 +110,15 @@ class Drawn(unittest.TestCase):
 
     # The image is 4 by 2 and every pixel of it is white, so that what
     # comes back can be checked without decoding anything.
-    SHOWN = '/tmp/urusi-test-shown.pbm'
+    SHOWN = '/tmp/urushi-test-shown.pbm'
     SETUP = ' '.join((
         '(progn',
-        '  (urusi--log "window-system %s" window-system)',
+        '  (urushi--log "window-system %s" window-system)',
         '  (with-temp-file "%s" (insert "P1\\n4 2\\n0 0 0 0\\n0 0 0 0\\n"))' % SHOWN,
         '  (switch-to-buffer (get-buffer-create "shown"))',
         '  (erase-buffer)',
         '  (insert-image (create-image "%s" (quote pbm) nil))' % SHOWN,
-        '  (urusi--log "shown"))',
+        '  (urushi--log "shown"))',
     ))
 
     def setUp(self):

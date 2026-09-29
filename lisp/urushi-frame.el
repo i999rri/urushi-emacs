@@ -1,4 +1,4 @@
-;;; urusi-frame.el --- The host window as the Emacs frame  -*- lexical-binding: t; -*-
+;;; urushi-frame.el --- The host window as the Emacs frame  -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -17,60 +17,60 @@
 
 ;;; Code:
 
-(require 'urusi)
+(require 'urushi)
 
-(defgroup urusi-frame nil
+(defgroup urushi-frame nil
   "The host window as the Emacs frame."
-  :group 'urusi)
+  :group 'urushi)
 
-(defvar urusi-frame--title nil
+(defvar urushi-frame--title nil
   "The title the host window was last given, or nil.")
 
-(defvar urusi-frame--state nil
+(defvar urushi-frame--state nil
   "What Emacs last wanted the frame to be, as the host names it.")
 
-(defun urusi-frame--state-of (frame)
+(defun urushi-frame--state-of (frame)
   "Return what Emacs wants FRAME to be, as a state the host knows."
   (pcase (frame-parameter frame 'fullscreen)
     ((or 'fullboth 'fullscreen) "fullscreen")
     ('maximized "maximized")
     (_ "normal")))
 
-(defun urusi-frame--sync ()
+(defun urushi-frame--sync ()
   "Pass on to the host window whatever Emacs has changed about its frame."
-  (let* ((root (urusi-root-frame))
+  (let* ((root (urushi-root-frame))
          (title (format-mode-line frame-title-format nil
                                   (frame-selected-window root)))
-         (state (urusi-frame--state-of root)))
-    (unless (equal title urusi-frame--title)
-      (setq urusi-frame--title title)
-      (urusi-call "window.title" (list :title title)))
-    (unless (equal state urusi-frame--state)
+         (state (urushi-frame--state-of root)))
+    (unless (equal title urushi-frame--title)
+      (setq urushi-frame--title title)
+      (urushi-call "window.title" (list :title title)))
+    (unless (equal state urushi-frame--state)
       ;; Nothing is said the first time round: the window starts as it
       ;; is, and Emacs's frame starts as a frame does, which is normal.
-      (when urusi-frame--state
-        (urusi-call "window.state" (list :state state)))
-      (setq urusi-frame--state state))))
+      (when urushi-frame--state
+        (urushi-call "window.state" (list :state state)))
+      (setq urushi-frame--state state))))
 
-(defcustom urusi-frame-close-function #'urusi-frame-ask-to-leave
+(defcustom urushi-frame-close-function #'urushi-frame-ask-to-leave
   "Function called when the host window is asked to close.
 It takes no arguments, and is to leave or not: the window does not
 close by itself, since leaving is Emacs's to decide, the way it always
 has been.
 
-`urusi-frame-ask-to-leave' asks in a dialog of the host's, which is
+`urushi-frame-ask-to-leave' asks in a dialog of the host's, which is
 what closing a window of the system asks in.  `save-buffers-kill-emacs'
 asks a buffer at a time in the echo area, which is what Emacs asks in."
   :type 'function)
 
-(defun urusi-frame-unsaved-buffers ()
+(defun urushi-frame-unsaved-buffers ()
   "Return the buffers of files with changes that are not saved."
   (seq-filter (lambda (buffer)
                 (and (buffer-file-name buffer)
                      (buffer-modified-p buffer)))
               (buffer-list)))
 
-(defun urusi-frame--unsaved-message (buffers)
+(defun urushi-frame--unsaved-message (buffers)
   "Return what to ask about BUFFERS, the ones that are not saved.
 They are named rather than counted: what is about to be lost is worth
 reading before answering, and a dialog with room for eight of them has
@@ -86,15 +86,15 @@ room for the names."
                        shown "\n")
             (if (> rest 0) (format "\n    and %d more" rest) ""))))
 
-(defun urusi-frame-ask-to-leave ()
+(defun urushi-frame-ask-to-leave ()
   "Ask about the buffers that are not saved, in a dialog of the host's.
 Nothing is asked where there are none: closing a window that has
 nothing to lose closes it.
 
 Emacs goes on while the dialog is up, so whatever is to happen after it
 is answered happens in the answer and not here."
-  (if-let* ((unsaved (urusi-frame-unsaved-buffers)))
-      (urusi-ask (urusi-frame--unsaved-message unsaved)
+  (if-let* ((unsaved (urushi-frame-unsaved-buffers)))
+      (urushi-ask (urushi-frame--unsaved-message unsaved)
                  :title "Leave Emacs?"
                  :accept "Save and leave"
                  :other "Leave without saving"
@@ -106,7 +106,7 @@ is answered happens in the answer and not here."
                            (_ nil))))
     (kill-emacs)))
 
-(defun urusi-frame--close (event _message)
+(defun urushi-frame--close (event _message)
   "Leave Emacs when the host window is asked to close, as EVENT says.
 The window does not close by itself: leaving is Emacs's to decide, the
 way it always has been, so the buffers that are not saved are asked
@@ -114,37 +114,37 @@ about first and the answer may be not to leave at all."
   (when (eq event 'close)
     ;; Not from here: this runs while the host's messages are being
     ;; read, and what it asks waits for more of them.
-    (run-at-time 0 nil urusi-frame-close-function)))
+    (run-at-time 0 nil urushi-frame-close-function)))
 
-(defvar urusi-frame--pending nil
+(defvar urushi-frame--pending nil
   "Timer that will pass the frame on, when one is waiting to run.")
 
-(defun urusi-frame--after-command ()
+(defun urushi-frame--after-command ()
   "Pass the frame on once what is happening now has finished happening."
-  (unless urusi-frame--pending
-    (setq urusi-frame--pending
-          (urusi-when-idle
+  (unless urushi-frame--pending
+    (setq urushi-frame--pending
+          (urushi-when-idle
            (lambda ()
-             (setq urusi-frame--pending nil)
+             (setq urushi-frame--pending nil)
              (condition-case err
-                 (urusi-frame--sync)
-               (error (urusi--log "frame: %S" err))))))))
+                 (urushi-frame--sync)
+               (error (urushi--log "frame: %S" err))))))))
 
 ;;;###autoload
-(define-minor-mode urusi-frame-mode
+(define-minor-mode urushi-frame-mode
   "Make what Emacs does to its frame happen to the host window."
   :global t
-  (if urusi-frame-mode
+  (if urushi-frame-mode
       (progn
-        (setq urusi-frame--title nil
-              urusi-frame--state nil)
-        (add-hook 'post-command-hook #'urusi-frame--after-command)
-        (add-hook 'urusi-after-event-hook #'urusi-frame--after-command)
-        (add-hook 'urusi-host-event-functions #'urusi-frame--close)
-        (urusi-frame--after-command))
-    (remove-hook 'post-command-hook #'urusi-frame--after-command)
-    (remove-hook 'urusi-after-event-hook #'urusi-frame--after-command)
-    (remove-hook 'urusi-host-event-functions #'urusi-frame--close)))
+        (setq urushi-frame--title nil
+              urushi-frame--state nil)
+        (add-hook 'post-command-hook #'urushi-frame--after-command)
+        (add-hook 'urushi-after-event-hook #'urushi-frame--after-command)
+        (add-hook 'urushi-host-event-functions #'urushi-frame--close)
+        (urushi-frame--after-command))
+    (remove-hook 'post-command-hook #'urushi-frame--after-command)
+    (remove-hook 'urushi-after-event-hook #'urushi-frame--after-command)
+    (remove-hook 'urushi-host-event-functions #'urushi-frame--close)))
 
-(provide 'urusi-frame)
-;;; urusi-frame.el ends here
+(provide 'urushi-frame)
+;;; urushi-frame.el ends here

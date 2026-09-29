@@ -2,9 +2,9 @@
 
 #include "Input/KeyNames.h"
 
-using urusi::core::input::KeyEvent;
-using urusi::windows::input::KeyForEmacs;
-using urusi::windows::input::KeyModifiers;
+using urushi::core::input::KeyEvent;
+using urushi::windows::input::KeyForEmacs;
+using urushi::windows::input::KeyModifiers;
 
 namespace
 {

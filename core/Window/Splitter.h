@@ -7,10 +7,10 @@
 #include <optional>
 #include <string>
 
-namespace urusi::core::window
+namespace urushi::core::window
 {
     // A splitter Lisp put between two parts of a layout. It is named
-    // urusi-splitter:DIRECTION:BEFORE:AFTER, DIRECTION being h for one
+    // urushi-splitter:DIRECTION:BEFORE:AFTER, DIRECTION being h for one
     // between parts side by side and v for one between parts one above
     // the other; BEFORE and AFTER are the ids of the parts.
     struct SplitterName
@@ -23,7 +23,7 @@ namespace urusi::core::window
     // NAME read as a splitter's, or nothing if it is not one.
     inline std::optional<SplitterName> ParseSplitter(std::wstring const& name)
     {
-        constexpr std::wstring_view kPrefix = L"urusi-splitter:";
+        constexpr std::wstring_view kPrefix = L"urushi-splitter:";
 
         if (name.rfind(kPrefix, 0) != 0 || name.size() < kPrefix.size() + 1)
         {

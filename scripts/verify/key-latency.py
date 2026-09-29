@@ -29,10 +29,10 @@ def main():
     # A key of its own that says so as soon as it is read, to tell the
     # reading of a key from the drawing that follows it.
     said = ('(global-set-key [f9]'
-            ' (lambda () (interactive) (urusi--send (list :type "pong"))))')
+            ' (lambda () (interactive) (urushi--send (list :type "pong"))))')
     arguments = ['--eval', said]
     if interval:
-        arguments += ['--eval', '(setq urusi-poll-interval %s)' % interval]
+        arguments += ['--eval', '(setq urushi-poll-interval %s)' % interval]
 
     emacs = EmacsHost(*arguments)
     try:

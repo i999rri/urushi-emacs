@@ -5,7 +5,7 @@
 #include <string_view>
 #include <utility>
 
-namespace urusi::core::text
+namespace urushi::core::text
 {
     // Chunks as they arrive, given back a whole line at a time.
     //

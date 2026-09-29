@@ -24,14 +24,14 @@ LISP = os.path.join(REPO, 'lisp')
 
 
 def default_emacs():
-    """The Emacs built in the tree, unless URUSI_TEST_EMACS says another.
+    """The Emacs built in the tree, unless URUSHI_TEST_EMACS says another.
 
     The host window system's build first: this is its protocol, and on
     Windows the other build there draws its own frames.  Where there is
     one build it is that one.
     """
-    if os.environ.get('URUSI_TEST_EMACS'):
-        return os.environ['URUSI_TEST_EMACS']
+    if os.environ.get('URUSHI_TEST_EMACS'):
+        return os.environ['URUSHI_TEST_EMACS']
     name = 'emacs.exe' if sys.platform == 'win32' else 'emacs'
     builds = ('emacs-host-build', 'emacs-build')
     paths = [os.path.join(REPO, 'external', build, 'src', name)
@@ -57,9 +57,9 @@ def emacs_path():
 
 
 class EmacsHost:
-    """One Emacs, started with urusi and nothing of the user's.
+    """One Emacs, started with urushi and nothing of the user's.
 
-    ARGS go on its command line after urusi is loaded, --eval for one,
+    ARGS go on its command line after urushi is loaded, --eval for one,
     to set up what a test looks at."""
 
     # What each answer says of the host.
@@ -77,7 +77,7 @@ class EmacsHost:
         self._lock = threading.Lock()
         env = dict(os.environ, EMACS_HOST_PIPE='1', PATH=emacs_path())
         command = [emacs or default_emacs(), '-Q', '-L', LISP,
-                   '-l', os.path.join(LISP, 'urusi-site-start.el'), *args]
+                   '-l', os.path.join(LISP, 'urushi-site-start.el'), *args]
         self.process = subprocess.Popen(command, stdin=subprocess.PIPE,
                                         stdout=subprocess.PIPE,
                                         stderr=subprocess.DEVNULL, env=env)
@@ -94,7 +94,7 @@ class EmacsHost:
             self.process.stdin.flush()
 
     # How long Emacs may take to say anything at all, more than a message
-    # takes once it is talking: it reads urusi's Lisp first.
+    # takes once it is talking: it reads urushi's Lisp first.
     STARTUP_TIMEOUT = 60
 
     def wait_for(self, kind, test=None, timeout=20):

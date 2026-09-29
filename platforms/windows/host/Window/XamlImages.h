@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-namespace urusi::windows::window
+namespace urushi::windows::window
 {
     // The images Emacs draws, as this window has them.
     //

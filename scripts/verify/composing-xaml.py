@@ -2,7 +2,7 @@
 
   python scripts/verify/composing-xaml.py
 
-Starts the Emacs of ~/.urusi-emacs-remote as the application starts it,
+Starts the Emacs of ~/.urushi-emacs-remote as the application starts it,
 says what the host would say, and then sends one composition of two
 marked stretches. Prints the XAML of the cursor canvas, which is where
 what is being composed is drawn: each stretch stands where Emacs would
@@ -21,9 +21,9 @@ import time
 
 EVAL = ('(run-at-time 1 nil (lambda () (switch-to-buffer (get-buffer-create "typing"))'
         ' (text-mode)))')
-INNER = ('EMACS_HOST_PIPE=1 EMACSLOADPATH=$HOME/dev/urusi/site-lisp: '
-         'exec ~/dev/urusi/emacs-build/src/emacs '
-         '--init-directory ~/dev/urusi/emacs-config/.config/emacs --eval "$PROBE"')
+INNER = ('EMACS_HOST_PIPE=1 EMACSLOADPATH=$HOME/dev/urushi/site-lisp: '
+         'exec ~/dev/urushi/emacs-build/src/emacs '
+         '--init-directory ~/dev/urushi/emacs-config/.config/emacs --eval "$PROBE"')
 
 emacs = subprocess.Popen(['wsl.exe', '-e', 'env', 'PROBE=' + EVAL, 'bash', '-lc', INNER],
                          stdin=subprocess.PIPE, stdout=subprocess.PIPE,

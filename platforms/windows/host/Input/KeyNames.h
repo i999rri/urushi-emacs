@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-namespace urusi::windows::input
+namespace urushi::windows::input
 {
     // Which modifier keys are held, as Windows has them.
     struct KeyModifiers

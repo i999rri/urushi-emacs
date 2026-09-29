@@ -34,7 +34,7 @@ namespace
     }
 }
 
-namespace urusi::windows::emacs
+namespace urushi::windows::emacs
 {
     JsonObject KeyMessage(input::EmacsKey const& key)
     {

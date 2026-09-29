@@ -25,7 +25,7 @@ namespace
     }
 }
 
-namespace urusi::windows::emacs
+namespace urushi::windows::emacs
 {
     void InProcessEmacs::OnMessage(MessageFn fn)
     {
@@ -38,7 +38,7 @@ namespace urusi::windows::emacs
     {
         // No -Q: this is the user's Emacs, and it reads the user's init
         // file like any other. Nothing is said here about the screen:
-        // site-start.el brings urusi up before the init file, so that
+        // site-start.el brings urushi up before the init file, so that
         // the init file can say what the screen should look like, and
         // shows it once the init file has.
         std::vector<std::string> args{ "emacs" };

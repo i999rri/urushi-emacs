@@ -1,4 +1,4 @@
 [submodule "external/emacs"]
 	path = external/emacs
 	url = https://github.com/i999rri/emacs.git
-	branch = urusi
+	branch = urushi

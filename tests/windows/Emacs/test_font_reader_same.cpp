@@ -36,11 +36,11 @@
 
 using winrt::Windows::Data::Json::JsonObject;
 using winrt::Windows::Security::Cryptography::CryptographicBuffer;
-using urusi::core::text::DecodeBase64;
-using urusi::core::window::FontSaid;
-using urusi::core::window::ReadFont;
-using urusi::tests::kChecked;
-using urusi::tests::Measured;
+using urushi::core::text::DecodeBase64;
+using urushi::core::window::FontSaid;
+using urushi::core::window::ReadFont;
+using urushi::tests::kChecked;
+using urushi::tests::Measured;
 
 namespace
 {

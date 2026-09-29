@@ -24,19 +24,19 @@ FAMILY = 'Sarasa Mono J'
 
 SET_UP_FONTS = r'''
 (progn
-  (urusi--log "font-found %S" (and (find-font (font-spec :family "Sarasa Mono J")) t))
-  (urusi--log "font-families %S"
+  (urushi--log "font-found %S" (and (find-font (font-spec :family "Sarasa Mono J")) t))
+  (urushi--log "font-families %S"
               (seq-filter (lambda (family)
                             (string-match-p "Sarasa\\|更紗\\|更纱" family))
                           (font-family-list)))
-  (urusi--log "default-font %S"
+  (urushi--log "default-font %S"
               (let ((info (font-info (frame-parameter nil 'font))))
                 (list (aref info 0) (aref info 12))))
   (dolist (script '(kana han cjk-misc))
     (set-fontset-font t script (font-spec :family "Sarasa Mono J"))))
 '''
 
-# A run of text and the family it is drawn in, as urusi-screen writes them.
+# A run of text and the family it is drawn in, as urushi-screen writes them.
 RUN = re.compile(r'<TextBlock Text="([^"]*)"[^>]*FontFamily="([^"]*)"')
 
 

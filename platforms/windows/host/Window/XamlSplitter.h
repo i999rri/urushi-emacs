@@ -8,7 +8,7 @@
 
 #include <memory>
 
-namespace urusi::windows::window
+namespace urushi::windows::window
 {
     // A Splitter on a XAML element: what the pointer does over the
     // element goes to the Splitter, and the Splitter's parts are the

@@ -31,11 +31,11 @@
 #include "Window/DrawReader.h"
 
 using winrt::Windows::Data::Json::JsonObject;
-using urusi::tests::kChecked;
-using urusi::tests::Measured;
-using urusi::core::window::DrawCommand;
-using urusi::core::window::DrawFrame;
-using urusi::core::window::DrawOp;
+using urushi::tests::kChecked;
+using urushi::tests::Measured;
+using urushi::core::window::DrawCommand;
+using urushi::core::window::DrawFrame;
+using urushi::core::window::DrawOp;
 
 namespace
 {
@@ -220,7 +220,7 @@ TEST(DrawReaderSameTest, BothReadersMakeTheSameScreenOfARealOne)
     auto const lines = Screen();
     ASSERT_FALSE(lines.empty()) << "no screen in " << Screens();
 
-    urusi::core::window::DrawReader now;
+    urushi::core::window::DrawReader now;
     was::Reader before;
     std::optional<DrawFrame> ours;
     std::optional<DrawFrame> theirs;
@@ -269,7 +269,7 @@ TEST(DrawReaderSameTest, BothReadersMakeTheSameOfTheShapesAScreenMayNotHave)
         R"({"type":"draw","op":"end","frame":"f"})",
     };
 
-    urusi::core::window::DrawReader now;
+    urushi::core::window::DrawReader now;
     was::Reader before;
     std::optional<DrawFrame> ours;
     std::optional<DrawFrame> theirs;
@@ -325,7 +325,7 @@ TEST(DrawReaderSameTest, TheHandWrittenReaderIsTheFasterOfTheTwo)
     auto const began = std::chrono::steady_clock::now();
     for (int time = 0; time < kTimes; ++time)
     {
-        urusi::core::window::DrawReader now;
+        urushi::core::window::DrawReader now;
 
         for (auto const& line : lines)
         {
@@ -448,7 +448,7 @@ TEST(DrawReaderSameTest, TheReaderThatWasPaysForEveryNumberOfARun)
         auto const line = RunOfGlyphs(length.many);
 
         length.ours = Each(line, length.many, [](std::string const& said) {
-            urusi::core::window::DrawReader reader;
+            urushi::core::window::DrawReader reader;
 
             reader.Take(
                 R"({"type":"draw","op":"begin","frame":"f","width":8,"height":6})");

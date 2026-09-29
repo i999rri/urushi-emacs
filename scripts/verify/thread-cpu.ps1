@@ -21,7 +21,7 @@ function NameOf([int] $id) {
     [Runtime.InteropServices.Marshal]::PtrToStringUni($name)
 }
 
-$p = Get-Process urusi_emacs
+$p = Get-Process urushi_emacs
 $before = @{}
 foreach ($t in $p.Threads) { $before[$t.Id] = $t.TotalProcessorTime.TotalSeconds }
 $t0 = Get-Date

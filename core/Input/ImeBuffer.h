@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <string>
 
-namespace urusi::core::input
+namespace urushi::core::input
 {
     // What the input method is turning over.
     //

@@ -2,8 +2,8 @@
 
 #include "Input/KeyTranslation.h"
 
-using urusi::core::input::KeyEvent;
-using urusi::windows::input::TranslateKey;
+using urushi::core::input::KeyEvent;
+using urushi::windows::input::TranslateKey;
 
 TEST(KeyTranslationTest, KeyIsTheMessageWindowsWouldHaveSent)
 {
@@ -60,8 +60,8 @@ TEST(KeyTranslationTest, InputMethodKeysAreNotPassedOn)
 // and reaches the window only where the input method turned it down.
 TEST(KeyTranslationTest, TheChordThatSwitchesTheInputMethodIsNotEmacs)
 {
-    using urusi::windows::input::IsInputMethodChord;
-    urusi::core::input::KeyEvent chord{
+    using urushi::windows::input::IsInputMethodChord;
+    urushi::core::input::KeyEvent chord{
         .key = VK_OEM_3, .scanCode = 0x29, .menuDown = true, .down = true,
     };
 
@@ -71,14 +71,14 @@ TEST(KeyTranslationTest, TheChordThatSwitchesTheInputMethodIsNotEmacs)
     EXPECT_FALSE(IsInputMethodChord(chord, false));
 
     // Alt and anything else is Emacs's either way.
-    urusi::core::input::KeyEvent other{
+    urushi::core::input::KeyEvent other{
         .key = 0x58, .scanCode = 0x2D, .menuDown = true, .down = true,
     };
     EXPECT_FALSE(IsInputMethodChord(other, true));
 
     // And the key alone, without Alt, is the input method's own to
     // answer rather than a chord.
-    urusi::core::input::KeyEvent alone{
+    urushi::core::input::KeyEvent alone{
         .key = VK_OEM_3, .scanCode = 0x29, .menuDown = false, .down = true,
     };
     EXPECT_FALSE(IsInputMethodChord(alone, true));

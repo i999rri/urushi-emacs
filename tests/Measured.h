@@ -13,7 +13,7 @@
 #include <sstream>
 #include <string>
 
-namespace urusi::tests
+namespace urushi::tests
 {
     // Whether the standard library is the checked one, which takes a
     // piece of the heap for every container it makes and is slower by

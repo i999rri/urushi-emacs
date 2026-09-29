@@ -9,7 +9,7 @@
 #include <functional>
 #include <memory>
 
-namespace urusi::windows::window
+namespace urushi::windows::window
 {
     // A FrameView on a XAML element: what the pointer does over the
     // element goes to the view, and the view's frame is reached through

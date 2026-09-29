@@ -26,7 +26,7 @@ import threading
 import time
 
 FILE = (sys.argv[sys.argv.index('--file') + 1] if '--file' in sys.argv
-        else '~/dev/urusi/emacs/src/keyboard.c')
+        else '~/dev/urushi/emacs/src/keyboard.c')
 RECORD = (sys.argv[sys.argv.index('--record') + 1] if '--record' in sys.argv
           else None)
 SETTLE = 22
@@ -52,9 +52,9 @@ PROBE = ('(progn (setq host-draw-commands t)'
          '             (goto-char (point-min)) (redisplay t))))'
          % (SETTLE - 2, FILE))
 
-INNER = ('EMACS_HOST_PIPE=1 EMACSLOADPATH=$HOME/dev/urusi/site-lisp: '
-         'exec ~/dev/urusi/emacs-build/src/emacs '
-         '--init-directory ~/dev/urusi/emacs-config/.config/emacs --eval "$PROBE"')
+INNER = ('EMACS_HOST_PIPE=1 EMACSLOADPATH=$HOME/dev/urushi/site-lisp: '
+         'exec ~/dev/urushi/emacs-build/src/emacs '
+         '--init-directory ~/dev/urushi/emacs-config/.config/emacs --eval "$PROBE"')
 
 emacs = subprocess.Popen(
     ['wsl.exe', '-d', 'NixOS', '-e', 'env', 'PROBE=' + PROBE, 'bash', '-lc', INNER],

@@ -61,7 +61,7 @@
   </ItemGroup>
   <!--
     Emacs, beside the executable, where the host looks for it: the tree
-    scripts\stage-emacs.sh installs into emacs\, and the Lisp of urusi
+    scripts\stage-emacs.sh installs into emacs\, and the Lisp of urushi
     from lisp\ as it is now, so that a change to it is in the next
     package without staging Emacs again. The copy of it that staging
     put in the tree is left out, or the two would be the same file twice.
@@ -71,16 +71,16 @@
   -->
   <ItemGroup>
     <Content Include="..\..\..\emacs\**\*"
-             Exclude="..\..\..\emacs\share\emacs\site-lisp\urusi\**;..\..\..\emacs\share\emacs\site-lisp\site-start.el">
+             Exclude="..\..\..\emacs\share\emacs\site-lisp\urushi\**;..\..\..\emacs\share\emacs\site-lisp\site-start.el">
       <Link>emacs\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <Visible>false</Visible>
     </Content>
-    <Content Include="..\..\..\lisp\*.el" Exclude="..\..\..\lisp\urusi-site-start.el">
-      <Link>emacs\share\emacs\site-lisp\urusi\%(Filename)%(Extension)</Link>
+    <Content Include="..\..\..\lisp\*.el" Exclude="..\..\..\lisp\urushi-site-start.el">
+      <Link>emacs\share\emacs\site-lisp\urushi\%(Filename)%(Extension)</Link>
       <Visible>false</Visible>
     </Content>
     <!-- The one Emacs looks for by name, before it reads the init file. -->
-    <Content Include="..\..\..\lisp\urusi-site-start.el">
+    <Content Include="..\..\..\lisp\urushi-site-start.el">
       <Link>emacs\share\emacs\site-lisp\site-start.el</Link>
       <Visible>false</Visible>
     </Content>

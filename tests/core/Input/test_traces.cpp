@@ -9,8 +9,8 @@
 
 // Every trace in tests/traces, played back into a Keyboard.
 //
-// A trace is what urusi-debug-mode writes beside the application
-// (urusi-emacs.trace.jsonl): one line of JSON for each thing that
+// A trace is what urushi-debug-mode writes beside the application
+// (urushi-emacs.trace.jsonl): one line of JSON for each thing that
 // happened to the keyboard's side of the window, with "e" saying what.
 // Lines with "out" are what was done about it, there to be read; they
 // are not played back. Lines with "expect", added by hand, say what the
@@ -27,10 +27,10 @@
 namespace
 {
     namespace fs = std::filesystem;
-    using urusi::core::text::FromUtf8;
-    using urusi::core::text::ToUtf8;
+    using urushi::core::text::FromUtf8;
+    using urushi::core::text::ToUtf8;
 
-    struct Recorded : urusi::core::input::KeyboardEvents, urusi::core::input::IKeyInputDevice
+    struct Recorded : urushi::core::input::KeyboardEvents, urushi::core::input::IKeyInputDevice
     {
         void CheckLater() override {}
         void ResumeLater() override {}
@@ -38,7 +38,7 @@ namespace
         void NotifyFocusEnter() override { entered = true; }
         void NotifyFocusLeave() override { entered = false; }
         void Commit(std::wstring const& text) override { commits.push_back(ToUtf8(text)); }
-        void Composing(urusi::core::input::Composition const&) override {}
+        void Composing(urushi::core::input::Composition const&) override {}
 
         std::vector<std::string> commits;
         bool entered{ false };
@@ -61,7 +61,7 @@ namespace
     }
 
     // Play LINE back into KEYBOARD; say what went wrong, or nothing.
-    std::string Play(trace::Line const& line, urusi::core::input::Keyboard& keyboard)
+    std::string Play(trace::Line const& line, urushi::core::input::Keyboard& keyboard)
     {
         auto event = Get<std::string>(line, "e", "");
 
@@ -101,7 +101,7 @@ namespace
 TEST(TraceTest, WhatIsWrittenPlaysBackTheSame)
 {
     Recorded original;
-    urusi::core::input::Keyboard keyboard{ original, original };
+    urushi::core::input::Keyboard keyboard{ original, original };
     std::vector<std::string> lines;
     keyboard.Record([&](std::string const& line) { lines.push_back(line); });
 
@@ -117,7 +117,7 @@ TEST(TraceTest, WhatIsWrittenPlaysBackTheSame)
     keyboard.DeactivationChecked(false);
 
     Recorded played;
-    urusi::core::input::Keyboard playback{ played, played };
+    urushi::core::input::Keyboard playback{ played, played };
     for (auto const& text : lines)
     {
         trace::Line line;
@@ -139,7 +139,7 @@ TEST(TraceTest, WhatIsWrittenPlaysBackTheSame)
 TEST(TraceTest, NothingIsMadeWithoutARecorder)
 {
     Recorded effects;
-    urusi::core::input::Keyboard keyboard{ effects, effects };
+    urushi::core::input::Keyboard keyboard{ effects, effects };
     std::vector<std::string> lines;
     keyboard.Record([&](std::string const& line) { lines.push_back(line); });
     keyboard.Record({});
@@ -164,7 +164,7 @@ TEST(TraceTest, EveryTracePlaysBackToWhatItExpects)
         ++played;
 
         Recorded effects;
-        urusi::core::input::Keyboard keyboard{ effects, effects };
+        urushi::core::input::Keyboard keyboard{ effects, effects };
         std::ifstream file{ entry.path(), std::ios::binary };
         std::string text;
         int number = 0;

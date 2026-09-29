@@ -15,7 +15,7 @@
 #include "Window/XamlFonts.h"
 #include "Window/XamlImages.h"
 
-namespace urusi::windows::window
+namespace urushi::windows::window
 {
     // The screen of an Emacs frame, drawn from what Emacs said to draw.
     //

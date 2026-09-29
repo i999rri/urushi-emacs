@@ -13,22 +13,22 @@
     <File Path="docs/titlebar.md" />
   </Folder>
   <Folder Name="/lisp/">
-    <File Path="lisp/urusi.el" />
-    <File Path="lisp/urusi-debug.el" />
-    <File Path="lisp/urusi-frame.el" />
-    <File Path="lisp/urusi-layout.el" />
-    <File Path="lisp/urusi-screen.el" />
-    <File Path="lisp/urusi-tabs.el" />
-    <File Path="lisp/urusi-site-start.el" />
-    <File Path="lisp/urusi-statusbar.el" />
-    <File Path="lisp/urusi-titlebar.el" />
+    <File Path="lisp/urushi.el" />
+    <File Path="lisp/urushi-debug.el" />
+    <File Path="lisp/urushi-frame.el" />
+    <File Path="lisp/urushi-layout.el" />
+    <File Path="lisp/urushi-screen.el" />
+    <File Path="lisp/urushi-tabs.el" />
+    <File Path="lisp/urushi-site-start.el" />
+    <File Path="lisp/urushi-statusbar.el" />
+    <File Path="lisp/urushi-titlebar.el" />
   </Folder>
   <Folder Name="/lisp/test/">
-    <File Path="lisp/test/urusi-layout-test.el" />
-    <File Path="lisp/test/urusi-statusbar-test.el" />
-    <File Path="lisp/test/urusi-tabs-test.el" />
-    <File Path="lisp/test/urusi-test.el" />
-    <File Path="lisp/test/urusi-titlebar-test.el" />
+    <File Path="lisp/test/urushi-layout-test.el" />
+    <File Path="lisp/test/urushi-statusbar-test.el" />
+    <File Path="lisp/test/urushi-tabs-test.el" />
+    <File Path="lisp/test/urushi-test.el" />
+    <File Path="lisp/test/urushi-titlebar-test.el" />
   </Folder>
   <Project Path="core/core.vcxitems" Id="c9cbd260-ae52-5351-83af-1092905ae43f" />
   <Folder Name="/platforms/" />

@@ -8,7 +8,7 @@
 
 #include <memory>
 
-namespace urusi::windows::window
+namespace urushi::windows::window
 {
     // The screen Lisp builds, in a XAML panel of the window: the XAML
     // around the rows, put in whole when it has changed, and the rows

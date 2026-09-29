@@ -12,7 +12,7 @@
 #include <functional>
 #include <string>
 
-namespace urusi::core::input
+namespace urushi::core::input
 {
     // What the keyboard tells the window it is in: the things that
     // touch Windows, or Emacs.

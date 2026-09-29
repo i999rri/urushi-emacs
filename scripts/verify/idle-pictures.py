@@ -23,9 +23,9 @@ WITH_CONFIG = '--config' in sys.argv
 SECONDS = int(sys.argv[sys.argv.index('--seconds') + 1]) if '--seconds' in sys.argv else 10
 SETTLE = 22 if WITH_CONFIG else 6
 
-INNER = ('EMACS_HOST_PIPE=1 EMACSLOADPATH=$HOME/dev/urusi/site-lisp: '
-         'exec ~/dev/urusi/emacs-build/src/emacs'
-         + (' --init-directory ~/dev/urusi/emacs-config/.config/emacs' if WITH_CONFIG
+INNER = ('EMACS_HOST_PIPE=1 EMACSLOADPATH=$HOME/dev/urushi/site-lisp: '
+         'exec ~/dev/urushi/emacs-build/src/emacs'
+         + (' --init-directory ~/dev/urushi/emacs-config/.config/emacs' if WITH_CONFIG
             else ' -Q'))
 
 emacs = subprocess.Popen(['wsl.exe', '-d', 'NixOS', '-e', 'bash', '-lc', INNER],

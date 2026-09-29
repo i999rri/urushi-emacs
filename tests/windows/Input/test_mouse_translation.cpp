@@ -4,10 +4,10 @@
 
 #include <windowsx.h>
 
-using urusi::core::input::PointerButton;
-using urusi::core::input::PointerEvent;
-using urusi::core::input::PointerKind;
-using urusi::windows::input::TranslatePointer;
+using urushi::core::input::PointerButton;
+using urushi::core::input::PointerEvent;
+using urushi::core::input::PointerKind;
+using urushi::windows::input::TranslatePointer;
 
 // Where the pointer is, in the pixels of the screen: XAML counts in
 // 96ths of an inch, and at 150% there are one and a half of those.

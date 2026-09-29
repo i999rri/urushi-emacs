@@ -2,7 +2,7 @@
 
   python scripts/verify/chrome-xaml.py
 
-Starts the Emacs of ~/.urusi-emacs-remote as the application starts it
+Starts the Emacs of ~/.urushi-emacs-remote as the application starts it
 and prints the chrome of the first screen it sends: the elements the
 rows are put into, and what else is around and over them. It says where
 the element the pointer is read from stands in the tree.
@@ -14,7 +14,7 @@ import subprocess
 import threading
 import time
 
-path = os.path.expanduser('~/.urusi-emacs-remote')
+path = os.path.expanduser('~/.urushi-emacs-remote')
 command = next(line.strip() for line in open(path, encoding='utf-8')
                if line.strip() and not line.strip().startswith('#'))
 emacs = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,

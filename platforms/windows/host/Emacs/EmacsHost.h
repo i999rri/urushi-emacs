@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-namespace urusi::windows::emacs
+namespace urushi::windows::emacs
 {
     // Runs Emacs inside this process, from libemacs.dll.
     //
@@ -35,7 +35,7 @@ namespace urusi::windows::emacs
                    std::string& error);
 
         // Where Emacs is: emacs\bin\libemacs.dll in the package, put
-        // there by scripts\stage-emacs.sh. URUSI_EMACS_DLL overrides
+        // there by scripts\stage-emacs.sh. URUSHI_EMACS_DLL overrides
         // it, to run against a build that is not staged.
         static std::wstring DefaultDll();
 

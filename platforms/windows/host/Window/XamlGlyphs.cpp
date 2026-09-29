@@ -4,7 +4,7 @@
 
 using namespace winrt;
 
-namespace urusi::windows::window
+namespace urushi::windows::window
 {
     com_ptr<IDWriteFactory> XamlGlyphs::Writer()
     {

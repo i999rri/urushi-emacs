@@ -9,7 +9,7 @@
 
 #include "Input/Keyboard.h"
 
-namespace urusi::windows::input
+namespace urushi::windows::input
 {
     // The input method's side of the window, spoken to as Windows's text
     // services want to be spoken to.

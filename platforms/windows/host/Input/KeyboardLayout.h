@@ -4,7 +4,7 @@
 
 #include <optional>
 
-namespace urusi::windows::input
+namespace urushi::windows::input
 {
     // What to send Emacs for KEY, as the keyboard layout of this thread
     // makes it, with the modifiers held now: for an Emacs that takes its

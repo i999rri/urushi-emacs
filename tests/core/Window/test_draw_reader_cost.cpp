@@ -28,9 +28,9 @@
 #include "Measured.h"
 #include "Window/DrawReader.h"
 
-using urusi::core::window::DrawReader;
-using urusi::tests::kChecked;
-using urusi::tests::Measured;
+using urushi::core::window::DrawReader;
+using urushi::tests::kChecked;
+using urushi::tests::Measured;
 
 namespace
 {

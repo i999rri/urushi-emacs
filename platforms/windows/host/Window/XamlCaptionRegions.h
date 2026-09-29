@@ -6,7 +6,7 @@
 #include <winrt/Microsoft.UI.Windowing.h>
 #include <winrt/Microsoft.UI.Xaml.h>
 
-namespace urusi::windows::window
+namespace urushi::windows::window
 {
     // The CaptionRegions of a window, found in its XAML and told to
     // Windows through the window's non-client pointer source.
@@ -17,7 +17,7 @@ namespace urusi::windows::window
     public:
         explicit XamlCaptionRegions(winrt::Microsoft::UI::Windowing::AppWindow const& window);
 
-        // Where TITLEBAR, the element Lisp named urusi-titlebar, is, and
+        // Where TITLEBAR, the element Lisp named urushi-titlebar, is, and
         // where every control on it is, and not what is inside one: a
         // button is clicked as a whole. None while the window has a title
         // bar of its own.

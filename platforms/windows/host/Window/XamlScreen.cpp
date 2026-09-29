@@ -125,7 +125,7 @@ namespace
     }
 }
 
-namespace urusi::windows::window
+namespace urushi::windows::window
 {
     XamlScreen::XamlScreen(Controls::Panel const& surface, std::shared_ptr<emacs::Emacs> emacs)
         : m_surface(surface), m_emacs(std::move(emacs))

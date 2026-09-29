@@ -1,4 +1,4 @@
-# Lists the top-level windows of the running urusi-emacs, with whether
+# Lists the top-level windows of the running urushi-emacs, with whether
 # each can be seen and the window it belongs to. A dialog Emacs opens
 # is one of them, and it has to belong to the window that is shown:
 # one that belongs to the frame's window, which nobody sees, opens
@@ -49,6 +49,6 @@ public static class ListWindows {
 }
 '@
 
-$process = Get-Process urusi_emacs -ErrorAction Stop | Select-Object -First 1
+$process = Get-Process urushi_emacs -ErrorAction Stop | Select-Object -First 1
 "main window $($process.MainWindowHandle)"
 [ListWindows]::Of([uint32]$process.Id, $All.IsPresent)

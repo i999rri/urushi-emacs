@@ -3,7 +3,7 @@
 #include <functional>
 #include <string>
 
-namespace urusi::windows::emacs
+namespace urushi::windows::emacs
 {
     // How the application reaches Emacs: the messages that go each way,
     // and starting it.

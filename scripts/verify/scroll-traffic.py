@@ -18,7 +18,7 @@ import time
 
 SECONDS = int(sys.argv[sys.argv.index('--seconds') + 1]) if '--seconds' in sys.argv else 10
 FILE = (sys.argv[sys.argv.index('--file') + 1] if '--file' in sys.argv
-        else '~/dev/urusi/emacs-config/.config/emacs/asiimov-theme.el')
+        else '~/dev/urushi/emacs-config/.config/emacs/asiimov-theme.el')
 PLAIN = '--plain' in sys.argv
 NO_TABS = '--no-tab-lines' in sys.argv
 NO_SCREEN = '--no-screen' in sys.argv
@@ -32,8 +32,8 @@ STEP = 0.06
 # settled, since some of that shows a screen of its own; and where the
 # top of the window is by the end says the wheel moved something.
 PROBE = ('(progn'
-         + (' (setq urusi-screen-tab-line-function nil)' if NO_TABS else '')
-         + (' (urusi-screen-mode -1)' if NO_SCREEN else '')
+         + (' (setq urushi-screen-tab-line-function nil)' if NO_TABS else '')
+         + (' (urushi-screen-mode -1)' if NO_SCREEN else '')
          + (' (global-display-line-numbers-mode -1)' if NO_NUMBERS else '')
          + (' (setq host-draw-commands t)' if COMMANDS else '')
          + (' (run-at-time %d nil'
@@ -49,10 +49,10 @@ PROBE = ('(progn'
             % (SETTLE - 2, FILE, SETTLE + SECONDS + 1)))
 
 INNER = ('EMACS_HOST_PIPE=1 '
-         + ('' if PLAIN else 'EMACSLOADPATH=$HOME/dev/urusi/site-lisp: ')
-         + 'exec ~/dev/urusi/emacs-build/src/emacs '
+         + ('' if PLAIN else 'EMACSLOADPATH=$HOME/dev/urushi/site-lisp: ')
+         + 'exec ~/dev/urushi/emacs-build/src/emacs '
          + ('-Q' if PLAIN
-            else '--init-directory ~/dev/urusi/emacs-config/.config/emacs')
+            else '--init-directory ~/dev/urushi/emacs-config/.config/emacs')
          + ' --eval "$PROBE"')
 
 emacs = subprocess.Popen(

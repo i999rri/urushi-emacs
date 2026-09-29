@@ -3,7 +3,7 @@
 #include <functional>
 #include <string>
 
-namespace urusi::windows::emacs
+namespace urushi::windows::emacs
 {
     // Whether a dialog is up, and what to do once one is not.
     //

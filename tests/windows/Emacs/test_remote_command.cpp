@@ -2,7 +2,7 @@
 
 #include "Emacs/RemoteCommand.h"
 
-using urusi::windows::emacs::RemoteCommand;
+using urushi::windows::emacs::RemoteCommand;
 
 TEST(RemoteCommandTest, TheCommandIsTheFirstLineThatIsNotAComment)
 {

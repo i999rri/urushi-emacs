@@ -13,7 +13,7 @@
 # scripts/build-emacs.sh and scripts/stage-emacs.sh, as does a first
 # build.
 #
-# urusi's own Lisp goes along too, since where it runs from is some way
+# urushi's own Lisp goes along too, since where it runs from is some way
 # from where it is edited.
 #
 # Pass --host to refresh from the host window system's build, which
@@ -61,7 +61,7 @@ for emacs in "$here/emacs" \
 
     cp -f "$build/libemacs.dll" "$build/libemacs.pdmp" "$emacs/bin/"
     strip --strip-debug "$emacs/bin/libemacs.dll"
-    "$here/scripts/install-urusi-lisp.sh" "$emacs"
+    "$here/scripts/install-urushi-lisp.sh" "$emacs"
 
     echo "refreshed ${emacs#"$here"/}"
 done

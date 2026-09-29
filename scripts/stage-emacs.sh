@@ -51,7 +51,7 @@ rm -f "$stage"/libexec/emacs/*/*/*.pdmp
 rm -rf "$stage/share/applications" "$stage/share/icons" \
    "$stage/share/info" "$stage/share/man" "$stage/share/metainfo"
 
-"$here/scripts/install-urusi-lisp.sh" "$stage"
+"$here/scripts/install-urushi-lisp.sh" "$stage"
 
 mkdir -p "$stage/bin"
 for kept in "$stage"/emacsclient*; do

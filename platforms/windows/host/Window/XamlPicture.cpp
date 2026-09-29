@@ -34,7 +34,7 @@ namespace
     }
 }
 
-namespace urusi::windows::window
+namespace urushi::windows::window
 {
     void XamlPicture::Attach(FrameworkElement const& site)
     {

@@ -41,7 +41,7 @@ A frame is known by an `id`, a string Emacs gives it. The first frame is the roo
 
 Emacs has no window of its own for a frame: the application draws each frame out of what Emacs laid out, and Emacs does not draw.
 
-**Today:** no `frame` message is sent. A frame is first heard of in the `begin` of what it draws, under the name Emacs makes of it — the hash of the frame, printed in hexadecimal, which Lisp makes the same name from — and the element it is drawn on is named `urusi-emacs:` and that name.
+**Today:** no `frame` message is sent. A frame is first heard of in the `begin` of what it draws, under the name Emacs makes of it — the hash of the frame, printed in hexadecimal, which Lisp makes the same name from — and the element it is drawn on is named `urushi-emacs:` and that name.
 
 ## Starting
 
@@ -63,7 +63,7 @@ A side that gets a `hello` whose `version` it does not speak says so with `error
 | `measure` | `family` (string), `size` (layout units) | Lisp needs to know how wide a character of a font is drawn. Answered by `measured`. |
 | `call` | `id` (number), `method` (string), `args` (object) | Lisp asks the application to do something. Answered by `reply`. See [Calls](#calls). |
 | `log` | `text` (string) | A line for the application's log. |
-| `debug` | `on` (boolean) | `urusi-debug-mode` has been turned on or off. |
+| `debug` | `on` (boolean) | `urushi-debug-mode` has been turned on or off. |
 | `draw` | `op` (string), and what that op has to say | Redisplay drew something. One line for each, in the order they were drawn. See [Drawing](#drawing). |
 | `picture` | `frame` (string), `width`, `height` (pixels), `moved` (array), `drawn` (array) | The pixels redisplay drew, for an application that does not draw them itself. See [Drawing](#drawing). |
 | `font` | `id` (number), and either which file it is or the file | A font that something to be drawn is in. See [Fonts](#fonts). |

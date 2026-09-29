@@ -107,7 +107,7 @@ namespace
     // The log, again, where it can be read without a debugger.
     void WriteToLogFile(std::string const& line)
     {
-        static HANDLE file = OpenBesideTheApplication("urusi-emacs.log");
+        static HANDLE file = OpenBesideTheApplication("urushi-emacs.log");
 
         if (file == INVALID_HANDLE_VALUE)
         {
@@ -122,10 +122,10 @@ namespace
     // What the keyboard's side of the window saw, one line of JSON to a
     // thing, to be played back by the tests (tests/traces). Opened the
     // first time there is something to write, so that a run without
-    // urusi-debug-mode leaves the last one's alone.
+    // urushi-debug-mode leaves the last one's alone.
     void WriteToTraceFile(std::string const& line)
     {
-        static HANDLE file = OpenBesideTheApplication("urusi-emacs.trace.jsonl");
+        static HANDLE file = OpenBesideTheApplication("urushi-emacs.trace.jsonl");
 
         if (file == INVALID_HANDLE_VALUE)
         {
@@ -138,7 +138,7 @@ namespace
     }
 }
 
-namespace winrt::urusi_emacs::implementation
+namespace winrt::urushi_emacs::implementation
 {
     void MainWindow::InitializeComponent()
     {
@@ -155,7 +155,7 @@ namespace winrt::urusi_emacs::implementation
         {
             auto weak = get_weak();
 
-            urusi::windows::emacs::HostCalls::OnLog(
+            urushi::windows::emacs::HostCalls::OnLog(
                 [weak](std::string const& what) {
                     if (auto self = weak.get())
                     {
@@ -176,7 +176,7 @@ namespace winrt::urusi_emacs::implementation
         }
         auto weak = get_weak();
 
-        m_emacs = std::make_shared<urusi::windows::emacs::Emacs>(urusi::windows::emacs::Emacs::Events{
+        m_emacs = std::make_shared<urushi::windows::emacs::Emacs>(urushi::windows::emacs::Emacs::Events{
             .log = [this](char const* source, std::string const& text) { AppendLog(source, text); },
             .error = [this](hstring const& text) { ShowStatus(text); },
         });
@@ -236,7 +236,7 @@ namespace winrt::urusi_emacs::implementation
             emacs->Send(wanted);
         });
 
-        auto drawing = std::make_shared<urusi::core::window::DrawReader>();
+        auto drawing = std::make_shared<urushi::core::window::DrawReader>();
 
         m_emacs->OnMessage([weak, dispatcher, fonts, images,
                             drawing](std::string message) {
@@ -251,9 +251,9 @@ namespace winrt::urusi_emacs::implementation
                 // font is the largest thing sent, and making a tree of
                 // it would hold this thread -- and so the whole of what
                 // Emacs says next -- for as long as that takes.
-                urusi::core::window::FontSaid said;
+                urushi::core::window::FontSaid said;
 
-                if (!urusi::core::window::ReadFont(message, said))
+                if (!urushi::core::window::ReadFont(message, said))
                 {
                     return;
                 }
@@ -466,7 +466,7 @@ namespace winrt::urusi_emacs::implementation
         }
 
         // Which build this is, so that a stale one is obvious.
-        AppendLog("host", std::string{ "urusi-emacs built " } + __DATE__ + " " + __TIME__ + "\n");
+        AppendLog("host", std::string{ "urushi-emacs built " } + __DATE__ + " " + __TIME__ + "\n");
 
         ShowStatus(L"Waiting for Emacs");
         ShowEventually();
@@ -494,7 +494,7 @@ namespace winrt::urusi_emacs::implementation
     {
         if (m_hasFrame)
         {
-            m_emacs->Send(urusi::windows::emacs::FocusMessage(focused));
+            m_emacs->Send(urushi::windows::emacs::FocusMessage(focused));
         }
     }
 
@@ -581,7 +581,7 @@ namespace winrt::urusi_emacs::implementation
 
         // How much was typed and not what it was: what the input method
         // settled on belongs where a run is kept on purpose, which is
-        // the trace urusi-debug-mode writes, and not in a log that every
+        // the trace urushi-debug-mode writes, and not in a log that every
         // run leaves behind.
         AppendLog("host", "type " + std::to_string(text.size()) + " characters\n");
 
@@ -705,7 +705,7 @@ namespace winrt::urusi_emacs::implementation
         }
 
         auto status = args.KeyStatus();
-        urusi::core::input::KeyEvent key{
+        urushi::core::input::KeyEvent key{
             .key = static_cast<int>(args.Key()),
             .repeat = status.RepeatCount,
             .scanCode = status.ScanCode,
@@ -734,7 +734,7 @@ namespace winrt::urusi_emacs::implementation
             return;
         }
 
-        if (down && urusi::windows::input::IsInputMethodSwitch(key.key))
+        if (down && urushi::windows::input::IsInputMethodSwitch(key.key))
         {
             m_composition.EndComposition();
             AppendLog("host", "input method switched: " + InputMethodState(GetFocus()) + "\n");
@@ -743,7 +743,7 @@ namespace winrt::urusi_emacs::implementation
         // Then Windows: turning the input method on and off is its
         // arrangement with the keyboard, and no part of it is Emacs's,
         // whether or not the input method took the key.
-        if (urusi::windows::input::IsInputMethodChord(
+        if (urushi::windows::input::IsInputMethodChord(
                 key, ImmIsIME(GetKeyboardLayout(0)) != FALSE))
         {
             args.Handled(true);
@@ -755,9 +755,9 @@ namespace winrt::urusi_emacs::implementation
             AppendLog("host", "key " + std::to_string(static_cast<int>(args.Key())) + "\n");
         }
 
-        if (auto typed = urusi::windows::input::ReadKey(key))
+        if (auto typed = urushi::windows::input::ReadKey(key))
         {
-            m_emacs->Send(urusi::windows::emacs::KeyMessage(*typed));
+            m_emacs->Send(urushi::windows::emacs::KeyMessage(*typed));
             args.Handled(true);
         }
     }
@@ -776,12 +776,12 @@ namespace winrt::urusi_emacs::implementation
     }
 
     // Where the Emacs frame goes, whose size is the frame's: the element
-    // Lisp named urusi-frame, or the whole window if it named none. What
+    // Lisp named urushi-frame, or the whole window if it named none. What
     // Lisp puts around the frame, a title bar or a panel beside it, is
     // room the frame does not have.
     FrameworkElement MainWindow::FrameSite()
     {
-        if (auto site = Named(L"urusi-frame"))
+        if (auto site = Named(L"urushi-frame"))
         {
             return site;
         }
@@ -798,7 +798,7 @@ namespace winrt::urusi_emacs::implementation
     void MainWindow::FollowLayout()
     {
         auto weak = get_weak();
-        auto titlebar = Named(L"urusi-titlebar");
+        auto titlebar = Named(L"urushi-titlebar");
 
         if (auto overlapped = AppWindow().Presenter().try_as<Microsoft::UI::Windowing::OverlappedPresenter>();
             overlapped && overlapped.HasTitleBar() == (titlebar != nullptr))
@@ -815,13 +815,13 @@ namespace winrt::urusi_emacs::implementation
         };
 
         // A view of each frame shown: the one the window shows, in the
-        // element named urusi-frame, and those of panels, in elements
-        // named urusi-frame:ID, whose Tag is the number of the frame's
+        // element named urushi-frame, and those of panels, in elements
+        // named urushi-frame:ID, whose Tag is the number of the frame's
         // window. An Emacs that takes its input as messages is sent the
         // pointer instead, as it has no windows.
         m_frameViews.clear();
-        urusi::windows::window::XamlFrameView::Frame root{
-            .tellSize = [weak](std::wstring const& id, urusi::core::window::PixelSize size) {
+        urushi::windows::window::XamlFrameView::Frame root{
+            .tellSize = [weak](std::wstring const& id, urushi::core::window::PixelSize size) {
                 if (auto self = weak.get())
                 {
                     self->TellFrameSize(id, size);
@@ -830,20 +830,20 @@ namespace winrt::urusi_emacs::implementation
         };
         {
             root.sendPointer = [weak](std::wstring const& id,
-                                      urusi::core::input::PointerEvent const& event, double scale) {
+                                      urushi::core::input::PointerEvent const& event, double scale) {
                 auto self = weak.get();
-                auto pointer = urusi::windows::input::PointerForEmacs(event, scale);
+                auto pointer = urushi::windows::input::PointerForEmacs(event, scale);
                 if (self && pointer)
                 {
-                    self->m_emacs->Send(urusi::windows::emacs::PointerMessage(id, *pointer));
+                    self->m_emacs->Send(urushi::windows::emacs::PointerMessage(id, *pointer));
                 }
             };
         }
 
-        if (auto site = Named(L"urusi-frame"))
+        if (auto site = Named(L"urushi-frame"))
         {
             site.SizeChanged(changed);
-            m_frameViews.push_back(urusi::windows::window::XamlFrameView::Attach(site, L"", root, m_frameSizes));
+            m_frameViews.push_back(urushi::windows::window::XamlFrameView::Attach(site, L"", root, m_frameSizes));
         }
 
         // The chrome is built again whenever it changes, which leaves
@@ -855,7 +855,7 @@ namespace winrt::urusi_emacs::implementation
 
         for (auto& [name, drawing] : m_drawings)
         {
-            if (auto site = Walked(L"urusi-emacs:" + name))
+            if (auto site = Walked(L"urushi-emacs:" + name))
             {
                 drawing.Attach(site);
             }
@@ -873,7 +873,7 @@ namespace winrt::urusi_emacs::implementation
             auto frame = root;
             frame.window = [window] { return window; };
             panel.SizeChanged(changed);
-            m_frameViews.push_back(urusi::windows::window::XamlFrameView::Attach(
+            m_frameViews.push_back(urushi::windows::window::XamlFrameView::Attach(
                 panel, std::wstring{ panel.Name() }.substr(12), frame, m_frameSizes));
         }
         if (titlebar)
@@ -889,7 +889,7 @@ namespace winrt::urusi_emacs::implementation
     }
 
     // Let the splitters Lisp put between the parts of a layout be
-    // dragged: each element named as one becomes a urusi::core::window::Splitter.
+    // dragged: each element named as one becomes a urushi::core::window::Splitter.
     // Where one is let go is Lisp's to remember, and it is told.
     void MainWindow::AttachSplitters(UIElement const& root)
     {
@@ -920,7 +920,7 @@ namespace winrt::urusi_emacs::implementation
             }
 
             hstring name = named.Name();
-            urusi::windows::window::XamlSplitter::Attach(named, {
+            urushi::windows::window::XamlSplitter::Attach(named, {
                 .started = [weak] {
                     if (auto self = weak.get())
                     {
@@ -970,7 +970,7 @@ namespace winrt::urusi_emacs::implementation
         }
     }
 
-    // Write down, under urusi-debug-mode, what WHAT found: whether the
+    // Write down, under urushi-debug-mode, what WHAT found: whether the
     // window is in front, and where the focus is, of Windows and of XAML.
     void MainWindow::TraceFocus(char const* what)
     {
@@ -1068,9 +1068,9 @@ namespace winrt::urusi_emacs::implementation
         window->m_emacs->SendHostEvent(focused ? L"activated" : L"deactivated", JsonObject{});
     }
 
-    void MainWindow::Effects::Composing(urusi::core::input::Composition const& composition)
+    void MainWindow::Effects::Composing(urushi::core::input::Composition const& composition)
     {
-        using urusi::core::input::Underline;
+        using urushi::core::input::Underline;
         static constexpr wchar_t const* lines[] = {
             L"none", L"solid", L"dotted", L"dashed", L"wavy", L"double",
         };
@@ -1103,7 +1103,7 @@ namespace winrt::urusi_emacs::implementation
     }
 
     // Tell Windows which parts of what Lisp drew are the title bar, when
-    // the window has none of its own: the element named urusi-titlebar
+    // the window has none of its own: the element named urushi-titlebar
     // moves the window and maximizes it when clicked twice, and the
     // controls on it are left to be clicked.
     void MainWindow::UpdateTitleBarRegions()
@@ -1112,7 +1112,7 @@ namespace winrt::urusi_emacs::implementation
         {
             m_captionRegions.emplace(AppWindow());
         }
-        m_captionRegions->Update(Named(L"urusi-titlebar"));
+        m_captionRegions->Update(Named(L"urushi-titlebar"));
     }
 
     void MainWindow::SizeEmacsFrame()
@@ -1148,9 +1148,9 @@ namespace winrt::urusi_emacs::implementation
     }
 
     // The elements Lisp put the frames of panels in, named
-    // urusi-frame:ID after the panel. They are frames of their own, each
+    // urushi-frame:ID after the panel. They are frames of their own, each
     // as big as its element, as the frame the window shows is as big as
-    // the element named urusi-frame.
+    // the element named urushi-frame.
     // The element of the screen named NAME, walked for rather than
     // asked for: every row of the screen is parsed on its own, so the
     // names in it are that row's and FindName never sees them.
@@ -1203,7 +1203,7 @@ namespace winrt::urusi_emacs::implementation
             pending.pop_back();
 
             auto named = element.try_as<FrameworkElement>();
-            if (named && std::wstring{ named.Name() }.rfind(L"urusi-frame:", 0) == 0)
+            if (named && std::wstring{ named.Name() }.rfind(L"urushi-frame:", 0) == 0)
             {
                 sites.push_back(named);
             }
@@ -1224,7 +1224,7 @@ namespace winrt::urusi_emacs::implementation
 
     // Tell Emacs how big the frame ID is: the panel's, or the empty one
     // for the frame the window shows.
-    void MainWindow::TellFrameSize(std::wstring const& id, urusi::core::window::PixelSize size)
+    void MainWindow::TellFrameSize(std::wstring const& id, urushi::core::window::PixelSize size)
     {
         JsonObject message;
         message.SetNamedValue(L"type", String(L"resize"));
@@ -1364,7 +1364,7 @@ namespace winrt::urusi_emacs::implementation
     // for it, and say whether there was one to lay it over.
     bool MainWindow::ShowPictureIn(std::wstring const& name)
     {
-        auto shown = Walked(L"urusi-emacs:" + name);
+        auto shown = Walked(L"urushi-emacs:" + name);
         auto found = m_pictures.find(name);
 
         if (!shown || found == m_pictures.end())
@@ -1393,7 +1393,7 @@ namespace winrt::urusi_emacs::implementation
     }
 
     // A screen Emacs said rather than drew, which the host draws.
-    void MainWindow::Drawn(urusi::core::window::DrawFrame const& said)
+    void MainWindow::Drawn(urushi::core::window::DrawFrame const& said)
     {
         auto found = m_drawings.find(said.frame);
 
@@ -1401,7 +1401,7 @@ namespace winrt::urusi_emacs::implementation
         {
             found = m_drawings
                         .emplace(said.frame,
-                                 urusi::windows::window::XamlDrawing{
+                                 urushi::windows::window::XamlDrawing{
                                      m_fonts, m_images })
                         .first;
         }
@@ -1417,7 +1417,7 @@ namespace winrt::urusi_emacs::implementation
 
         // The element may not be there yet: Emacs draws a frame before
         // the screen saying where it goes has been built.
-        auto site = Walked(L"urusi-emacs:" + said.frame);
+        auto site = Walked(L"urushi-emacs:" + said.frame);
 
         if (site)
         {
@@ -1502,13 +1502,13 @@ namespace winrt::urusi_emacs::implementation
                 && message.GetNamedValue(L"args").ValueType() == JsonValueType::Object
             ? message.GetNamedObject(L"args")
             : JsonObject{};
-        std::weak_ptr<urusi::windows::emacs::Emacs> emacs = m_emacs;
+        std::weak_ptr<urushi::windows::emacs::Emacs> emacs = m_emacs;
 
-        urusi::windows::emacs::HostCalls::Where where{
+        urushi::windows::emacs::HostCalls::Where where{
             get_strong().as<Window>(), m_asking
         };
 
-        urusi::windows::emacs::HostCalls::Call(
+        urushi::windows::emacs::HostCalls::Call(
             where, method, args,
             [emacs, id](IJsonValue const& value, std::wstring const& error) {
                 if (auto self = emacs.lock())

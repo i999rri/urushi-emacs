@@ -1,11 +1,11 @@
-# Presses a button of the urusi-emacs window through UI Automation, by
+# Presses a button of the urushi-emacs window through UI Automation, by
 # the name Lisp gave it, and prints the window's state before and after.
 # UI Automation presses it without the pointer, so it works from a
 # window that is not in front, where a click sent from here would not
 # arrive; it does not go through the title bar's regions, only through
 # the button and what Lisp does about it.
 #
-#   scripts/verify/invoke-button.ps1 -Name urusi-maximize
+#   scripts/verify/invoke-button.ps1 -Name urushi-maximize
 
 param(
     [Parameter(Mandatory = $true)] [string] $Name
@@ -25,7 +25,7 @@ function Show-State([IntPtr] $window) {
     "maximized=$([InvokeButton]::IsZoomed($window)) minimized=$([InvokeButton]::IsIconic($window))"
 }
 
-$process = Get-Process urusi_emacs -ErrorAction Stop | Where-Object MainWindowHandle -ne 0 | Select-Object -First 1
+$process = Get-Process urushi_emacs -ErrorAction Stop | Where-Object MainWindowHandle -ne 0 | Select-Object -First 1
 $window = $process.MainWindowHandle
 $root = [System.Windows.Automation.AutomationElement]::FromHandle($window)
 $condition = New-Object System.Windows.Automation.PropertyCondition(

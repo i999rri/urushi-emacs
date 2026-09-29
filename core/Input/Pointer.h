@@ -1,6 +1,6 @@
 #pragma once
 
-namespace urusi::core::input
+namespace urushi::core::input
 {
     enum class PointerKind { Pressed, Moved, Released, Wheel, CaptureLost };
 

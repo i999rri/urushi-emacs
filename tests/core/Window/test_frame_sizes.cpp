@@ -2,10 +2,10 @@
 
 #include "Window/FrameSizes.h"
 
-using urusi::core::window::FrameSizes;
-using urusi::core::window::PixelRect;
-using urusi::core::window::PixelSize;
-using urusi::core::window::ToPixels;
+using urushi::core::window::FrameSizes;
+using urushi::core::window::PixelRect;
+using urushi::core::window::PixelSize;
+using urushi::core::window::ToPixels;
 
 TEST(FrameSizesTest, XamlUnitsBecomeThePixelsOfTheScreen)
 {

@@ -7,8 +7,8 @@
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")/../.." && pwd)
-dir=${URUSI_LINUX_DIR:-$HOME/dev/urusi}
+dir=${URUSHI_LINUX_DIR:-$HOME/dev/urushi}
 
-export URUSI_TEST_EMACS=$dir/emacs-build/src/emacs
+export URUSHI_TEST_EMACS=$dir/emacs-build/src/emacs
 cd "$here"
 python3 -m unittest discover -s tests/host "$@"

@@ -61,7 +61,7 @@ namespace
     }
 }
 
-namespace urusi::windows::emacs
+namespace urushi::windows::emacs
 {
     EmacsProcess::EmacsProcess(std::wstring command) : m_command(std::move(command))
     {
@@ -83,7 +83,7 @@ namespace urusi::windows::emacs
         {
             return {};
         }
-        return RemoteCommand(ReadWholeFile(home + L"\\.urusi-emacs-remote"));
+        return RemoteCommand(ReadWholeFile(home + L"\\.urushi-emacs-remote"));
     }
 
     void EmacsProcess::OnMessage(MessageFn fn)
@@ -220,7 +220,7 @@ namespace urusi::windows::emacs
     // a line, until it ends, and then say how the process ended.
     void EmacsProcess::ReadMessages()
     {
-        urusi::core::text::Lines lines;
+        urushi::core::text::Lines lines;
         std::vector<char> buffer(64 * 1024);
         DWORD read = 0;
 

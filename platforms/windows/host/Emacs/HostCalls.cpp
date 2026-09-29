@@ -17,8 +17,8 @@ using namespace Windows::Data::Json;
 
 namespace
 {
-    using Reply = urusi::windows::emacs::HostCalls::Reply;
-    using Where = urusi::windows::emacs::HostCalls::Where;
+    using Reply = urushi::windows::emacs::HostCalls::Reply;
+    using Where = urushi::windows::emacs::HostCalls::Where;
     using Method = void (*)(Where const&, JsonObject const&, Reply const&);
 
     void Done(Reply const& reply)
@@ -227,7 +227,7 @@ namespace
         catch (hresult_error const& error)
         {
             where.asking.End();
-            urusi::windows::emacs::HostCalls::Log("it would not show: "
+            urushi::windows::emacs::HostCalls::Log("it would not show: "
                                                   + to_string(error.message()));
             reply(JsonValue::CreateNullValue(), std::wstring{ error.message() });
         }
@@ -256,7 +256,7 @@ namespace
     }
 }
 
-namespace urusi::windows::emacs
+namespace urushi::windows::emacs
 {
     void HostCalls::OnLog(std::function<void(std::string const&)> log)
     {

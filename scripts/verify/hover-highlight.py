@@ -48,9 +48,9 @@ SETUP = r"""(progn
                 #'external-debugging-output))))))""".replace(
     'SETTLE', str(SETTLE - 3))
 
-INNER = ('EMACS_HOST_PIPE=1 EMACSLOADPATH=$HOME/dev/urusi/site-lisp: '
-         'exec ~/dev/urusi/emacs-build/src/emacs'
-         + (' --init-directory ~/dev/urusi/emacs-config/.config/emacs' if WITH_CONFIG
+INNER = ('EMACS_HOST_PIPE=1 EMACSLOADPATH=$HOME/dev/urushi/site-lisp: '
+         'exec ~/dev/urushi/emacs-build/src/emacs'
+         + (' --init-directory ~/dev/urushi/emacs-config/.config/emacs' if WITH_CONFIG
             else ' -Q')
          + ' --eval "$PROBE"')
 

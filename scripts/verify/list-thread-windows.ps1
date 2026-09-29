@@ -3,9 +3,9 @@
 # waiting in MsgWaitForMultipleObjects that is never validated wakes it
 # again at once, and the thread spins.
 #
-#   scripts\verify\list-thread-windows.ps1 [-Name urusi_emacs]
+#   scripts\verify\list-thread-windows.ps1 [-Name urushi_emacs]
 
-param([string] $Name = 'urusi_emacs')
+param([string] $Name = 'urushi_emacs')
 
 Add-Type @'
 using System;

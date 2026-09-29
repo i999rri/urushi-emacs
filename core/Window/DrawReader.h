@@ -11,7 +11,7 @@
 #include "Text/JsonLine.h"
 #include "Window/DrawCommand.h"
 
-namespace urusi::core::window
+namespace urushi::core::window
 {
     namespace draw
     {

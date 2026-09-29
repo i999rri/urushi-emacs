@@ -11,7 +11,7 @@
 
 #include "Window/XamlFonts.h"
 
-namespace urusi::windows::window
+namespace urushi::windows::window
 {
     // The letters the text is drawn with, rasterized once and kept.
     //

@@ -6,7 +6,7 @@
 using namespace winrt;
 using namespace Microsoft::UI::Xaml;
 
-namespace urusi::windows::window
+namespace urushi::windows::window
 {
     std::shared_ptr<XamlSplitter> XamlSplitter::Attach(FrameworkElement const& element,
                                                        core::window::Splitter::Events events)

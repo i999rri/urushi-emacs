@@ -15,7 +15,7 @@ namespace
     }
 }
 
-namespace urusi::windows::emacs
+namespace urushi::windows::emacs
 {
     Emacs::Emacs(Events events)
         : m_events(std::move(events)), m_command(EmacsProcess::ConfiguredCommand())
@@ -72,7 +72,7 @@ namespace urusi::windows::emacs
 
         JsonObject reply;
         reply.SetNamedValue(L"type", String(L"hello"));
-        reply.SetNamedValue(L"host", String(L"urusi-emacs"));
+        reply.SetNamedValue(L"host", String(L"urushi-emacs"));
         reply.SetNamedValue(L"version", JsonValue::CreateNumberValue(1));
         reply.SetNamedValue(L"debug", JsonValue::CreateBooleanValue(debug));
         // Emacs measures in the pixels of the screen and XAML in 96ths

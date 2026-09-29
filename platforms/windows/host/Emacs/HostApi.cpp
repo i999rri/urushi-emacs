@@ -5,12 +5,12 @@ namespace
 {
     void HostPost(char const* message)
     {
-        urusi::windows::emacs::HostApi::Instance().Deliver(message);
+        urushi::windows::emacs::HostApi::Instance().Deliver(message);
     }
 
     void HostOnEvent(host_event_fn fn, void* data)
     {
-        urusi::windows::emacs::HostApi::Instance().SetSink(fn, data);
+        urushi::windows::emacs::HostApi::Instance().SetSink(fn, data);
     }
 
     constexpr host_api kApi{ HOST_API_VERSION, HostPost, HostOnEvent };
@@ -22,7 +22,7 @@ extern "C" __declspec(dllexport) host_api const* host_get_api(unsigned version)
     return version == HOST_API_VERSION ? &kApi : nullptr;
 }
 
-namespace urusi::windows::emacs
+namespace urushi::windows::emacs
 {
     HostApi& HostApi::Instance()
     {
@@ -47,7 +47,7 @@ namespace urusi::windows::emacs
         }
 
         // Emacs can post before the window is listening, and does: it
-        // says hello as it loads urusi.el.
+        // says hello as it loads urushi.el.
         if (handler && message)
         {
             handler(message);

@@ -3,7 +3,7 @@
 #include <string>
 #include <string_view>
 
-namespace urusi::windows::emacs
+namespace urushi::windows::emacs
 {
     // The command line in TEXT, the contents of the file that says to
     // start Emacs as a process of its own: its first line that is not

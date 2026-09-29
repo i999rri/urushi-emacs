@@ -42,7 +42,7 @@ namespace
     }
 }
 
-namespace urusi::windows::emacs
+namespace urushi::windows::emacs
 {
     EmacsHost& EmacsHost::Instance()
     {
@@ -53,7 +53,7 @@ namespace urusi::windows::emacs
     std::wstring EmacsHost::DefaultDll()
     {
         wchar_t configured[MAX_PATH]{};
-        DWORD length = GetEnvironmentVariableW(L"URUSI_EMACS_DLL", configured, ARRAYSIZE(configured));
+        DWORD length = GetEnvironmentVariableW(L"URUSHI_EMACS_DLL", configured, ARRAYSIZE(configured));
         if (length > 0 && length < ARRAYSIZE(configured))
         {
             return std::wstring{ configured, length };

@@ -25,7 +25,7 @@
 #include <set>
 #include <string>
 
-namespace winrt::urusi_emacs::implementation
+namespace winrt::urushi_emacs::implementation
 {
     struct MainWindow : MainWindowT<MainWindow>
     {
@@ -65,7 +65,7 @@ namespace winrt::urusi_emacs::implementation
         void OnMessage(std::string const& line);
         void Screen(Windows::Data::Json::JsonObject const& message);
         void Picture(Windows::Data::Json::JsonObject const& message);
-        void Drawn(urusi::core::window::DrawFrame const& said);
+        void Drawn(urushi::core::window::DrawFrame const& said);
         bool ShowPictureIn(std::wstring const& name);
         Microsoft::UI::Xaml::FrameworkElement Walked(std::wstring const& name);
 
@@ -78,7 +78,7 @@ namespace winrt::urusi_emacs::implementation
         void UpdateTitleBarRegions();
         void AttachSplitters(Microsoft::UI::Xaml::UIElement const& root);
         std::vector<Microsoft::UI::Xaml::FrameworkElement> PanelSites();
-        void TellFrameSize(std::wstring const& id, urusi::core::window::PixelSize size);
+        void TellFrameSize(std::wstring const& id, urushi::core::window::PixelSize size);
         void KeepFocus();
         void FocusMoved(winrt::Windows::Foundation::IInspectable const& focused);
         static bool TakesText(winrt::Windows::Foundation::IInspectable const& element);
@@ -102,50 +102,50 @@ namespace winrt::urusi_emacs::implementation
         // Emacs, and the screen it builds in the window. Emacs is shared
         // with what the screen's elements send it, which can outlive
         // the window.
-        std::shared_ptr<urusi::windows::emacs::Emacs> m_emacs;
-        std::optional<urusi::windows::window::XamlScreen> m_screen;
+        std::shared_ptr<urushi::windows::emacs::Emacs> m_emacs;
+        std::optional<urushi::windows::window::XamlScreen> m_screen;
         // The screen Emacs drew for each frame, by the name it is
         // known by, since a child frame has a picture of its own.
-        std::map<std::wstring, urusi::windows::window::XamlPicture> m_pictures;
-        std::shared_ptr<urusi::windows::window::XamlGlyphs> m_glyphs;
+        std::map<std::wstring, urushi::windows::window::XamlPicture> m_pictures;
+        std::shared_ptr<urushi::windows::window::XamlGlyphs> m_glyphs;
         // Whether a dialog is up on this window.
-        urusi::windows::emacs::Asking m_asking;
+        urushi::windows::emacs::Asking m_asking;
         // The screens drawn from what Emacs said, one for each
         // frame, beside the pictures of an Emacs that draws its
         // own.
-        std::map<std::wstring, urusi::windows::window::XamlDrawing> m_drawings;
+        std::map<std::wstring, urushi::windows::window::XamlDrawing> m_drawings;
         // The font files Emacs draws in, which it hands over because a
         // glyph is numbered by the file it is in.  Shared, since they
         // are taken on the thread that reads from Emacs and outlive
         // nothing else here.
-        std::shared_ptr<urusi::windows::window::XamlFonts> m_fonts
-            = std::make_shared<urusi::windows::window::XamlFonts>();
+        std::shared_ptr<urushi::windows::window::XamlFonts> m_fonts
+            = std::make_shared<urushi::windows::window::XamlFonts>();
         // The pixels of the images Emacs draws, which it decodes itself
         // and sends once each.  Shared for the same reason the fonts
         // are: they arrive on the thread that reads from Emacs.
-        std::shared_ptr<urusi::windows::window::XamlImages> m_images
-            = std::make_shared<urusi::windows::window::XamlImages>();
+        std::shared_ptr<urushi::windows::window::XamlImages> m_images
+            = std::make_shared<urushi::windows::window::XamlImages>();
         std::string m_log;
         std::set<std::wstring> m_seen;
         bool m_hasFrame{ false };
 
         // How big each frame was last told it is, so that it is only
         // told when that changes.
-        urusi::core::window::FrameSizes m_frameSizes;
+        urushi::core::window::FrameSizes m_frameSizes;
 
         // A view of each frame on the screen, made again with what Lisp
         // built around them.
-        std::vector<std::shared_ptr<urusi::windows::window::XamlFrameView>> m_frameViews;
+        std::vector<std::shared_ptr<urushi::windows::window::XamlFrameView>> m_frameViews;
 
         // The part of the window that moves it, where Lisp drew a title
         // bar: made once the window has an AppWindow to tell.
-        std::optional<urusi::windows::window::XamlCaptionRegions> m_captionRegions;
+        std::optional<urushi::windows::window::XamlCaptionRegions> m_captionRegions;
 
         // The window itself, to ask Windows whether it is in front.
         HWND m_window{ nullptr };
 
         // Whether each key and what the input method says are written
-        // down: from the start under a debugger, or once urusi-debug-mode
+        // down: from the start under a debugger, or once urushi-debug-mode
         // asks. A day of it is a large file.
         bool m_debug{ false };
 
@@ -160,10 +160,10 @@ namespace winrt::urusi_emacs::implementation
 
         // How the window takes up the screen, as Lisp was last told.
         std::wstring m_windowState{ L"normal" };
-        urusi::windows::input::TextServices m_composition;
+        urushi::windows::input::TextServices m_composition;
 
         // What the Keyboard tells this window.
-        struct Effects : urusi::core::input::KeyboardEvents
+        struct Effects : urushi::core::input::KeyboardEvents
         {
             explicit Effects(MainWindow* owner) : window(owner) {}
 
@@ -171,7 +171,7 @@ namespace winrt::urusi_emacs::implementation
             void ResumeLater() override;
             void TellEmacsFocus(bool focused) override;
             void Commit(std::wstring const& text) override;
-            void Composing(urusi::core::input::Composition const& composition) override;
+            void Composing(urushi::core::input::Composition const& composition) override;
 
             MainWindow* window;
         };
@@ -179,11 +179,11 @@ namespace winrt::urusi_emacs::implementation
         // The keyboard's side of the window: which window has it, what
         // becomes of each key, and what the input method makes of them.
         Effects m_effects{ this };
-        urusi::core::input::Keyboard m_keyboard{ m_composition, m_effects };
+        urushi::core::input::Keyboard m_keyboard{ m_composition, m_effects };
     };
 }
 
-namespace winrt::urusi_emacs::factory_implementation
+namespace winrt::urushi_emacs::factory_implementation
 {
     struct MainWindow : MainWindowT<MainWindow, implementation::MainWindow>
     {

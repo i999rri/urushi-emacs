@@ -9,7 +9,7 @@
 #include "Window/DrawCommand.h"
 #include "Window/XamlGlyphs.h"
 
-namespace urusi::windows::window
+namespace urushi::windows::window
 {
     // The screen as Emacs drew it.
     //

@@ -5,7 +5,7 @@
 
 #include "Text/JsonLine.h"
 
-namespace urusi::core::window
+namespace urushi::core::window
 {
     // What a `font' message says, read where it lies.
     //

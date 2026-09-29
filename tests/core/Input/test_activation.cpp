@@ -2,7 +2,7 @@
 
 #include "Input/Activation.h"
 
-using urusi::core::input::Activation;
+using urushi::core::input::Activation;
 
 namespace
 {

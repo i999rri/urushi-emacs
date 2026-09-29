@@ -1,4 +1,4 @@
-;;; urusi-tabs.el --- Tabs drawn by the host, wherever they are put  -*- lexical-binding: t; -*-
+;;; urushi-tabs.el --- Tabs drawn by the host, wherever they are put  -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 
@@ -19,22 +19,22 @@
 ;;   :close    function of no arguments that closes it, or nil
 ;;   :tab      the tab as its list has it
 ;;
-;; and any list in that shape will do: `urusi-tabs-tab-bar-tabs' and
-;; `urusi-tabs-tab-line-tabs' are only the two Emacs has.
+;; and any list in that shape will do: `urushi-tabs-tab-bar-tabs' and
+;; `urushi-tabs-tab-line-tabs' are only the two Emacs has.
 ;;
-;; How they look is `urusi-tabs', which lays the list out in a strip, and
-;; `urusi-tabs-tab-function', which draws one tab of it.  The strip is an
+;; How they look is `urushi-tabs', which lays the list out in a strip, and
+;; `urushi-tabs-tab-function', which draws one tab of it.  The strip is an
 ;; element like any other, and goes wherever the init file puts it: in a
 ;; title bar, above the windows, down the side in a panel of the layout.
 ;;
 ;;   (defun my-tabs (frame)
-;;     (urusi-tabs-tab-bar frame :Height 32))
-;;   (setq urusi-screen-components '(my-tabs urusi-screen-windows))
+;;     (urushi-tabs-tab-bar frame :Height 32))
+;;   (setq urushi-screen-components '(my-tabs urushi-screen-windows))
 ;;
 ;; The tabs of a window go where Emacs keeps room for them, in the line
 ;; at the top of the window that `tab-line-format' would draw:
 ;;
-;;   (setq urusi-screen-tab-line-function #'urusi-tabs-tab-line)
+;;   (setq urushi-screen-tab-line-function #'urushi-tabs-tab-line)
 ;;
 ;; How tall that line is stays Emacs's to decide, by the face
 ;; `tab-line'.
@@ -42,9 +42,9 @@
 ;;; Code:
 
 (require 'cl-lib)
-(require 'urusi)
-(require 'urusi-screen)
-(require 'urusi-titlebar)
+(require 'urushi)
+(require 'urushi-screen)
+(require 'urushi-titlebar)
 
 (defvar tab-bar-tabs-function)
 (defvar tab-line-tabs-function)
@@ -54,16 +54,16 @@
 (declare-function tab-bar-close-tab "tab-bar" (&optional tab-number to-number))
 (declare-function tab-line-select-tab-buffer "tab-line" (buffer &optional window))
 
-(defgroup urusi-tabs nil
+(defgroup urushi-tabs nil
   "Tabs drawn by the host."
-  :group 'urusi)
+  :group 'urushi)
 
 ;;;; Which tabs there are
 
-(defun urusi-tabs-tab-bar-tabs (&optional frame)
+(defun urushi-tabs-tab-bar-tabs (&optional frame)
   "Return the tabs of `tab-bar-mode' on FRAME, the root frame by default."
   (require 'tab-bar)
-  (let ((frame (urusi-root-frame frame)))
+  (let ((frame (urushi-root-frame frame)))
     (cl-loop for tab in (funcall tab-bar-tabs-function frame)
              for number from 1
              collect
@@ -81,7 +81,7 @@
                                 (tab-bar-close-tab number)))
                      :tab tab)))))
 
-(defun urusi-tabs-tab-line-tabs (&optional window)
+(defun urushi-tabs-tab-line-tabs (&optional window)
   "Return the tabs of `tab-line-mode' in WINDOW, the selected one by default.
 They are what `tab-line-tabs-function' says, named as
 `tab-line-tab-name-function' names them."
@@ -102,12 +102,12 @@ They are what `tab-line-tabs-function' says, named as
                    :current current
                    :face (if current 'tab-line-tab-current 'tab-line-tab-inactive)
                    :hover-face 'tab-line-highlight
-                   :select (lambda () (urusi-tabs--select-in window tab buffer))
-                   :close (lambda () (urusi-tabs--close-in window tab buffer))
+                   :select (lambda () (urushi-tabs--select-in window tab buffer))
+                   :close (lambda () (urushi-tabs--close-in window tab buffer))
                    :tab tab)))
          tabs)))))
 
-(defun urusi-tabs--select-in (window tab buffer)
+(defun urushi-tabs--select-in (window tab buffer)
   "Show TAB, which shows BUFFER, in WINDOW, as clicking it on a tab line does."
   (when (window-live-p window)
     (if buffer
@@ -117,7 +117,7 @@ They are what `tab-line-tabs-function' says, named as
           (funcall select))))
     (force-mode-line-update)))
 
-(defun urusi-tabs--close-in (window tab buffer)
+(defun urushi-tabs--close-in (window tab buffer)
   "Close TAB, which shows BUFFER, in WINDOW.
 It is closed as its close button on a tab line closes it: the tab's own
 way of closing, or `tab-line-close-tab-function'."
@@ -139,23 +139,23 @@ way of closing, or `tab-line-close-tab-function'."
 
 ;;;; How they look
 
-(defcustom urusi-tabs-tab-function #'urusi-tabs-tab
+(defcustom urushi-tabs-tab-function #'urushi-tabs-tab
   "Function that draws one tab.
-It takes the tab, a plist as `urusi-tabs' describes, and returns it as
+It takes the tab, a plist as `urushi-tabs' describes, and returns it as
 XAML.  Clicking what it returns does nothing by itself: the tab's
 :select and :close are what to give the controls in it."
   :type 'function)
 
-(defcustom urusi-tabs-icon-function nil
+(defcustom urushi-tabs-icon-function nil
   "Function that gives a tab its icon, or nil for tabs without one.
-It takes the tab, a plist as `urusi-tabs' describes, and returns a
+It takes the tab, a plist as `urushi-tabs' describes, and returns a
 string to draw before its name, or nil.  The string is drawn in the
 font family and the colour of the face on it, as Emacs would draw it,
 and in the colour of the tab where its face gives none: an icon of a
 font of icons, such as the ones `nerd-icons' makes, draws as it is."
   :type '(choice (const :tag "None" nil) function))
 
-(defun urusi-tabs--string-face-attribute (string attribute)
+(defun urushi-tabs--string-face-attribute (string attribute)
   "Return ATTRIBUTE of the face on the start of STRING, or nil if it has none.
 The face can be a face, a plist of attributes, or a list of either, and
 an attribute it does not give is looked for in what it inherits."
@@ -172,32 +172,32 @@ an attribute it does not give is looked for in what it inherits."
                       (t (cl-some #'lookup face)))))
     (lookup (get-text-property 0 'face string))))
 
-(defun urusi-tabs-icon (icon &rest properties)
+(defun urushi-tabs-icon (icon &rest properties)
   "Return ICON, a string, as the icon of a tab.
 It is drawn in the font family and the colour of the face on it, and
 PROPERTIES are more properties of the TextBlock it is in."
-  (let ((family (urusi-tabs--string-face-attribute icon :family))
-        (foreground (urusi-screen-color
-                     (urusi-tabs--string-face-attribute icon :foreground))))
+  (let ((family (urushi-tabs--string-face-attribute icon :family))
+        (foreground (urushi-screen-color
+                     (urushi-tabs--string-face-attribute icon :foreground))))
     ;; What the caller says is left out of what is said here rather
     ;; than laid beside it: XAML takes each property once, and a caller
     ;; that says where the icon sits or what colour it is would
     ;; otherwise say it twice, which is an error and not the caller
     ;; winning.
-    `(TextBlock :Text ,(urusi-literal (substring-no-properties icon))
-                ,@(urusi-titlebar--without
+    `(TextBlock :Text ,(urushi-literal (substring-no-properties icon))
+                ,@(urushi-titlebar--without
                    `(:VerticalAlignment "Center"
                      ,@(when (stringp family) `(:FontFamily ,family))
                      ,@(when foreground `(:Foreground ,foreground)))
                    (cl-loop for (key _) on properties by #'cddr collect key))
                 ,@properties)))
 
-(defun urusi-tabs--face-color (face attribute)
+(defun urushi-tabs--face-color (face attribute)
   "Return the colour FACE gives ATTRIBUTE, or nil if it gives none."
   (and face (facep face)
-       (urusi-screen-color (face-attribute face attribute nil t))))
+       (urushi-screen-color (face-attribute face attribute nil t))))
 
-(defun urusi-tabs-button-colors (background foreground &optional
+(defun urushi-tabs-button-colors (background foreground &optional
                                             hover-background hover-foreground)
   "Return the colours of a button, to go in its Resources.
 A button draws itself in BACKGROUND and FOREGROUND, and under the pointer
@@ -219,7 +219,7 @@ as WinUI has it."
                  when color
                  collect `(SolidColorBrush :x:Key ,key :Color ,color)))))
 
-(defun urusi-tabs-tab (tab)
+(defun urushi-tabs-tab (tab)
   "Return TAB as a tab drawn in the colours of its face.
 The tab is a button, with its name and a button that closes it, when it
 can be closed.  Neither takes the focus, which would take the keys.
@@ -229,8 +229,8 @@ of its :hover-face over those of its face, as Emacs draws it; the
 current one stays as it is."
   (let* ((face (plist-get tab :face))
          (hover (and (not (plist-get tab :current)) (plist-get tab :hover-face)))
-         (background (urusi-tabs--face-color face :background))
-         (foreground (urusi-tabs--face-color face :foreground))
+         (background (urushi-tabs--face-color face :background))
+         (foreground (urushi-tabs--face-color face :foreground))
          (close (plist-get tab :close)))
     `(Button :on-Click ,(plist-get tab :select)
              :Padding ,(if close "10,0,2,0" "10,0,10,0")
@@ -241,20 +241,20 @@ current one stays as it is."
              :AllowFocusOnInteraction nil
              ,@(when background `(:Background ,background))
              ,@(when foreground `(:Foreground ,foreground))
-             ,(urusi-tabs-button-colors
+             ,(urushi-tabs-button-colors
                background foreground
-               (urusi-tabs--face-color hover :background)
-               (urusi-tabs--face-color hover :foreground))
+               (urushi-tabs--face-color hover :background)
+               (urushi-tabs--face-color hover :foreground))
              (StackPanel :Orientation "Horizontal" :Spacing 4
-                         ,@(when-let* ((icon (and urusi-tabs-icon-function
-                                                  (funcall urusi-tabs-icon-function tab))))
-                             (list (urusi-tabs-icon icon :Margin "0,0,2,0")))
-                         (TextBlock :Text ,(urusi-literal (plist-get tab :name))
+                         ,@(when-let* ((icon (and urushi-tabs-icon-function
+                                                  (funcall urushi-tabs-icon-function tab))))
+                             (list (urushi-tabs-icon icon :Margin "0,0,2,0")))
+                         (TextBlock :Text ,(urushi-literal (plist-get tab :name))
                                     :VerticalAlignment "Center")
                          ,@(when close
                              `((Button :on-Click ,close
                                        :Content ,(string #xE8BB)
-                                       :FontFamily ,urusi-titlebar-symbol-font
+                                       :FontFamily ,urushi-titlebar-symbol-font
                                        :FontSize 8
                                        :Width 20
                                        :Height 20
@@ -267,13 +267,13 @@ current one stays as it is."
                                        :AllowFocusOnInteraction nil
                                        ;; Its own, or it would take the
                                        ;; tab's from the tab around it.
-                                       ,(urusi-tabs-button-colors
+                                       ,(urushi-tabs-button-colors
                                          "Transparent" foreground
-                                         urusi-hover-color foreground))))))))
+                                         urushi-hover-color foreground))))))))
 
-(cl-defun urusi-tabs (tabs &rest properties &key (orientation "Horizontal")
+(cl-defun urushi-tabs (tabs &rest properties &key (orientation "Horizontal")
                            (scroll t) &allow-other-keys)
-  "Return TABS laid out in a strip, each drawn by `urusi-tabs-tab-function'.
+  "Return TABS laid out in a strip, each drawn by `urushi-tabs-tab-function'.
 ORIENTATION is \"Horizontal\", the default, or \"Vertical\", for tabs
 down the side.  SCROLL non-nil, the default, lets tabs that do not fit
 be scrolled to; nil cuts them off, which leaves the space beside the
@@ -281,9 +281,9 @@ tabs a title bar's to be dragged by, as a scrolling strip is a control
 and is not.  The rest of PROPERTIES are properties of the outermost
 element, such as its height or where it goes in the grid around it."
   (let ((strip `(StackPanel :Orientation ,orientation
-                            ,@(mapcar (lambda (tab) (funcall urusi-tabs-tab-function tab))
+                            ,@(mapcar (lambda (tab) (funcall urushi-tabs-tab-function tab))
                                       tabs)))
-        (properties (urusi-titlebar--without properties '(:orientation :scroll)))
+        (properties (urushi-titlebar--without properties '(:orientation :scroll)))
         (horizontal (equal orientation "Horizontal")))
     (if (not scroll)
         `(Grid ,@properties ,strip)
@@ -291,7 +291,7 @@ element, such as its height or where it goes in the grid around it."
       ;; and a caller that says how the strip scrolls would otherwise
       ;; say it twice, which is not the later one winning but an error.
       `(ScrollViewer
-        ,@(urusi-titlebar--merge
+        ,@(urushi-titlebar--merge
            properties
            `(:IsTabStop nil
              :HorizontalScrollMode ,(if horizontal "Enabled" "Disabled")
@@ -302,29 +302,29 @@ element, such as its height or where it goes in the grid around it."
 
 ;;;; Where they go
 
-(defun urusi-tabs-tab-bar (frame &rest properties)
+(defun urushi-tabs-tab-bar (frame &rest properties)
   "Return the tabs of `tab-bar-mode' on FRAME, as a row of their own.
-PROPERTIES are those of `urusi-tabs'.  Being a row, a tab that changes
+PROPERTIES are those of `urushi-tabs'.  Being a row, a tab that changes
 sends the tabs and nothing else, however much is around them.
 
-It is a component as it is, for `urusi-screen-components', and a part
+It is a component as it is, for `urushi-screen-components', and a part
 to put in one of your own, a title bar for one."
   (let ((column (plist-get properties :Grid.Column))
         (row (plist-get properties :Grid.Row)))
-    `(Rows :key "urusi-tab-bar" :panel "Grid"
+    `(Rows :key "urushi-tab-bar" :panel "Grid"
            ,@(when column (list :Grid.Column column))
            ,@(when row (list :Grid.Row row))
-           ,(apply #'urusi-tabs (urusi-tabs-tab-bar-tabs frame)
+           ,(apply #'urushi-tabs (urushi-tabs-tab-bar-tabs frame)
                    :key "tabs"
-                   (urusi-titlebar--without properties '(:Grid.Column :Grid.Row))))))
+                   (urushi-titlebar--without properties '(:Grid.Column :Grid.Row))))))
 
-(defun urusi-tabs-tab-line (window _line)
+(defun urushi-tabs-tab-line (window _line)
   "Return the tabs of `tab-line-mode' in WINDOW, for its tab line.
-It is a `urusi-screen-tab-line-function', and draws them on the
+It is a `urushi-screen-tab-line-function', and draws them on the
 background of the face `tab-line'."
-  (let ((background (urusi-tabs--face-color 'tab-line :background)))
-    (urusi-tabs (urusi-tabs-tab-line-tabs window)
+  (let ((background (urushi-tabs--face-color 'tab-line :background)))
+    (urushi-tabs (urushi-tabs-tab-line-tabs window)
                 :Background (or background "Transparent"))))
 
-(provide 'urusi-tabs)
-;;; urusi-tabs.el ends here
+(provide 'urushi-tabs)
+;;; urushi-tabs.el ends here

@@ -5,7 +5,7 @@
 #include <string_view>
 #include <vector>
 
-namespace urusi::core::text
+namespace urushi::core::text
 {
     // Base64, as the protocol sends the bytes of a font or an image.
     //

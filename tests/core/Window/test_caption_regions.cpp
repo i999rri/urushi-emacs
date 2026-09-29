@@ -4,15 +4,15 @@
 
 #include <vector>
 
-using urusi::core::window::Area;
-using urusi::core::window::CaptionRegions;
-using urusi::core::window::PixelRect;
+using urushi::core::window::Area;
+using urushi::core::window::CaptionRegions;
+using urushi::core::window::PixelRect;
 
 namespace
 {
     // Windows, as far as its non-client regions go, counting what it is
     // told.
-    struct Windows : urusi::core::window::INonClientRegions
+    struct Windows : urushi::core::window::INonClientRegions
     {
         void Set(PixelRect c, std::vector<PixelRect> const& p) override
         {
