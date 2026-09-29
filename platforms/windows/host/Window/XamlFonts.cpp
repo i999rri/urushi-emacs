@@ -17,10 +17,45 @@ using namespace winrt;
 
 namespace
 {
-    // What a font file is kept under here: what Emacs said of it, run
-    // together into one name.  Two files of the same name, length and
-    // time are the same file; one that has changed since is another,
-    // and comes again under another name.
+    // The name of the file itself, for the kept one to be read by a
+    // person: the last part of the path, with whatever Windows will
+    // not have in a name taken out.  Empty where there is none to take.
+    std::wstring ReadableName(std::wstring const& file)
+    {
+        auto const slash = file.find_last_of(L"/\\");
+        auto const last = slash == std::wstring::npos ? file : file.substr(slash + 1);
+        std::wstring name;
+
+        for (wchar_t letter : last)
+        {
+            if (letter < 0x20 || wcschr(L"<>:\"/\\|?*", letter) != nullptr)
+            {
+                continue;
+            }
+            name.push_back(letter);
+            // Long enough to say which font it is, short enough that
+            // the whole name is under what a path may hold.
+            if (name.size() >= 64)
+            {
+                break;
+            }
+        }
+        return name;
+    }
+
+    // What a font file is kept under here: the name of the file, so
+    // that what is kept can be read, and what Emacs said of it run
+    // together into a hash, which is what says whether it is the same
+    // file.
+    //
+    // The hash cannot be left out for the name alone.  Emacs numbers a
+    // glyph by the file it is in, so a font file that has changed --
+    // another version of the same family -- numbers them otherwise,
+    // and one taken for the other draws other letters with nothing to
+    // say it did.  The name of the family would not do either: it is
+    // not the same on every system (w32 says "Iosevka NFM" where the
+    // file says "Iosevka Nerd Font Mono"), and a collection holds many
+    // families in the one file.
     std::wstring NameOf(std::wstring const& file, int64_t length, int64_t when,
                         int instance)
     {
@@ -40,9 +75,11 @@ namespace
         eat(static_cast<uint64_t>(when));
         eat(static_cast<uint64_t>(instance));
 
-        wchar_t name[32]{};
-        swprintf_s(name, L"%016llx.font", static_cast<unsigned long long>(hash));
-        return name;
+        wchar_t which[32]{};
+        swprintf_s(which, L"-%016llx.font", static_cast<unsigned long long>(hash));
+
+        auto readable = ReadableName(file);
+        return readable.empty() ? std::wstring{ which + 1 } : readable + which;
     }
 
     // Where the font files this window has been given are kept, made if
@@ -84,23 +121,65 @@ namespace urusi::windows::window
         return m_writer;
     }
 
-    std::string XamlFonts::Made(int id, uint8_t const* bytes, uint32_t length)
+    // The loader that holds a font this window was given in memory,
+    // made once: registering one for every font would leave as many
+    // behind, none of them let go of.
+    com_ptr<IDWriteInMemoryFontFileLoader> XamlFonts::Loader()
     {
-        try
+        if (!m_loader)
         {
             auto writer = Writer();
 
-            // From the bytes rather than from a file of its own: the
-            // file Emacs read may be on another machine altogether, as
-            // it is when Emacs runs in WSL.
-            com_ptr<IDWriteInMemoryFontFileLoader> loader;
-            check_hresult(writer->CreateInMemoryFontFileLoader(loader.put()));
-            check_hresult(writer->RegisterFontFileLoader(loader.get()));
+            check_hresult(writer->CreateInMemoryFontFileLoader(m_loader.put()));
+            check_hresult(writer->RegisterFontFileLoader(m_loader.get()));
+        }
+        return m_loader;
+    }
 
+    // The face of a font kept here, read from the file rather than
+    // held in memory: DirectWrite maps the file and reads the parts it
+    // wants, where bytes handed to it are a font file this window must
+    // keep whole for as long as the face lives -- eighty megabytes for
+    // a CJK collection, and again for every run.
+    std::string XamlFonts::MadeOfFile(int id, std::filesystem::path const& path)
+    {
+        try
+        {
             com_ptr<IDWriteFontFile> file;
-            check_hresult(loader->CreateInMemoryFontFileReference(
-                writer.get(), bytes, length, nullptr, file.put()));
 
+            check_hresult(Writer()->CreateFontFileReference(
+                path.c_str(), nullptr, file.put()));
+            return Made(id, file.get());
+        }
+        catch (hresult_error const& error)
+        {
+            return "font " + std::to_string(id) + ": " + to_string(error.message());
+        }
+    }
+
+    // The face of a font that is not on a disk of this machine's: the
+    // file Emacs read may be on another altogether, as it is when
+    // Emacs runs in WSL and nothing has been kept here yet.
+    std::string XamlFonts::MadeOfBytes(int id, uint8_t const* bytes, uint32_t length)
+    {
+        try
+        {
+            com_ptr<IDWriteFontFile> file;
+
+            check_hresult(Loader()->CreateInMemoryFontFileReference(
+                Writer().get(), bytes, length, nullptr, file.put()));
+            return Made(id, file.get());
+        }
+        catch (hresult_error const& error)
+        {
+            return "font " + std::to_string(id) + ": " + to_string(error.message());
+        }
+    }
+
+    std::string XamlFonts::Made(int id, IDWriteFontFile* file)
+    {
+        try
+        {
             BOOL supported{};
             DWRITE_FONT_FILE_TYPE kind{};
             DWRITE_FONT_FACE_TYPE face{};
@@ -122,10 +201,10 @@ namespace urusi::windows::window
                        + std::to_string(which) + " of " + std::to_string(faces);
             }
 
-            IDWriteFontFile* files[] = { file.get() };
+            IDWriteFontFile* files[] = { file };
             com_ptr<IDWriteFontFace> made;
-            check_hresult(writer->CreateFontFace(face, 1, files, which,
-                                                 DWRITE_FONT_SIMULATIONS_NONE, made.put()));
+            check_hresult(Writer()->CreateFontFace(face, 1, files, which,
+                                                   DWRITE_FONT_SIMULATIONS_NONE, made.put()));
             m_faces[id] = made;
         }
         catch (hresult_error const& error)
@@ -173,20 +252,15 @@ namespace urusi::windows::window
                 return {};
             }
 
-            std::ifstream file{ where / kept, std::ios::binary | std::ios::ate };
-            if (!file)
+            std::error_code failed;
+            auto const path = where / kept;
+            if (!std::filesystem::exists(path, failed))
             {
+                // Not kept from a run before this one: nothing is asked
+                // for until there is something to draw from it.
                 return {};
             }
-
-            std::vector<uint8_t> bytes(static_cast<size_t>(file.tellg()));
-            file.seekg(0);
-            file.read(reinterpret_cast<char*>(bytes.data()), bytes.size());
-            if (!file)
-            {
-                return {};
-            }
-            return Made(id, bytes.data(), static_cast<uint32_t>(bytes.size()));
+            return MadeOfFile(id, path);
         }
 
         // Decoded out of the line itself: see core/Text/Base64.h for
@@ -197,26 +271,66 @@ namespace urusi::windows::window
             return "font " + std::to_string(id) + " came empty";
         }
 
-        if (auto why = Made(id, bytes.data(), static_cast<uint32_t>(bytes.size()));
-            !why.empty())
+        // Kept first, and the face made of what was kept: a face made
+        // of these bytes would hold them for as long as it lives, and
+        // they are the file over again.  Written whole and then moved
+        // into place, so that a run that ends midway leaves nothing a
+        // later one would take for the file.
+        auto const kept = KeepFile(id, bytes);
+
+        if (!kept.empty())
         {
-            return why;
+            return MadeOfFile(id, kept);
         }
 
-        // Kept, so that a later run asks for none of it.
-        if (auto found = m_files.find(id); found != m_files.end())
+        // Nowhere to keep it, or it could not be written: the bytes
+        // are all there is, and they are held for as long as the face.
+        return MadeOfBytes(id, bytes.data(), static_cast<uint32_t>(bytes.size()));
+    }
+
+    // Write BYTES where the font ID is kept, and return where that is,
+    // or nothing where it could not be written.
+    std::filesystem::path XamlFonts::KeepFile(int id, std::vector<uint8_t> const& bytes)
+    {
+        auto found = m_files.find(id);
+
+        if (found == m_files.end())
         {
-            auto where = FontsDirectory();
+            return {};
+        }
 
-            if (!where.empty())
+        auto where = FontsDirectory();
+        if (where.empty())
+        {
+            return {};
+        }
+
+        auto const path = where / found->second.kept;
+        auto const partly = path.wstring() + L".part";
+
+        {
+            std::ofstream file{ partly, std::ios::binary };
+
+            if (!file)
             {
-                std::ofstream file{ where / found->second.kept, std::ios::binary };
-
-                file.write(reinterpret_cast<char const*>(bytes.data()),
-                           static_cast<std::streamsize>(bytes.size()));
+                return {};
+            }
+            file.write(reinterpret_cast<char const*>(bytes.data()),
+                       static_cast<std::streamsize>(bytes.size()));
+            if (!file)
+            {
+                return {};
             }
         }
-        return {};
+
+        std::error_code failed;
+        std::filesystem::rename(partly, path, failed);
+        if (failed)
+        {
+            std::filesystem::remove(partly, failed);
+            return {};
+        }
+        return path;
     }
 
     com_ptr<IDWriteFontFace> XamlFonts::Face(int id)

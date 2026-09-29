@@ -3,10 +3,13 @@
 #include <dwrite_3.h>
 #include <winrt/base.h>
 
+#include <cstdint>
+#include <filesystem>
 #include <functional>
 #include <mutex>
 #include <map>
 #include <string>
+#include <vector>
 
 #include "Window/FontReader.h"
 
@@ -48,8 +51,19 @@ namespace urusi::windows::window
 
     private:
         winrt::com_ptr<IDWriteFactory5> Writer();
-        // Make the face of ID out of BYTES, LENGTH of them.
-        std::string Made(int id, uint8_t const* bytes, uint32_t length);
+        winrt::com_ptr<IDWriteInMemoryFontFileLoader> Loader();
+
+        // Make the face of ID out of FILE, whichever way the file was
+        // come by.
+        std::string Made(int id, IDWriteFontFile* file);
+        // Out of a file kept here, which DirectWrite reads itself.
+        std::string MadeOfFile(int id, std::filesystem::path const& path);
+        // Out of bytes this window holds, for a file it has nowhere to
+        // keep and a machine it cannot read the file on.
+        std::string MadeOfBytes(int id, uint8_t const* bytes, uint32_t length);
+
+        // Keep BYTES as the file of the font ID, and say where.
+        std::filesystem::path KeepFile(int id, std::vector<uint8_t> const& bytes);
         int FaceOf(int id) const;
 
         // Which file each font is, as Emacs said of it, and what this
@@ -66,6 +80,7 @@ namespace urusi::windows::window
         mutable std::mutex m_lock;
         std::function<void(int)> m_ask;
         winrt::com_ptr<IDWriteFactory5> m_writer;
+        winrt::com_ptr<IDWriteInMemoryFontFileLoader> m_loader;
         std::map<int, Whence> m_files;
         std::map<int, winrt::com_ptr<IDWriteFontFace>> m_faces;
     };
