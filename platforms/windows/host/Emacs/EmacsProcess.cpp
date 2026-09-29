@@ -2,7 +2,9 @@
 #include "Emacs/EmacsProcess.h"
 
 #include "Emacs/RemoteCommand.h"
+#include "Text/Lines.h"
 
+#include <string_view>
 #include <thread>
 #include <vector>
 
@@ -218,7 +220,7 @@ namespace urusi::windows::emacs
     // a line, until it ends, and then say how the process ended.
     void EmacsProcess::ReadMessages()
     {
-        std::string pending;
+        urusi::core::text::Lines lines;
         std::vector<char> buffer(64 * 1024);
         DWORD read = 0;
 
@@ -226,21 +228,8 @@ namespace urusi::windows::emacs
                         nullptr)
                && read)
         {
-            pending.append(buffer.data(), read);
-
-            size_t start = 0;
-            for (auto end = pending.find('\n'); end != std::string::npos;
-                 end = pending.find('\n', start))
-            {
-                std::string line = pending.substr(start, end - start);
-                start = end + 1;
-                if (!line.empty() && line.back() == '\r')
-                {
-                    line.pop_back();
-                }
-                Deliver(std::move(line));
-            }
-            pending.erase(0, start);
+            lines.Take(std::string_view{ buffer.data(), read },
+                       [this](std::string line) { Deliver(std::move(line)); });
         }
 
         WaitForSingleObject(m_process, INFINITE);

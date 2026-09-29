@@ -67,6 +67,7 @@
     <ClCompile Include="core\Input\test_engagement.cpp" />
     <ClCompile Include="core\Window\test_draw_reader.cpp" />
     <ClCompile Include="core\Window\test_draw_reader_cost.cpp" />
+    <ClCompile Include="core\Text\test_lines.cpp" />
     <ClCompile Include="core\Window\test_font_reader.cpp" />
     <ClCompile Include="core\Window\test_frame_sizes.cpp" />
     <ClCompile Include="core\Window\test_frame_view.cpp" />
