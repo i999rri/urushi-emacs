@@ -2,13 +2,14 @@
 
 #include "XamlFonts.h"
 
-#include <winrt/Windows.Security.Cryptography.h>
 #include <winrt/Windows.Storage.h>
-#include <winrt/Windows.Storage.Streams.h>
 
 #include <filesystem>
 #include <fstream>
 #include <vector>
+
+#include "Text/Base64.h"
+#include "Text/Utf.h"
 
 #pragma comment(lib, "dwrite.lib")
 
@@ -143,10 +144,10 @@ namespace urusi::windows::window
         return found == m_files.end() ? 0 : found->second.face;
     }
 
-    std::string XamlFonts::Take(Windows::Data::Json::JsonObject const& message)
+    std::string XamlFonts::Take(urusi::core::window::FontSaid const& said)
     {
         std::scoped_lock held{ m_lock };
-        int const id = static_cast<int>(message.GetNamedNumber(L"id", -1));
+        int const id = said.id;
         if (id < 0)
         {
             return "no number for the font";
@@ -157,15 +158,14 @@ namespace urusi::windows::window
         // first of the two: what is kept here of that file from a run
         // before this one is looked for, and nothing is asked for
         // until there is something to draw from it.
-        if (!message.HasKey(L"bytes"))
+        if (!said.hasBytes)
         {
-            auto kept = NameOf(std::wstring{ message.GetNamedString(L"file", L"") },
-                               static_cast<int64_t>(message.GetNamedNumber(L"size", 0)),
-                               static_cast<int64_t>(message.GetNamedNumber(L"when", 0)),
-                               static_cast<int>(message.GetNamedNumber(L"instance", -1)));
+            auto kept = NameOf(urusi::core::text::FromUtf8(said.file),
+                               static_cast<int64_t>(said.size),
+                               static_cast<int64_t>(said.when),
+                               said.instance);
 
-            m_files[id] = { kept, false,
-                            static_cast<int>(message.GetNamedNumber(L"face", 0)) };
+            m_files[id] = { kept, false, said.face };
 
             auto where = FontsDirectory();
             if (where.empty())
@@ -189,14 +189,16 @@ namespace urusi::windows::window
             return Made(id, bytes.data(), static_cast<uint32_t>(bytes.size()));
         }
 
-        auto bytes = Windows::Security::Cryptography::CryptographicBuffer::
-            DecodeFromBase64String(message.GetNamedString(L"bytes", L""));
-        if (bytes.Length() == 0)
+        // Decoded out of the line itself: see core/Text/Base64.h for
+        // what taking it through the platform's own would cost.
+        auto const bytes = urusi::core::text::DecodeBase64(said.bytes);
+        if (bytes.empty())
         {
             return "font " + std::to_string(id) + " came empty";
         }
 
-        if (auto why = Made(id, bytes.data(), bytes.Length()); !why.empty())
+        if (auto why = Made(id, bytes.data(), static_cast<uint32_t>(bytes.size()));
+            !why.empty())
         {
             return why;
         }
@@ -210,7 +212,8 @@ namespace urusi::windows::window
             {
                 std::ofstream file{ where / found->second.kept, std::ios::binary };
 
-                file.write(reinterpret_cast<char const*>(bytes.data()), bytes.Length());
+                file.write(reinterpret_cast<char const*>(bytes.data()),
+                           static_cast<std::streamsize>(bytes.size()));
             }
         }
         return {};

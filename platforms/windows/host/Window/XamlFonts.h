@@ -1,7 +1,5 @@
 #pragma once
 
-#include <winrt/Windows.Data.Json.h>
-
 #include <dwrite_3.h>
 #include <winrt/base.h>
 
@@ -9,6 +7,8 @@
 #include <mutex>
 #include <map>
 #include <string>
+
+#include "Window/FontReader.h"
 
 namespace urusi::windows::window
 {
@@ -35,9 +35,12 @@ namespace urusi::windows::window
         // Called where a face is wanted and the file is not here.
         void OnWanting(std::function<void(int)> ask);
 
-        // Take a "font" message: which file a font is, or the file.
-        // Return what went wrong, or nothing.
-        std::string Take(winrt::Windows::Data::Json::JsonObject const& message);
+        // Take a "font" message, read where it lay: which file a font
+        // is, or the file.  Return what went wrong, or nothing.
+        //
+        // It is read rather than parsed because the file may be eighty
+        // megabytes; see core/Window/FontReader.h.
+        std::string Take(urusi::core::window::FontSaid const& said);
 
         // The face Emacs knows by ID, or null if there is none yet, in
         // which case the file is asked for.

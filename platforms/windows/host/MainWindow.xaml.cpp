@@ -227,9 +227,13 @@ namespace winrt::urusi_emacs::implementation
 
             if (message.compare(0, kFont.size(), kFont) == 0)
             {
-                JsonObject said{ nullptr };
+                // Read where it lies rather than parsed: the file of a
+                // font is the largest thing sent, and making a tree of
+                // it would hold this thread -- and so the whole of what
+                // Emacs says next -- for as long as that takes.
+                urusi::core::window::FontSaid said;
 
-                if (JsonObject::TryParse(to_hstring(message), said))
+                if (urusi::core::window::ReadFont(message, said))
                 {
                     if (auto why = fonts->Take(said); !why.empty())
                     {
