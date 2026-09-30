@@ -217,7 +217,7 @@ Emacs works all of this out because it is the one that knows what the image was 
 | `theme` | `dark` (boolean) | The operating system switched between light and dark. |
 | `splitter` | `name`, `before`, `after` (layout units) | A splitter was let go, with the sizes of the parts either side of it. |
 
-**Today:** `activated` and `deactivated` are sent too, and nothing reads them; `focus` takes their place.
+`splitter` is the only one of these Lisp asked for; the rest are the window's own doing. The focus is not here: it is input, and goes to Emacs's C as `focus`.
 
 ## Calls
 

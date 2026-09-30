@@ -279,12 +279,15 @@ defaults to the selected one."
 (defvar urushi-host-event-functions '(urushi--note-window-state)
   "Functions to run when something happens to the host window.
 Each is called with the event, a symbol, and the message it came in,
-a plist.  The events are `activated' and `deactivated', when the window
-gains and loses the focus; `theme', with :dark, when Windows switches
+a plist.  The events are `theme', with :dark, when Windows switches
 between light and dark; `state', with :state, when the window is
-maximized, minimized, restored or made full screen by anyone; and
-`close', when someone asks for the window to be closed, which it is
-only if something here decides it should be.")
+maximized, minimized, restored or made full screen by anyone;
+`splitter', when one is let go of; and `close', when someone asks for
+the window to be closed, which it is only if something here decides it
+should be.
+
+The focus is not among them: it is input, and reaches Emacs as the
+`focus' message rather than as something Lisp is asked about.")
 
 (defvar urushi-window-state "normal"
   "How the host window takes up the screen, as the host last said.

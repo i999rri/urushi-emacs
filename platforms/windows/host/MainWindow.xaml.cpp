@@ -1065,7 +1065,6 @@ namespace winrt::urushi_emacs::implementation
     void MainWindow::Effects::TellEmacsFocus(bool focused)
     {
         window->TellEmacsFocus(focused);
-        window->m_emacs->SendHostEvent(focused ? L"activated" : L"deactivated", JsonObject{});
     }
 
     void MainWindow::Effects::Composing(urushi::core::input::Composition const& composition)
@@ -1336,6 +1335,10 @@ namespace winrt::urushi_emacs::implementation
         {
             Caret(message);
         }
+        else if (type == L"frame-deleted")
+        {
+            FrameGone(std::wstring{ message.GetNamedString(L"id", L"") });
+        }
         else if (type == L"measure")
         {
             m_screen->Measure(message);
@@ -1357,6 +1360,38 @@ namespace winrt::urushi_emacs::implementation
         else
         {
             m_emacs->SendError(L"unknown message type: " + type);
+        }
+    }
+
+    // Let go of what was made to draw the frame NAME, Emacs having
+    // deleted it.
+    //
+    // A drawing holds a device, a chain and a surface of its own, and a
+    // picture holds a bitmap: eight megabytes for the least of them.
+    // Kept for a frame that has gone, they are held for as long as this
+    // window runs, and a child frame -- a floating minibuffer, a popup
+    // of the completions -- comes and goes all day.
+    void MainWindow::FrameGone(std::wstring const& name)
+    {
+        if (name.empty())
+        {
+            return;
+        }
+
+        if (auto found = m_drawings.find(name); found != m_drawings.end())
+        {
+            found->second.TakeAway();
+            m_drawings.erase(found);
+        }
+        if (auto found = m_pictures.find(name); found != m_pictures.end())
+        {
+            found->second.TakeAway();
+            m_pictures.erase(found);
+        }
+        if (m_debug)
+        {
+            AppendLog("host", "frame " + to_string(hstring{ name }) + " gone, "
+                                  + std::to_string(m_drawings.size()) + " drawn on\n");
         }
     }
 

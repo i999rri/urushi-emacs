@@ -67,6 +67,7 @@ namespace winrt::urushi_emacs::implementation
         void Picture(Windows::Data::Json::JsonObject const& message);
         void Drawn(urushi::core::window::DrawFrame const& said);
         bool ShowPictureIn(std::wstring const& name);
+        void FrameGone(std::wstring const& name);
         Microsoft::UI::Xaml::FrameworkElement Walked(std::wstring const& name);
 
         void Call(Windows::Data::Json::JsonObject const& message);
